@@ -1,0 +1,858 @@
+[
+  {
+    "id": "floor",
+    "name": "Stone Floor",
+    "glyph": ".",
+    "color": "#606060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "wall",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "grass",
+    "name": "Grass",
+    "glyph": ".",
+    "color": "#408040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "tree",
+    "name": "Tree",
+    "glyph": "T",
+    "color": "#206020",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "door_closed",
+    "name": "Door",
+    "glyph": "+",
+    "color": "#c08040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "door_open",
+    "name": "Door",
+    "glyph": "+",
+    "color": "#c08040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "berg",
+    "name": "Mountain",
+    "glyph": "^",
+    "color": "#909090",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "water",
+    "name": "Water",
+    "glyph": "~",
+    "color": "#2060a0",
+    "walkable": false,
+    "transparent": true
+  },
+  {
+    "id": "stairs_down",
+    "name": "Stairs Down",
+    "glyph": ">",
+    "color": "#ffffff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "stairs_up",
+    "name": "Stairs Up",
+    "glyph": "<",
+    "color": "#ffffff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "exit_right",
+    "name": "Path East",
+    "glyph": ">",
+    "color": "#804000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "exit_left",
+    "name": "Path West",
+    "glyph": "<",
+    "color": "#804000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "exit_down",
+    "name": "Path South",
+    "glyph": "v",
+    "color": "#804000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "exit_up",
+    "name": "Path North",
+    "glyph": "^",
+    "color": "#804000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "sand",
+    "name": "Sandy Ground",
+    "glyph": ".",
+    "color": "#c8a060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "wall_up",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_down",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_left",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_right",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_corner_tl",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_corner_tr",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_corner_bl",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "wall_corner_br",
+    "name": "Stone Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "exit_kitchen",
+    "name": "Kitchen Entrance",
+    "glyph": "v",
+    "color": "#c06040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "exit_garage",
+    "name": "Garage Entrance",
+    "glyph": "v",
+    "color": "#607080",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "tegel_wit",
+    "name": "White Tile",
+    "glyph": ".",
+    "color": "#e0e0e0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "tegel_bruin",
+    "name": "Brown Tile",
+    "glyph": ".",
+    "color": "#a06030",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "toilet",
+    "name": "Toilet",
+    "glyph": "T",
+    "color": "#e0e0ff",
+    "walkable": false,
+    "transparent": true
+  },
+  {
+    "id": "wcrol",
+    "name": "Toilet Roll",
+    "glyph": "o",
+    "color": "#f0f0d0",
+    "walkable": false,
+    "transparent": true
+  },
+  {
+    "id": "water_bath",
+    "name": "Bath Water",
+    "glyph": "~",
+    "color": "#4090d0",
+    "walkable": false,
+    "transparent": true
+  },
+  {
+    "id": "exit_bathroom",
+    "name": "Bathroom Entrance",
+    "glyph": "+",
+    "color": "#c08040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bath_exit_left",
+    "name": "Exit Bathroom",
+    "glyph": "<",
+    "color": "#804000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bath_exit_down",
+    "name": "Bath Below",
+    "glyph": "v",
+    "color": "#4090d0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bath_exit_up",
+    "name": "Bathroom Above",
+    "glyph": "^",
+    "color": "#4090d0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal",
+    "name": "Bathroom Portal",
+    "glyph": "O",
+    "color": "#a040ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kraan",
+    "name": "Tap",
+    "glyph": "F",
+    "color": "#c0c0c0",
+    "walkable": false,
+    "transparent": true
+  },
+  {
+    "id": "crypt",
+    "name": "Crypt Stone",
+    "glyph": "#",
+    "color": "#505060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "garage_exit_up",
+    "name": "Exit Up",
+    "glyph": "^",
+    "color": "#806040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "garage_exit_down",
+    "name": "Exit Down",
+    "glyph": "v",
+    "color": "#806040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_garage",
+    "name": "Garage Portal",
+    "glyph": "O",
+    "color": "#40a0ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_underground",
+    "name": "Underground Portal",
+    "glyph": "O",
+    "color": "#806040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "hall_wall",
+    "name": "Underground Wall",
+    "glyph": "#",
+    "color": "#505050",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "lava",
+    "name": "Lava",
+    "glyph": "~",
+    "color": "#ff4000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "mud",
+    "name": "Mud",
+    "glyph": ".",
+    "color": "#704030",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "tree_dead",
+    "name": "Dead Tree",
+    "glyph": "T",
+    "color": "#505050",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "carpet",
+    "name": "Carpet",
+    "glyph": ".",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "vulkaan",
+    "name": "Volcano",
+    "glyph": "^",
+    "color": "#ff6020",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "portal_chaos",
+    "name": "Chaos Portal",
+    "glyph": "O",
+    "color": "#ff00ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "tapijt3",
+    "name": "Bedroom Carpet",
+    "glyph": ".",
+    "color": "#7050a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bedroom_exit",
+    "name": "Exit Bedroom",
+    "glyph": "<",
+    "color": "#a040ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_bedroom",
+    "name": "Bedroom Portal",
+    "glyph": "O",
+    "color": "#ff80ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "stairs_floor",
+    "name": "Staircase",
+    "glyph": ".",
+    "color": "#ff8040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "stairs_wall",
+    "name": "Stair Wall",
+    "glyph": "#",
+    "color": "#000000",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "portal_stairs",
+    "name": "Stairs Portal",
+    "glyph": "O",
+    "color": "#ff8040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "stairs_exit",
+    "name": "Exit Stairs",
+    "glyph": "<",
+    "color": "#ffffff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_stairs_up",
+    "name": "Stairs Up Portal",
+    "glyph": "O",
+    "color": "#80ff40",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "flame",
+    "name": "Pentagram Flame",
+    "glyph": "^",
+    "color": "#ff4000",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "muurM",
+    "name": "Bedroom Wall",
+    "glyph": "#",
+    "color": "#808080",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "bedroom_stairs_down",
+    "name": "Stairs to Lower Bedroom",
+    "glyph": ">",
+    "color": "#c080ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bedroom_stairs_up",
+    "name": "Stairs to Upper Bedroom",
+    "glyph": "<",
+    "color": "#c080ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "muur_up_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_down_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_left_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_right_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_tl_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_tr_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_bl_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_br_v",
+    "name": "Trader Wall",
+    "glyph": "#",
+    "color": "#a08060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_door_bottom_v",
+    "name": "Trader Entrance",
+    "glyph": "+",
+    "color": "#c09060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "muur_up_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_down_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_left_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_right_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_tl_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_tr_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_bl_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_corner_br_t",
+    "name": "Shop Wall",
+    "glyph": "#",
+    "color": "#80a060",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "muur_door_bottom_t",
+    "name": "Shop Entrance",
+    "glyph": "+",
+    "color": "#80c060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kitchen_tile1",
+    "name": "Kitchen Floor",
+    "glyph": ".",
+    "color": "#c0b090",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kitchen_tile2",
+    "name": "Kitchen Floor",
+    "glyph": ".",
+    "color": "#b0a080",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kitchen_tile3",
+    "name": "Kitchen Floor",
+    "glyph": ".",
+    "color": "#d0c0a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kitchen_tile4",
+    "name": "Kitchen Floor",
+    "glyph": ".",
+    "color": "#c0c090",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kitchen_exit",
+    "name": "Kitchen Exit",
+    "glyph": "+",
+    "color": "#c09060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "kitchen_exit_top",
+    "name": "Kitchen Exit Top",
+    "glyph": "^",
+    "color": "#c09060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "void",
+    "name": "Void",
+    "glyph": " ",
+    "color": "#000000",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "portal_cellar",
+    "name": "Portal to Cellar",
+    "glyph": "O",
+    "color": "#5050a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "cellar_exit",
+    "name": "Cellar Exit",
+    "glyph": "<",
+    "color": "#5050a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "vortex_portal",
+    "name": "Vortex Portal",
+    "glyph": "V",
+    "color": "#a040ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_floor",
+    "name": "Loft Floor",
+    "glyph": ".",
+    "color": "#40a040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_wall",
+    "name": "Loft Wall",
+    "glyph": "#",
+    "color": "#202020",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "portal_loft",
+    "name": "Portal to Loft",
+    "glyph": "O",
+    "color": "#40c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_exit",
+    "name": "Loft Exit",
+    "glyph": "<",
+    "color": "#40c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_water",
+    "name": "Loft Puddle",
+    "glyph": "~",
+    "color": "#4080ff",
+    "walkable": false,
+    "transparent": true
+  },
+  {
+    "id": "loft_tree",
+    "name": "Loft Post",
+    "glyph": "T",
+    "color": "#206020",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "lego_blue",
+    "name": "Lego Blue Floor",
+    "glyph": ".",
+    "color": "#4080ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "lego_brown",
+    "name": "Lego Brown Wall",
+    "glyph": "#",
+    "color": "#8B4513",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "lego_red",
+    "name": "Lego Red Wall",
+    "glyph": "#",
+    "color": "#cc2020",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "lego_grey",
+    "name": "Lego Grey Floor",
+    "glyph": ".",
+    "color": "#909090",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_loft3",
+    "name": "Portal to Peter and the Wolf",
+    "glyph": "O",
+    "color": "#80e060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft3_exit",
+    "name": "Deep Loft Exit",
+    "glyph": "<",
+    "color": "#80c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_study",
+    "name": "Portal to Study Room",
+    "glyph": "O",
+    "color": "#8060c0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_exit",
+    "name": "Study Room Exit",
+    "glyph": "<",
+    "color": "#8060c0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool",
+    "name": "Pool of Water",
+    "glyph": "~",
+    "color": "#4080c0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_green",
+    "name": "Pool of Green Water",
+    "glyph": "~",
+    "color": "#40c060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_yellow",
+    "name": "Pool of Yellow Water",
+    "glyph": "~",
+    "color": "#c0c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_pantry",
+    "name": "Portal to Pantry",
+    "glyph": "O",
+    "color": "#a06020",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "pantry_exit",
+    "name": "Pantry Exit",
+    "glyph": "<",
+    "color": "#a06020",
+    "walkable": true,
+    "transparent": true
+  }
+]

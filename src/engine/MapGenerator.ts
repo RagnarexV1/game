@@ -1,0 +1,1640 @@
+﻿import type { MapSystem } from './MapSystem'
+import type { WorldState } from './WorldState'
+import mapSpawnsData from '../data/mapSpawns.json'
+
+interface Room {
+  x: number; y: number; w: number; h: number
+}
+
+export interface SpawnPoints {
+  player: { x: number; y: number }
+  monsters: Array<{ x: number; y: number; defId: string; message?: string }>
+  items: Array<{ x: number; y: number; defId: string; qty?: number }>
+}
+
+// Fixed 2-row Ã— 5-column room layout for an 80Ã—20 map
+const ROOMS: Room[] = [
+  { x: 4,  y: 3,  w: 9,  h: 5 },   // 0
+  { x: 18, y: 3,  w: 8,  h: 5 },   // 1
+  { x: 33, y: 3,  w: 10, h: 6 },   // 2
+  { x: 48, y: 3,  w: 9,  h: 5 },   // 3
+  { x: 63, y: 3,  w: 10, h: 5 },   // 4
+  { x: 4,  y: 12, w: 9,  h: 5 },   // 5
+  { x: 18, y: 12, w: 8,  h: 5 },   // 6
+  { x: 33, y: 12, w: 10, h: 5 },   // 7
+  { x: 48, y: 12, w: 9,  h: 5 },   // 8
+  { x: 63, y: 12, w: 10, h: 5 },   // 9
+]
+
+export function generateForestMap(
+  map: MapSystem,
+  cx: number,
+  cy: number,
+  world: WorldState,
+): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const G = world.GRID
+
+  // Fill with grass
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'grass')
+
+  // Mountain borders on outer grid edges (2 tiles thick)
+  const lBerg = cx === 0
+  const rBerg = cx === G - 1
+  const tBerg = cy === 0
+  const bBerg = cy === G - 1
+
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if ((lBerg && x < 2) || (rBerg && x >= W - 2) ||
+          (tBerg && y < 2) || (bBerg && y >= H - 2)) {
+        map.setTile(x, y, 'berg')
+      }
+    }
+  }
+
+  const rng = seededRng(world.seed)
+
+  // Extra isolated mountain rocks near outer borders for a natural look
+  addBorderRocks(map, rng, lBerg, rBerg, tBerg, bBerg, W, H)
+
+  const midX = Math.floor(W / 2)
+  const midY = Math.floor(H / 2)
+
+  // Exit tiles along the entire non-mountain border edge
+  if (!rBerg) fillExitEdge(map, 'exit_right', W - 1, null,  W, H)
+  if (!lBerg) fillExitEdge(map, 'exit_left',  0,     null,  W, H)
+  if (!bBerg) fillExitEdge(map, 'exit_down',  null,  H - 1, W, H)
+  if (!tBerg) fillExitEdge(map, 'exit_up',    null,  0,     W, H)
+
+  // Random trees â€” avoid border area and exit corridors
+  for (let y = 3; y < H - 3; y++) {
+    for (let x = 3; x < W - 3; x++) {
+      if (!rBerg && x >= W - 5 && Math.abs(y - midY) <= 2) continue
+      if (!lBerg && x <= 4     && Math.abs(y - midY) <= 2) continue
+      if (!bBerg && y >= H - 5 && Math.abs(x - midX) <= 2) continue
+      if (!tBerg && y <= 4     && Math.abs(x - midX) <= 2) continue
+      if (rng() < 0.12) map.setTile(x, y, 'tree')
+    }
+  }
+
+  // Carve all rooms
+  for (const room of ROOMS) carveRoom(map, room)
+
+  // Wall some rooms â€” NW and NE maps are open wilderness/lake
+  if (!(cx === 0 && cy === 0) && !(cx === 2 && cy === 0)) {
+    wallRoom(map, ROOMS[0], rng)
+    wallRoom(map, ROOMS[2], rng)
+    wallRoom(map, ROOMS[7], rng)
+    wallRoom(map, ROOMS[9], rng)
+  }
+
+  // Stairs up in room 0
+  map.setTile(ROOMS[0].x + 1, ROOMS[0].y + 1, 'stairs_up')
+
+  // === Cell-specific terrain overrides ===
+
+  // NE: large oval lake (cx=2, cy=0)
+  if (cx === 2 && cy === 0) {
+    const lakeX = 27, lakeY = 9, rx = 23, ry = 6
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (((x - lakeX) / rx) ** 2 + ((y - lakeY) / ry) ** 2 <= 1)
+          map.setTile(x, y, 'water')
+  }
+
+  // South maps: indoor floor section + bottom wall (cy=2)
+  if (cy === 2) {
+    const floorStart = Math.floor((2 * H) / 3)  // row 13
+    for (let y = floorStart; y < H - 1; y++)
+      for (let x = 0; x < W; x++)
+        map.setTile(x, y, 'floor')
+    for (let x = 0; x < W; x++)
+      map.setTile(x, H - 1, 'wall_down')
+  }
+
+  // SW: 5 garage exit tiles centered in bottom row (cx=0, cy=2)
+  if (cx === 0 && cy === 2) {
+    const midX = Math.floor(W / 2)
+    for (let x = midX - 2; x <= midX + 2; x++)
+      map.setTile(x, H - 1, 'exit_garage')
+  }
+
+  // Bottom center: 5 kitchen exit tiles centered in bottom row (cx=1, cy=2)
+  if (cx === 1 && cy === 2) {
+    const midX = Math.floor(W / 2)
+    for (let x = midX - 2; x <= midX + 2; x++)
+      map.setTile(x, H - 1, 'exit_kitchen')
+  }
+
+  // Center cell: bathroom entrance door + Eric the trader's chamber
+  if (cx === 1 && cy === 1) {
+    map.setTile(40, 10, 'exit_bathroom')
+
+    
+    // Clear chamber area to floor
+    for (let ty = 6; ty <= 11; ty++)
+      for (let tx = 50; tx <= 58; tx++)
+        map.setTile(tx, ty, 'floor')
+
+    // North wall
+    map.setTile(50, 6, 'muur_corner_tl_t')
+    map.setTile(58, 6, 'muur_corner_tr_t')
+    for (let x = 51; x <= 57; x++) map.setTile(x, 6, 'muur_up_t')
+
+    // South wall with door gap at x=54
+    map.setTile(50, 11, 'muur_corner_bl_t')
+    map.setTile(58, 11, 'muur_corner_br_t')
+    for (let x = 51; x <= 57; x++)
+      map.setTile(x, 11, x === 54 ? 'muur_door_bottom_t' : 'muur_down_t')
+
+    // West and east walls
+    for (let y = 7; y <= 10; y++) map.setTile(50, y, 'muur_left_t')
+    for (let y = 7; y <= 10; y++) map.setTile(58, y, 'muur_right_t')
+  }
+
+  // NW cell: bathroom portal + garage portal near player start (room 4 center)
+  if (cx === 0 && cy === 0) {
+    map.setTile(65, 5, 'portal')
+    map.setTile(67, 5, 'portal_garage')
+    map.setTile(69, 5, 'portal_underground')
+    map.setTile(71, 5, 'portal_chaos')
+    map.setTile(73, 5, 'portal_bedroom')
+    map.setTile(65, 7, 'portal_stairs')
+    map.setTile(67, 7, 'portal_stairs_up')
+    map.setTile(69, 7, 'portal_cellar')
+    map.setTile(71, 7, 'portal_loft')
+    map.setTile(75, 7, 'portal_loft3')
+    map.setTile(75, 5, 'portal_study')
+    map.setTile(77, 5, 'portal_pantry')
+  }
+
+  // Player spawn: NW always uses room 4 (dry, east of lake); others random
+  const spawnIdx = (cx === 0 && cy === 0) ? 4 : 1 + Math.floor(rng() * 3)
+  const sr = ROOMS[spawnIdx]
+  const player = {
+    x: sr.x + Math.floor(sr.w / 2),
+    y: sr.y + Math.floor(sr.h / 2),
+  }
+
+  const cellData = (mapSpawnsData as Array<{
+    cx: number; cy: number
+    monsters: Array<{ x: number; y: number; defId: string; message?: string }>
+    items: Array<{ x: number; y: number; defId: string; qty?: number }>
+  }>).find(d => d.cx === cx && d.cy === cy)
+
+  const monsters = cellData?.monsters ?? []
+  const items    = cellData?.items    ?? []
+
+  return { player, monsters, items }
+}
+
+function addBorderRocks(
+  map: MapSystem, rng: () => number,
+  lBerg: boolean, rBerg: boolean, tBerg: boolean, bBerg: boolean,
+  W: number, H: number,
+): void {
+  if (lBerg) {
+    for (let i = 0; i < 2; i++) {
+      const rx = 2 + Math.floor(rng() * 3)
+      const ry = 2 + Math.floor(rng() * (H - 4))
+      map.setTile(rx, ry, 'berg')
+    }
+  }
+  if (rBerg) {
+    for (let i = 0; i < 2; i++) {
+      const rx = W - 3 - Math.floor(rng() * 3)
+      const ry = 2 + Math.floor(rng() * (H - 4))
+      map.setTile(rx, ry, 'berg')
+    }
+  }
+  if (tBerg) {
+    for (let i = 0; i < 2; i++) {
+      const rx = 2 + Math.floor(rng() * (W - 4))
+      const ry = 2 + Math.floor(rng() * 3)
+      map.setTile(rx, ry, 'berg')
+    }
+  }
+  if (bBerg) {
+    for (let i = 0; i < 2; i++) {
+      const rx = 2 + Math.floor(rng() * (W - 4))
+      const ry = H - 3 - Math.floor(rng() * 3)
+      map.setTile(rx, ry, 'berg')
+    }
+  }
+}
+
+function fillExitEdge(
+  map: MapSystem, exitType: string,
+  edgeX: number | null, edgeY: number | null,
+  W: number, H: number,
+): void {
+  if (edgeX !== null) {
+    for (let y = 0; y < H; y++) {
+      const t = map.getTile(edgeX, y)
+      if (t && t.defId !== 'berg') map.setTile(edgeX, y, exitType)
+    }
+  } else if (edgeY !== null) {
+    for (let x = 0; x < W; x++) {
+      const t = map.getTile(x, edgeY)
+      if (t && t.defId !== 'berg') map.setTile(x, edgeY, exitType)
+    }
+  }
+}
+
+function carveRoom(map: MapSystem, room: Room): void {
+  for (let y = room.y; y < room.y + room.h; y++)
+    for (let x = room.x; x < room.x + room.w; x++)
+      if (map.isInBounds(x, y)) map.setTile(x, y, 'grass')
+}
+
+function wallRoom(map: MapSystem, room: Room, rng: () => number): void {
+  // Floor interior
+  for (let y = room.y; y < room.y + room.h; y++)
+    for (let x = room.x; x < room.x + room.w; x++)
+      if (map.isInBounds(x, y)) map.setTile(x, y, 'floor')
+
+  // Corners
+  const corners = [
+    { x: room.x - 1,      y: room.y - 1,      t: 'wall_corner_tl' },
+    { x: room.x + room.w, y: room.y - 1,      t: 'wall_corner_tr' },
+    { x: room.x - 1,      y: room.y + room.h, t: 'wall_corner_bl' },
+    { x: room.x + room.w, y: room.y + room.h, t: 'wall_corner_br' },
+  ]
+  for (const c of corners)
+    if (map.isInBounds(c.x, c.y)) map.setTile(c.x, c.y, c.t)
+
+  // Collect non-corner perimeter tiles
+  const perimeter: Array<{ x: number; y: number; wall: string }> = []
+  for (let x = room.x; x < room.x + room.w; x++) {
+    if (map.isInBounds(x, room.y - 1))      perimeter.push({ x, y: room.y - 1,      wall: 'wall_up'    })
+    if (map.isInBounds(x, room.y + room.h)) perimeter.push({ x, y: room.y + room.h, wall: 'wall_down'  })
+  }
+  for (let y = room.y; y < room.y + room.h; y++) {
+    if (map.isInBounds(room.x - 1, y))      perimeter.push({ x: room.x - 1,      y, wall: 'wall_left'  })
+    if (map.isInBounds(room.x + room.w, y)) perimeter.push({ x: room.x + room.w, y, wall: 'wall_right' })
+  }
+
+  // Door count: 30% = 1, 50% = 2, 15% = 3, 5% = 4
+  const roll = rng()
+  const doorCount = roll < 0.30 ? 1 : roll < 0.80 ? 2 : roll < 0.95 ? 3 : 4
+
+  // Fisher-Yates shuffle, pick first doorCount as door positions
+  for (let i = perimeter.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[perimeter[i], perimeter[j]] = [perimeter[j], perimeter[i]]
+  }
+  const doorSet = new Set(perimeter.slice(0, doorCount).map(p => `${p.x},${p.y}`))
+
+  for (const p of perimeter)
+    if (map.isInBounds(p.x, p.y))
+      map.setTile(p.x, p.y, doorSet.has(`${p.x},${p.y}`) ? 'door_closed' : p.wall)
+}
+
+export function generateBathroomTopMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'tegel_wit')
+
+  for (let x = 0; x < W; x++) { map.setTile(x, 0, 'wall_up'); map.setTile(x, H - 1, 'bath_exit_down') }
+  for (let y = 1; y < H - 1; y++) { map.setTile(0, y, 'wall_left'); map.setTile(W - 1, y, 'wall_right') }
+  map.setTile(0, 0, 'wall_corner_tl'); map.setTile(W - 1, 0, 'wall_corner_tr')
+
+  // Brown tile border strips (decorative frame inside walls)
+  for (let x = 1; x < W - 1; x++) { map.setTile(x, 1, 'tegel_bruin'); map.setTile(x, H - 2, 'tegel_bruin') }
+  for (let y = 2; y < H - 2; y++) { map.setTile(1, y, 'tegel_bruin'); map.setTile(W - 2, y, 'tegel_bruin') }
+
+  // Left door: exit back to overworld
+  map.setTile(0, 9, 'bath_exit_left')
+
+  // Three toilets with WC rolls along the top
+  map.setTile(12, 3, 'toilet'); map.setTile(13, 3, 'wcrol')
+  map.setTile(30, 3, 'toilet'); map.setTile(31, 3, 'wcrol')
+  map.setTile(50, 3, 'toilet'); map.setTile(51, 3, 'wcrol')
+
+  return {
+    player: { x: 2, y: 9 },
+    monsters: [
+      { x: 35, y: 8,  defId: 'silvervisje' },
+      { x: 60, y: 14, defId: 'silvervisje' },
+      { x: 20, y: 15, defId: 'silvervisje' },
+      { x: 45, y: 10, defId: 'muddman' },
+      { x: 15, y: 12, defId: 'muddman' },
+    ],
+    items: [],
+  }
+}
+
+export function generateBathroomBottomMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'tegel_wit')
+
+  for (let x = 0; x < W; x++) { map.setTile(x, 0, 'bath_exit_up'); map.setTile(x, H - 1, 'wall_down') }
+  for (let y = 1; y < H - 1; y++) { map.setTile(0, y, 'wall_left'); map.setTile(W - 1, y, 'wall_right') }
+  map.setTile(0, H - 1, 'wall_corner_bl'); map.setTile(W - 1, H - 1, 'wall_corner_br')
+
+  // Brown tile border strips
+  for (let x = 1; x < W - 1; x++) { map.setTile(x, 1, 'tegel_bruin'); map.setTile(x, H - 2, 'tegel_bruin') }
+  for (let y = 2; y < H - 2; y++) { map.setTile(1, y, 'tegel_bruin'); map.setTile(W - 2, y, 'tegel_bruin') }
+
+  // Tap on left border, stopper 4 tiles right, initial small pool
+  map.setTile(1, 9,  'kraan')
+  map.setTile(2, 8,  'water_bath')
+  map.setTile(2, 9,  'vortex_portal')
+  map.setTile(2, 10, 'water_bath')
+
+  return {
+    player: { x: 40, y: H - 2 },
+    monsters: [
+      { x: 40, y: 10, defId: 'eric' },
+      { x: 20, y: 15, defId: 'pissebed' },
+      { x: 65, y: 15, defId: 'pissebed' },
+      { x: 40, y: 5,  defId: 'pissebed' },
+      { x: 10, y: 3,  defId: 'silvervisje' },
+      { x: 70, y: 3,  defId: 'silvervisje' },
+      { x: 55, y: 10, defId: 'muddman' },
+      { x: 25, y: 7,  defId: 'muddman' },
+    ],
+    items: [
+      { x: 5, y: 9, defId: 'stop' },
+    ],
+  }
+}
+
+const GARAGE_MONSTERS = ['bat', 'dwarf', 'lowerdwarf', 'pissebed']
+
+function spawnGarageMonsters(
+  map: MapSystem, W: number, H: number, rng: () => number,
+  playerPos: { x: number; y: number },
+): Array<{ x: number; y: number; defId: string }> {
+  const monsters: Array<{ x: number; y: number; defId: string }> = []
+  const count = 8 + Math.floor(rng() * 5)
+  let attempts = 0
+  while (monsters.length < count && attempts < 500) {
+    attempts++
+    const tx = 1 + Math.floor(rng() * (W - 2))
+    const ty = 1 + Math.floor(rng() * (H - 2))
+    if (!map.isWalkable(tx, ty)) continue
+    if (Math.abs(tx - playerPos.x) < 5 && Math.abs(ty - playerPos.y) < 3) continue
+    const defId = GARAGE_MONSTERS[Math.floor(rng() * GARAGE_MONSTERS.length)]
+    monsters.push({ x: tx, y: ty, defId })
+  }
+  return monsters
+}
+
+export function generateGarageTopMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(50)
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'floor')
+
+  // Top row: exit back to overworld; bottom row: exit to lower garage
+  for (let x = 0; x < W; x++) map.setTile(x, 0, 'garage_exit_up')
+  for (let x = 0; x < W; x++) map.setTile(x, H - 1, 'garage_exit_down')
+
+  // Side borders: crypt
+  for (let y = 1; y < H - 1; y++) {
+    map.setTile(0, y, 'crypt')
+    map.setTile(W - 1, y, 'crypt')
+  }
+
+  // Random crypt blocks in interior (25% density)
+  for (let y = 2; y < H - 2; y++)
+    for (let x = 1; x < W - 1; x++)
+      if (rng() < 0.25) map.setTile(x, y, 'crypt')
+
+  // Clear spawn zone near top centre
+  for (let y = 1; y <= 3; y++)
+    for (let x = 36; x <= 44; x++)
+      map.setTile(x, y, 'floor')
+
+  const monsters = spawnGarageMonsters(map, W, H, rng, { x: 40, y: 2 })
+  return { player: { x: 40, y: 2 }, monsters, items: [] }
+}
+
+export function generateGarageBottomMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(51)
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'floor')
+
+  // Top row: exit back to upper garage; bottom: sealed wall
+  for (let x = 0; x < W; x++) map.setTile(x, 0, 'garage_exit_up')
+  for (let x = 0; x < W; x++) map.setTile(x, H - 1, 'wall_down')
+  map.setTile(0, H - 1, 'wall_corner_bl')
+  map.setTile(W - 1, H - 1, 'wall_corner_br')
+
+  // Side borders: crypt
+  for (let y = 1; y < H - 1; y++) {
+    map.setTile(0, y, 'crypt')
+    map.setTile(W - 1, y, 'crypt')
+  }
+
+  // Random crypt blocks
+  for (let y = 2; y < H - 2; y++)
+    for (let x = 1; x < W - 1; x++)
+      if (rng() < 0.25) map.setTile(x, y, 'crypt')
+
+  // Clear spawn zone near bottom centre
+  for (let y = H - 3; y < H - 1; y++)
+    for (let x = 36; x <= 44; x++)
+      map.setTile(x, y, 'floor')
+
+  // Portal to cellar at centre of map
+  map.setTile(40, Math.floor(H / 2), 'portal_cellar')
+
+  const monsters = spawnGarageMonsters(map, W, H, rng, { x: 40, y: H - 2 })
+  return { player: { x: 40, y: H - 2 }, monsters, items: [] }
+}
+
+export function generateCellarMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(60)
+
+  // Everything is void (black)
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'void')
+
+  // Small rectangular room centred on the map
+  const rx1 = 26, rx2 = 53, ry1 = 5, ry2 = 14
+
+  // Stone-wall border
+  for (let x = rx1; x <= rx2; x++) {
+    map.setTile(x, ry1, 'wall')
+    map.setTile(x, ry2, 'wall')
+  }
+  for (let y = ry1; y <= ry2; y++) {
+    map.setTile(rx1, y, 'wall')
+    map.setTile(rx2, y, 'wall')
+  }
+
+  // Floor interior
+  for (let y = ry1 + 1; y < ry2; y++)
+    for (let x = rx1 + 1; x < rx2; x++)
+      map.setTile(x, y, 'floor')
+
+  // Vortex portal at room centre
+  const vortexX = Math.floor((rx1 + rx2) / 2)
+  const vortexY = Math.floor((ry1 + ry2) / 2)
+  map.setTile(vortexX, vortexY, 'vortex_portal')
+
+  // Player spawns on vortex (arrived through it; re-stepping triggers exit)
+  const playerPos = { x: vortexX, y: vortexY }
+
+  const SPECIAL_TILES = new Set(['cellar_exit', 'vortex_portal'])
+
+  // Spawn monsters: many silvervisjes + pissebedden
+  const monsters: Array<{ x: number; y: number; defId: string }> = []
+  const SILVERVIS = 24, PISSEBED = 30
+  let attempts = 0
+  while (monsters.length < SILVERVIS + PISSEBED && attempts < 1000) {
+    attempts++
+    const tx = rx1 + 1 + Math.floor(rng() * (rx2 - rx1 - 1))
+    const ty = ry1 + 1 + Math.floor(rng() * (ry2 - ry1 - 1))
+    const tile = map.getTile(tx, ty)
+    if (!tile || !map.isWalkable(tx, ty) || SPECIAL_TILES.has(tile.defId)) continue
+    if (Math.abs(tx - playerPos.x) < 5 && Math.abs(ty - playerPos.y) < 3) continue
+    const defId = monsters.length < SILVERVIS ? 'silvervisje' : 'pissebed'
+    monsters.push({ x: tx, y: ty, defId })
+  }
+
+  // One second_life_potion somewhere in the room
+  let itemX = rx1 + 2, itemY = ry2 - 2
+  attempts = 0
+  while (attempts < 200) {
+    attempts++
+    const tx = rx1 + 1 + Math.floor(rng() * (rx2 - rx1 - 1))
+    const ty = ry1 + 1 + Math.floor(rng() * (ry2 - ry1 - 1))
+    const tile = map.getTile(tx, ty)
+    if (!tile || !map.isWalkable(tx, ty) || SPECIAL_TILES.has(tile.defId)) continue
+    itemX = tx; itemY = ty
+    break
+  }
+
+  return {
+    player: playerPos,
+    monsters,
+    items: [{ x: itemX, y: itemY, defId: 'second_life_potion', qty: 1 }],
+  }
+}
+
+export function generateLoftMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(70)
+
+  // Fill all with loft_wall
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'loft_wall')
+
+  // DFS maze: each cell is a 2Ã—2 block; 1-tile walls between cells â†’ 2-wide corridors
+  // Cell (cx,cy) occupies tiles (1+3*cx, 1+3*cy)..(2+3*cx, 2+3*cy)
+  const cellW = Math.floor((W - 1) / 3)  // 26
+  const cellH = Math.floor((H - 1) / 3)  // 6
+  const visited = new Array(cellW * cellH).fill(false)
+
+  const carveCell = (cx: number, cy: number) => {
+    map.setTile(1 + 3 * cx, 1 + 3 * cy, 'loft_floor')
+    map.setTile(2 + 3 * cx, 1 + 3 * cy, 'loft_floor')
+    map.setTile(1 + 3 * cx, 2 + 3 * cy, 'loft_floor')
+    map.setTile(2 + 3 * cx, 2 + 3 * cy, 'loft_floor')
+  }
+
+  const carvePassage = (cx: number, cy: number, nx: number, ny: number) => {
+    if (nx !== cx) {
+      // horizontal passage: 1 col Ã— 2 rows
+      const wx = 3 + 3 * Math.min(cx, nx)
+      map.setTile(wx, 1 + 3 * cy, 'loft_floor')
+      map.setTile(wx, 2 + 3 * cy, 'loft_floor')
+    } else {
+      // vertical passage: 2 cols Ã— 1 row
+      const wy = 3 + 3 * Math.min(cy, ny)
+      map.setTile(1 + 3 * cx, wy, 'loft_floor')
+      map.setTile(2 + 3 * cx, wy, 'loft_floor')
+    }
+  }
+
+  const DIRS = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}]
+  const stack: Array<{cx: number; cy: number}> = []
+  visited[0] = true
+  carveCell(0, 0)
+  stack.push({cx: 0, cy: 0})
+
+  while (stack.length > 0) {
+    const {cx, cy} = stack[stack.length - 1]
+    const dirs = DIRS.slice()
+    for (let i = 3; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1))
+      const tmp = dirs[i]; dirs[i] = dirs[j]; dirs[j] = tmp
+    }
+    let moved = false
+    for (const {dx, dy} of dirs) {
+      const nx = cx + dx, ny = cy + dy
+      if (nx < 0 || nx >= cellW || ny < 0 || ny >= cellH) continue
+      if (visited[ny * cellW + nx]) continue
+      carvePassage(cx, cy, nx, ny)
+      carveCell(nx, ny)
+      visited[ny * cellW + nx] = true
+      stack.push({cx: nx, cy: ny})
+      moved = true
+      break
+    }
+    if (!moved) stack.pop()
+  }
+
+  // Exit: two tiles at top border centre, approach row forced to floor
+  map.setTile(44, 1, 'loft_floor')
+  map.setTile(45, 1, 'loft_floor')
+  map.setTile(44, 0, 'loft_exit')
+  map.setTile(45, 0, 'loft_exit')
+  const playerPos = {x: 1, y: 1}
+
+  // Scatter water, trees and items â€” pick random carved floor tiles via rng
+  const pickFloor = (skipX: number, skipY: number, radius: number): {x: number; y: number} | null => {
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const tx = 1 + Math.floor(rng() * (W - 2))
+      const ty = 1 + Math.floor(rng() * (H - 2))
+      if (!map.isWalkable(tx, ty)) continue
+      if (Math.abs(tx - skipX) < radius && Math.abs(ty - skipY) < radius) continue
+      return {x: tx, y: ty}
+    }
+    return null
+  }
+
+  // 5 legoBlue water tiles spread away from player start
+  for (let i = 0; i < 5; i++) {
+    const pos = pickFloor(1, 1, 6)
+    if (pos) map.setTile(pos.x, pos.y, 'loft_water')
+  }
+
+  // 4 trees spread across the map
+  for (let i = 0; i < 4; i++) {
+    const pos = pickFloor(1, 1, 4)
+    if (pos) map.setTile(pos.x, pos.y, 'loft_tree')
+  }
+
+  // Lego brick items: one of each colour
+  const legoItems: Array<{x: number; y: number; defId: string; qty: number}> = []
+  for (const defId of ['lego1', 'lego2', 'lego3']) {
+    const pos = pickFloor(1, 1, 3)
+    if (pos) legoItems.push({x: pos.x, y: pos.y, defId, qty: 1})
+  }
+
+  const SPECIAL_TILES = new Set(['loft_wall', 'loft_exit', 'loft_water', 'loft_tree'])
+  const monsters: Array<{x: number; y: number; defId: string}> = []
+  const loftMonsters: Array<{defId: string; count: number}> = [
+    {defId: 'bat',       count: 2},
+    {defId: 'eendGroen', count: 3},
+    {defId: 'hamster',   count: 3},
+    {defId: 'stinkdier', count: 3},
+    {defId: 'cat',       count: 1},
+  ]
+  for (const {defId, count} of loftMonsters) {
+    let spawned = 0, attempts = 0
+    while (spawned < count && attempts < 500) {
+      attempts++
+      const tx = 1 + Math.floor(rng() * (W - 2))
+      const ty = 1 + Math.floor(rng() * (H - 2))
+      const tile = map.getTile(tx, ty)
+      if (!tile || !map.isWalkable(tx, ty) || SPECIAL_TILES.has(tile.defId)) continue
+      if (Math.abs(tx - playerPos.x) < 5 && Math.abs(ty - playerPos.y) < 3) continue
+      monsters.push({x: tx, y: ty, defId})
+      spawned++
+    }
+  }
+
+  return {player: playerPos, monsters, items: legoItems}
+}
+
+export function generateLoft3Map(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(72)
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'loft_wall')
+
+  // Standard DFS maze â€” identical algorithm to loft1, no pre-marking
+  const cellW = Math.floor((W - 1) / 3)  // 26
+  const cellH = Math.floor((H - 1) / 3)  // 6
+  const visited = new Array(cellW * cellH).fill(false)
+
+  const carveCell = (cx: number, cy: number) => {
+    map.setTile(1 + 3 * cx, 1 + 3 * cy, 'loft_floor')
+    map.setTile(2 + 3 * cx, 1 + 3 * cy, 'loft_floor')
+    map.setTile(1 + 3 * cx, 2 + 3 * cy, 'loft_floor')
+    map.setTile(2 + 3 * cx, 2 + 3 * cy, 'loft_floor')
+  }
+
+  const carvePassage = (cx: number, cy: number, nx: number, ny: number) => {
+    if (nx !== cx) {
+      const wx = 3 + 3 * Math.min(cx, nx)
+      map.setTile(wx, 1 + 3 * cy, 'loft_floor')
+      map.setTile(wx, 2 + 3 * cy, 'loft_floor')
+    } else {
+      const wy = 3 + 3 * Math.min(cy, ny)
+      map.setTile(1 + 3 * cx, wy, 'loft_floor')
+      map.setTile(2 + 3 * cx, wy, 'loft_floor')
+    }
+  }
+
+  const DIRS3 = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}]
+  const stack3: Array<{cx: number; cy: number}> = []
+  // Start from cell containing player spawn (x=44, y=17): cx=14 (x=43,44), cy=5 (y=16,17)
+  const startCx = 14, startCy = 5
+  visited[startCy * cellW + startCx] = true
+  carveCell(startCx, startCy)
+  stack3.push({cx: startCx, cy: startCy})
+
+  while (stack3.length > 0) {
+    const {cx, cy} = stack3[stack3.length - 1]
+    const dirs = DIRS3.slice()
+    for (let i = 3; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1))
+      const tmp = dirs[i]; dirs[i] = dirs[j]; dirs[j] = tmp
+    }
+    let moved = false
+    for (const {dx, dy} of dirs) {
+      const nx = cx + dx, ny = cy + dy
+      if (nx < 0 || nx >= cellW || ny < 0 || ny >= cellH) continue
+      if (visited[ny * cellW + nx]) continue
+      carvePassage(cx, cy, nx, ny)
+      carveCell(nx, ny)
+      visited[ny * cellW + nx] = true
+      stack3.push({cx: nx, cy: ny})
+      moved = true
+      break
+    }
+    if (!moved) stack3.pop()
+  }
+
+  // Wide open section in the center of the map: 11 tiles wide Ã— 9 tiles tall
+  for (let y = 4; y <= 14; y++)
+    for (let x = 32; x <= 42; x++)
+      map.setTile(x, y, 'loft_floor')
+
+  // Blue hexagon outline filled with grey, centered in open area
+  // Row widths: 3, 5, 7, 7, 5, 3 (pointy-top hex)
+  // Blue hexagon outline filled with grey, centered in open area (7 rows tall)
+  const hexRows: Array<{y: number; xMin: number; xMax: number}> = [
+    {y: 6,  xMin: 36, xMax: 38},
+    {y: 7,  xMin: 35, xMax: 39},
+    {y: 8,  xMin: 34, xMax: 40},
+    {y: 9,  xMin: 34, xMax: 40},
+    {y: 10, xMin: 34, xMax: 40},
+    {y: 11, xMin: 35, xMax: 39},
+    {y: 12, xMin: 36, xMax: 38},
+  ]
+  for (const {y, xMin, xMax} of hexRows) {
+    for (let x = xMin; x <= xMax; x++) {
+      const isEdge = x === xMin || x === xMax || y === 6 || y === 12
+      map.setTile(x, y, isEdge ? 'lego_blue' : 'lego_grey')
+    }
+  }
+
+  // Player entry at bottom at x=44 â€” ensure spawn tiles are floor
+  map.setTile(44, 17, 'loft_floor')
+  map.setTile(45, 17, 'loft_floor')
+  map.setTile(44, 18, 'loft_floor')
+  map.setTile(45, 18, 'loft_floor')
+
+  // Exit tiles at left border: y=6..15 (left-arrow indicators + functional exits)
+  for (let y = 6; y <= 15; y++) {
+    map.setTile(1, y, 'loft_floor')
+    map.setTile(0, y, 'loft3_exit')
+  }
+
+  const playerPos = {x: 44, y: 17}
+
+  const pickFloor = (skipX: number, skipY: number, radius: number): {x: number; y: number} | null => {
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const tx = 1 + Math.floor(rng() * (W - 2))
+      const ty = 1 + Math.floor(rng() * (H - 2))
+      if (!map.isWalkable(tx, ty)) continue
+      if (Math.abs(tx - skipX) < radius && Math.abs(ty - skipY) < radius) continue
+      return {x: tx, y: ty}
+    }
+    return null
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const pos = pickFloor(44, 17, 6)
+    if (pos) map.setTile(pos.x, pos.y, 'loft_water')
+  }
+  for (let i = 0; i < 4; i++) {
+    const pos = pickFloor(44, 17, 4)
+    if (pos) map.setTile(pos.x, pos.y, 'loft_tree')
+  }
+
+  // Fill hexagon grey interior with lego items (cycle lego1/2/3)
+  const legoItems: Array<{x: number; y: number; defId: string; qty: number}> = []
+  const legoDefs = ['lego1', 'lego2', 'lego3']
+  const hexInterior: Array<{y: number; xMin: number; xMax: number}> = [
+    {y: 7,  xMin: 36, xMax: 38},
+    {y: 8,  xMin: 35, xMax: 39},
+    {y: 9,  xMin: 35, xMax: 39},
+    {y: 10, xMin: 35, xMax: 39},
+    {y: 11, xMin: 36, xMax: 38},
+  ]
+  let legoIdx = 0
+  for (const {y, xMin, xMax} of hexInterior)
+    for (let x = xMin; x <= xMax; x++)
+      legoItems.push({x, y, defId: legoDefs[legoIdx++ % 3], qty: 1})
+
+  const SPECIAL_TILES3 = new Set(['loft_wall', 'loft3_exit', 'loft_water', 'loft_tree'])
+  const monsters: Array<{x: number; y: number; defId: string}> = []
+  const loft3Monsters: Array<{defId: string; count: number}> = [
+    {defId: 'peter',     count: 1},
+    {defId: 'wolf',      count: 2},
+    {defId: 'bat',       count: 3},
+    {defId: 'eendGroen', count: 2},
+    {defId: 'hamster',   count: 2},
+    {defId: 'stinkdier', count: 2},
+    {defId: 'cat',       count: 2},
+  ]
+  for (const {defId, count} of loft3Monsters) {
+    let spawned = 0, attempts = 0
+    while (spawned < count && attempts < 500) {
+      attempts++
+      const tx = 1 + Math.floor(rng() * (W - 2))
+      const ty = 1 + Math.floor(rng() * (H - 2))
+      const tile = map.getTile(tx, ty)
+      if (!tile || !map.isWalkable(tx, ty) || SPECIAL_TILES3.has(tile.defId)) continue
+      if (Math.abs(tx - playerPos.x) < 5 && Math.abs(ty - playerPos.y) < 3) continue
+      monsters.push({x: tx, y: ty, defId})
+      spawned++
+    }
+  }
+
+  return {player: playerPos, monsters, items: legoItems}
+}
+
+interface DoorInfo {
+  doorX: number
+  doorY: number
+  exitX: number
+  exitY: number
+}
+
+export function generateUndergroundMap(
+  map: MapSystem,
+  ucx: number,
+  ucy: number,
+  ugrid: number,
+  seed: number,
+): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(seed)
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'hall_wall')
+
+  // 5â€“8 rooms
+  const roomCount = 5 + Math.floor(rng() * 4)
+  const rooms: Room[] = []
+  for (let i = 0; i < roomCount; i++) {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const rw = 5 + Math.floor(rng() * 5)
+      const rh = 3 + Math.floor(rng() * 3)
+      const rx = 2 + Math.floor(rng() * (W - rw - 4))
+      const ry = 2 + Math.floor(rng() * (H - rh - 4))
+      if (rooms.some(r =>
+        rx <= r.x + r.w + 1 && rx + rw >= r.x - 1 &&
+        ry <= r.y + r.h + 1 && ry + rh >= r.y - 1
+      )) continue
+      rooms.push({ x: rx, y: ry, w: rw, h: rh })
+      break
+    }
+  }
+
+  // Apply walled rooms (floors + walls + random doors)
+  for (const room of rooms) wallRoom(map, room, rng)
+
+  // Collect door positions and exit cells (tegel_wit cell just outside each door)
+  const doorsByRoom = collectRoomDoors(map, rooms)
+  for (const doors of doorsByRoom.values())
+    for (const d of doors)
+      map.setTile(d.exitX, d.exitY, 'tegel_wit')
+
+  // Replace stranded doors (adjacent-room walls blocked the exit cell) with wall tiles
+  const validDoorSet = new Set<string>()
+  for (const doors of doorsByRoom.values())
+    for (const d of doors)
+      validDoorSet.add(`${d.doorX},${d.doorY}`)
+
+  for (const room of rooms) {
+    const toCheck: Array<{ x: number; y: number }> = []
+    for (let x = room.x; x < room.x + room.w; x++) {
+      toCheck.push({ x, y: room.y - 1 }, { x, y: room.y + room.h })
+    }
+    for (let y = room.y; y < room.y + room.h; y++) {
+      toCheck.push({ x: room.x - 1, y }, { x: room.x + room.w, y })
+    }
+    for (const { x, y } of toCheck) {
+      if (!map.isInBounds(x, y)) continue
+      if (map.getTile(x, y)?.defId === 'door_closed' && !validDoorSet.has(`${x},${y}`)) {
+        map.setTile(x, y, doorReplacementWall(map, x, y))
+      }
+    }
+  }
+
+  // Seed connected set with room[0]'s exit cells
+  const connected = new Set<string>()
+  for (const d of doorsByRoom.get(0) ?? [])
+    connected.add(`${d.exitX},${d.exitY}`)
+  if (connected.size === 0 && rooms.length > 0) {
+    const r = rooms[0]
+    connected.add(`${r.x + Math.floor(r.w / 2)},${r.y - 1}`)
+  }
+
+  // Connect remaining rooms with organic random paths; remove doors with no reachable path
+  for (let ri = 1; ri < rooms.length; ri++) {
+    for (const d of doorsByRoom.get(ri) ?? []) {
+      if (connected.has(`${d.exitX},${d.exitY}`)) continue
+      const path = randomCorridorPath(d.exitX, d.exitY, connected, map, rng)
+      if (path) {
+        for (const { x, y } of path) {
+          if (map.getTile(x, y)?.defId === 'hall_wall') map.setTile(x, y, 'tegel_wit')
+          connected.add(`${x},${y}`)
+        }
+      } else {
+        map.setTile(d.doorX, d.doorY, doorReplacementWall(map, d.doorX, d.doorY))
+      }
+    }
+  }
+
+  // Extend corridors to inner grid borders (no exits on outer grid edges)
+  addUndergroundBorderExits(map, connected, W, H, ucx, ucy, ugrid)
+
+  // Stairs up only in the underground entry cell (ucx=0, ucy=0)
+  const r0 = rooms[0]
+  const sx = r0.x + 1, sy = r0.y + 1
+  if (ucx === 0 && ucy === 0) map.setTile(sx, sy, 'stairs_up')
+
+  // Spawn crypt monsters in rooms 1+
+  const cryptMonsters = ['bat', 'dwarf', 'lowerdwarf', 'pissebed', 'muddman']
+  const monsters: Array<{ x: number; y: number; defId: string }> = []
+  const items: Array<{ x: number; y: number; defId: string }> = []
+  for (let ri = 1; ri < rooms.length; ri++) {
+    const room = rooms[ri]
+    const count = 1 + Math.floor(rng() * 2)
+    for (let i = 0; i < count; i++) {
+      const mx = room.x + 1 + Math.floor(rng() * Math.max(1, room.w - 2))
+      const my = room.y + 1 + Math.floor(rng() * Math.max(1, room.h - 2))
+      const defId = cryptMonsters[Math.floor(rng() * cryptMonsters.length)]
+      monsters.push({ x: mx, y: my, defId })
+    }
+  }
+  if (rooms.length > 1) {
+    const wr = rooms[Math.min(1, rooms.length - 1)]
+    monsters.push({ x: wr.x + Math.floor(wr.w / 2), y: wr.y + Math.floor(wr.h / 2), defId: 'watcher' })
+    items.push({ x: wr.x + 1, y: wr.y + 1, defId: 'clay' })
+  }
+
+  return { player: { x: sx, y: sy }, monsters, items }
+}
+
+function collectRoomDoors(map: MapSystem, rooms: Room[]): Map<number, DoorInfo[]> {
+  const result = new Map<number, DoorInfo[]>()
+  for (let ri = 0; ri < rooms.length; ri++) {
+    const room = rooms[ri]
+    const doors: DoorInfo[] = []
+    for (let x = room.x; x < room.x + room.w; x++) {
+      tryAddDoor(map, x, room.y - 1, doors)
+      tryAddDoor(map, x, room.y + room.h, doors)
+    }
+    for (let y = room.y; y < room.y + room.h; y++) {
+      tryAddDoor(map, room.x - 1, y, doors)
+      tryAddDoor(map, room.x + room.w, y, doors)
+    }
+    result.set(ri, doors)
+  }
+  return result
+}
+
+function tryAddDoor(map: MapSystem, x: number, y: number, doors: DoorInfo[]): void {
+  if (!map.isInBounds(x, y)) return
+  if (map.getTile(x, y)?.defId !== 'door_closed') return
+  const exit = getDoorExitCell(map, x, y)
+  if (!exit || !map.isInBounds(exit.x, exit.y)) return
+  if (map.getTile(exit.x, exit.y)?.defId !== 'hall_wall') return
+  doors.push({ doorX: x, doorY: y, exitX: exit.x, exitY: exit.y })
+}
+
+function getDoorExitCell(map: MapSystem, dx: number, dy: number): { x: number; y: number } | null {
+  const isFloor = (x: number, y: number) => map.getTile(x, y)?.defId === 'floor'
+  if (isFloor(dx, dy + 1)) return { x: dx, y: dy - 1 }
+  if (isFloor(dx, dy - 1)) return { x: dx, y: dy + 1 }
+  if (isFloor(dx + 1, dy)) return { x: dx - 1, y: dy }
+  if (isFloor(dx - 1, dy)) return { x: dx + 1, y: dy }
+  return null
+}
+
+function doorReplacementWall(map: MapSystem, dx: number, dy: number): string {
+  const isFloor = (x: number, y: number) => map.getTile(x, y)?.defId === 'floor'
+  if (isFloor(dx, dy + 1)) return 'wall_up'
+  if (isFloor(dx, dy - 1)) return 'wall_down'
+  if (isFloor(dx + 1, dy)) return 'wall_left'
+  if (isFloor(dx - 1, dy)) return 'wall_right'
+  return 'wall_up'
+}
+
+function randomCorridorPath(
+  startX: number, startY: number,
+  connected: Set<string>,
+  map: MapSystem,
+  rng: () => number,
+): Array<{ x: number; y: number }> | null {
+  const W = map.width, H = map.height
+  const dist = new Map<string, number>()
+  const prev = new Map<string, string>()
+  const open: Array<{ x: number; y: number; cost: number }> = []
+
+  const startKey = `${startX},${startY}`
+  dist.set(startKey, 0)
+  prev.set(startKey, 'NONE')
+  open.push({ x: startX, y: startY, cost: 0 })
+
+  while (open.length > 0) {
+    let minIdx = 0
+    for (let i = 1; i < open.length; i++)
+      if (open[i].cost < open[minIdx].cost) minIdx = i
+    const { x, y, cost: currCost } = open[minIdx]
+    open.splice(minIdx, 1)
+
+    const currKey = `${x},${y}`
+    if (currCost > (dist.get(currKey) ?? Infinity)) continue
+
+    for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]] as [number,number][]) {
+      const nx = x + ddx, ny = y + ddy
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+      const nk = `${nx},${ny}`
+      const tid = map.getTile(nx, ny)?.defId
+      if (tid !== 'hall_wall' && tid !== 'tegel_wit') continue
+      const newCost = currCost + 1 + Math.floor(rng() * 6)
+      if (newCost < (dist.get(nk) ?? Infinity)) {
+        dist.set(nk, newCost)
+        prev.set(nk, currKey)
+        if (connected.has(nk)) {
+          const path: Array<{ x: number; y: number }> = [{ x: nx, y: ny }]
+          let k = currKey
+          while (k !== 'NONE') {
+            const [px, py] = k.split(',').map(Number)
+            path.unshift({ x: px, y: py })
+            k = prev.get(k)!
+          }
+          return path
+        }
+        open.push({ x: nx, y: ny, cost: newCost })
+      }
+    }
+  }
+  return null
+}
+
+function bfsToConnected(
+  startX: number, startY: number,
+  connected: Set<string>,
+  map: MapSystem,
+): Array<{ x: number; y: number }> | null {
+  const W = map.width, H = map.height
+  const prev = new Map<string, string>()
+  const queue: Array<{ x: number; y: number }> = [{ x: startX, y: startY }]
+  prev.set(`${startX},${startY}`, 'NONE')
+  let head = 0
+
+  while (head < queue.length) {
+    const { x, y } = queue[head++]
+    const currKey = `${x},${y}`
+    for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]] as [number,number][]) {
+      const nx = x + ddx, ny = y + ddy
+      if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue
+      const nk = `${nx},${ny}`
+      if (prev.has(nk)) continue
+      const tid = map.getTile(nx, ny)?.defId
+      if (tid !== 'hall_wall' && tid !== 'tegel_wit') continue
+      prev.set(nk, currKey)
+      if (connected.has(nk)) {
+        const path: Array<{ x: number; y: number }> = [{ x: nx, y: ny }]
+        let k = currKey
+        while (k !== 'NONE') {
+          const [px, py] = k.split(',').map(Number)
+          path.unshift({ x: px, y: py })
+          k = prev.get(k)!
+        }
+        return path
+      }
+      queue.push({ x: nx, y: ny })
+    }
+  }
+  return null
+}
+
+function addUndergroundBorderExits(
+  map: MapSystem,
+  connected: Set<string>,
+  W: number, H: number,
+  ucx: number, ucy: number, ugrid: number,
+): void {
+  const midY = Math.floor(H / 2)
+  const midX = Math.floor(W / 2)
+
+  // Only add exits at inner grid edges (not outer borders of the 3Ã—3)
+  const edges = [
+    ucx < ugrid - 1 ? { exitTile: 'exit_right', bx: W-1, by: midY, ix: W-2, iy: midY, varyY: true  } : null,
+    ucx > 0         ? { exitTile: 'exit_left',  bx: 0,   by: midY, ix: 1,   iy: midY, varyY: true  } : null,
+    ucy < ugrid - 1 ? { exitTile: 'exit_down',  bx: midX, by: H-1, ix: midX, iy: H-2, varyY: false } : null,
+    ucy > 0         ? { exitTile: 'exit_up',    bx: midX, by: 0,   ix: midX, iy: 1,   varyY: false } : null,
+  ]
+
+  for (const edge of edges) {
+    if (!edge) continue
+    const { exitTile, bx, by, ix, iy, varyY } = edge
+
+    // Find nearest hall_wall or tegel_wit position along the border-adjacent col/row
+    const limit = varyY ? H : W
+    let sx = ix, sy = iy
+    let foundStart = false
+    for (let off = 0; off < limit && !foundStart; off++) {
+      const candidates = off === 0
+        ? [{ x: ix, y: iy }]
+        : [
+            { x: varyY ? ix : ix + off, y: varyY ? iy + off : iy },
+            { x: varyY ? ix : ix - off, y: varyY ? iy - off : iy },
+          ]
+      for (const c of candidates) {
+        if (c.x < 1 || c.x >= W - 1 || c.y < 1 || c.y >= H - 1) continue
+        const tid = map.getTile(c.x, c.y)?.defId
+        if (tid === 'hall_wall' || tid === 'tegel_wit') {
+          sx = c.x; sy = c.y; foundStart = true; break
+        }
+      }
+    }
+    if (!foundStart) continue
+
+    // BFS from (sx,sy) to connected network; skip if already connected
+    if (!connected.has(`${sx},${sy}`)) {
+      const path = bfsToConnected(sx, sy, connected, map)
+      if (!path) continue
+      for (const { x, y } of path) {
+        if (map.getTile(x, y)?.defId === 'hall_wall') map.setTile(x, y, 'tegel_wit')
+        connected.add(`${x},${y}`)
+      }
+    }
+
+    // Place exit tile adjacent to the carved start cell
+    const exitBx = varyY ? bx : sx
+    const exitBy = varyY ? sy : by
+    map.setTile(exitBx, exitBy, exitTile)
+    connected.add(`${exitBx},${exitBy}`)
+  }
+}
+
+function seededRng(seed: number): () => number {
+  let s = seed
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff
+    return (s >>> 0) / 0xffffffff
+  }
+}
+
+const CHAOS_TILES = [
+  'water', 'grass', 'berg', 'lava', 'mud',
+  'tree', 'crypt', 'tree_dead', 'vulkaan',
+  'carpet', 'tegel_wit', 'floor',
+]
+
+export const CHAOS_TILE_POOL = CHAOS_TILES
+
+export function generateChaosMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, CHAOS_TILES[Math.floor(Math.random() * CHAOS_TILES.length)])
+  const cx = Math.floor(W / 2)
+  const cy = Math.floor(H / 2)
+  map.setTile(cx, cy, 'portal_chaos')
+  map.setTile(cx + 1, cy, 'floor')
+  return {
+    player: { x: cx, y: cy },
+    monsters: [{ x: cx + 1, y: cy, defId: 'eric', message: 'The floor is lava!' }],
+    items: [],
+  }
+}
+
+function placeBedroomSegments(
+  map: MapSystem,
+  count: number,
+  avoid: Array<{ x1: number; y1: number; x2: number; y2: number }>,
+  W: number, H: number
+): void {
+  let placed = 0, attempts = 0
+  while (placed < count && attempts < count * 30) {
+    attempts++
+    const horiz = Math.random() < 0.5
+    const len   = 3 + Math.floor(Math.random() * 3)
+    const x     = 3 + Math.floor(Math.random() * (W - 6 - (horiz ? len : 0)))
+    const y     = 3 + Math.floor(Math.random() * (H - 6 - (horiz ? 0 : len)))
+    const ex    = x + (horiz ? len - 1 : 0)
+    const ey    = y + (horiz ? 0 : len - 1)
+    if (avoid.some(z => x <= z.x2 + 1 && ex >= z.x1 - 1 && y <= z.y2 + 1 && ey >= z.y1 - 1)) continue
+
+    // Require 1-tile clear buffer around segment so walls never touch
+    let clear = true
+    bufcheck: for (let cy = y - 1; cy <= ey + 1; cy++)
+      for (let cx = x - 1; cx <= ex + 1; cx++) {
+        const t = map.getTile(cx, cy)
+        if (t && t.defId !== 'tapijt3') { clear = false; break bufcheck }
+      }
+    if (!clear) continue
+
+    if (horiz) {
+      for (let i = 0; i < len; i++) map.setTile(x + i, y, 'wall_up')
+    } else {
+      for (let i = 0; i < len; i++) map.setTile(x, y + i, 'wall_left')
+    }
+    placed++
+  }
+}
+
+export function generateBedroomMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  // Carpet floor throughout
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'tapijt3')
+
+  // Directional border walls
+  map.setTile(0,     0,     'wall_corner_tl')
+  map.setTile(W - 1, 0,     'wall_corner_tr')
+  for (let x = 1; x < W - 1; x++) map.setTile(x, 0, 'wall_up')
+  for (let y = 1; y < H - 1; y++) { map.setTile(0, y, 'wall_left'); map.setTile(W - 1, y, 'wall_right') }
+  for (let sx = 0; sx < W; sx++) map.setTile(sx, H - 1, 'bedroom_stairs_down')
+
+  // Walled sanctuary â€” schema origin at (W/2-3, H/2-4) = (37, 6)
+  // wall types=directional walls f=flame g=guardian m=summoner t=tegel_wit+widget
+  const WALL_TILES = new Set(['wall_corner_tl','wall_corner_tr','wall_corner_bl','wall_corner_br',
+    'wall_up','wall_down','wall_left','wall_right','door_closed'])
+  const SCHEMA = [
+    ['wall_corner_tl','wall_up',   'wall_up',        'wall_up',     'wall_up',   'wall_up',   'wall_corner_tr'],
+    ['wall_left',     'f',         '',               'f',           '',          'f',         'wall_right'],
+    ['wall_left',     '',          'g',              'm',           'g',         '',          'wall_right'],
+    ['wall_left',     'f',         'g',              't',           'g',         'f',         'wall_right'],
+    ['wall_left',     '',          'g',              'g',           'g',         '',          'wall_right'],
+    ['wall_left',     'f',         '',               '',            '',          'f',         'wall_right'],
+    ['wall_corner_bl','wall_down', 'wall_down', '', 'wall_down', 'wall_down', 'wall_corner_br']
+  ]
+  const bx = Math.floor(W / 2) - 3
+  const by = Math.floor(H / 2) - 4
+
+  const sanctuaryMonsters: SpawnPoints['monsters'] = []
+  const sanctuaryItems:    SpawnPoints['items']    = []
+  for (let row = 0; row < SCHEMA.length; row++) {
+    for (let col = 0; col < SCHEMA[row].length; col++) {
+      const tx = bx + col, ty = by + row
+      const cell = SCHEMA[row][col]
+      if      (WALL_TILES.has(cell))  map.setTile(tx, ty, cell)
+      else if (cell === 'f')          map.setTile(tx, ty, 'flame')
+      else if (cell === 't')        { map.setTile(tx, ty, 'tegel_wit'); sanctuaryItems.push({ x: tx, y: ty, defId: 'widget2' }) }
+      else if (cell === 'g')          sanctuaryMonsters.push({ x: tx, y: ty, defId: 'guardian' })
+      else if (cell === 'm')          sanctuaryMonsters.push({ x: tx, y: ty, defId: 'summoner' })
+    }
+  }
+
+  // Ceremonial entrance â€” corridor walls and open arch below the sanctuary door
+  map.setTile(bx + 1, by + 7, 'wall_left');   map.setTile(bx + 5, by + 7, 'wall_right')
+  map.setTile(bx + 1, by + 8, 'wall_left');   map.setTile(bx + 5, by + 8, 'wall_right')
+  map.setTile(bx + 1, by + 9, 'wall_corner_bl')
+  map.setTile(bx + 2, by + 9, 'wall_down');   map.setTile(bx + 4, by + 9, 'wall_down')
+  map.setTile(bx + 5, by + 9, 'wall_corner_br')
+  // Ceremonial flames flanking the entrance corridor
+  for (const [dx, dy] of [[0,7],[6,7],[0,8],[6,8],[0,9],[6,9]] as [number,number][])
+    map.setTile(bx + dx, by + dy, 'flame')
+
+  // Extra scattered flames around the room
+  for (const [fx, fy] of [[10,5],[70,5],[10,14],[70,14],[20,10],[60,10],[8,16],[72,16]] as [number,number][])
+    if (map.getTile(fx, fy)?.defId === 'tapijt3') map.setTile(fx, fy, 'flame')
+
+
+  // Random wall segments â€” avoid sanctuary+entrance and player spawn area
+  // buffer check in helper prevents touching the stair row and border walls
+  placeBedroomSegments(map, 16, [
+    { x1: bx - 2, y1: by - 2, x2: bx + 8, y2: by + 11 },
+    { x1: 0,      y1: H - 4,  x2: 8,       y2: H - 1   },
+  ], W, H)
+
+  // Exit portal at bottom-left wall
+  map.setTile(0, H - 2, 'bedroom_exit')
+
+  // Scrolls above every horizontal wall segment
+  const scrollIds = [
+    'scroll_teleport', 'scroll_blank', 'scroll_alliance', 'scroll_cartography',
+    'scroll_transport', 'scroll_timestop', 'scroll_twelvegates',
+    'relic_scroll_1', 'relic_scroll_2', 'relic_scroll_3',
+  ]
+  const scrollItems: SpawnPoints['items'] = []
+  let scrollIdx = 0
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      if (map.getTile(x, y)?.defId === 'wall_up' && map.getTile(x, y - 1)?.defId === 'tapijt3') {
+        scrollItems.push({ x, y: y - 1, defId: scrollIds[scrollIdx % scrollIds.length] })
+        scrollIdx++
+      }
+    }
+  }
+
+  const monsters: SpawnPoints['monsters'] = [
+    { x: bx + 3, y: by + 9, defId: 'mar_bedroom' },
+    ...sanctuaryMonsters,
+    { x: 20,        y: 8,        defId: 'guineapig' },
+    { x: 35,        y: 12,       defId: 'guineapig' },
+    { x: 55,        y: 8,        defId: 'guineapig' },
+    { x: 15,        y: 5,        defId: 'ogre'    },
+    { x: 65,        y: 5,        defId: 'ogre'    },
+    { x: 15,        y: 14,       defId: 'watcher' },
+    { x: 65,        y: 14,       defId: 'watcher' },
+    { x: 30,        y: 10,       defId: 'spirit'  },
+    { x: 50,        y: 10,       defId: 'spirit'  },
+    { x: 10,        y: 10,       defId: 'nymph'   },
+    { x: 40,        y: 4,        defId: 'nymph'   },
+    { x: 70,        y: 10,       defId: 'nymph'   },
+  ]
+
+  return { player: { x: 2, y: H - 2 }, monsters, items: [...sanctuaryItems, ...scrollItems] }
+}
+
+export function generateBedroomLowerMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'tapijt3')
+
+  map.setTile(0,     H - 1, 'wall_corner_bl'); map.setTile(W - 1, H - 1, 'wall_corner_br')
+  for (let x = 1; x < W - 1; x++) map.setTile(x, H - 1, 'wall_down')
+  for (let y = 1; y < H - 1; y++) { map.setTile(0, y, 'wall_left'); map.setTile(W - 1, y, 'wall_right') }
+  for (let sx = 0; sx < W; sx++) map.setTile(sx, 0, 'bedroom_stairs_up')
+
+  placeBedroomSegments(map, 20, [], W, H)
+
+  const monsters: SpawnPoints['monsters'] = [
+    { x: 10, y: 10, defId: 'guardian' },
+    { x: 60, y: 10, defId: 'guardian' },
+    { x: 25, y: 5,  defId: 'summoner' },
+    { x: 55, y: 15, defId: 'summoner' },
+    { x: 40, y: 8,  defId: 'firedragon' },
+  ]
+
+  return { player: { x: 2, y: H - 3 }, monsters, items: [] }
+}
+
+    // { x: 30, y: 3,  defId: 'firedragon' },
+    // { x: 55, y: 3,  defId: 'firedragon' },
+    // { x: 72, y: 3,  defId: 'firedragon' },
+    // { x: 20, y: 10, defId: 'firedragon' },
+    // { x: 60, y: 10, defId: 'firedragon' },
+    // // Ice dragons
+    // { x: 20, y: 3,  defId: 'icedragon' },
+    // { x: 45, y: 3,  defId: 'icedragon' },
+    // { x: 67, y: 3,  defId: 'icedragon' },
+    // { x: 40, y: 10, defId: 'icedragon' },
+    // { x: 72, y: 14, defId: 'icedragon' },
+    // // Wizards
+    // { x: 15, y: 6,  defId: 'wizard' },
+    // { x: 35, y: 7,  defId: 'wizard' },
+    // { x: 55, y: 6,  defId: 'wizard' },
+    // { x: 70, y: 8,  defId: 'wizard' },
+    // { x: 25, y: 14, defId: 'wizard' },
+    // { x: 50, y: 14, defId: 'wizard' },
+    // // Sorcerers
+    // { x: 8,  y: 7,  defId: 'sorcerer' },
+    // { x: 28, y: 5,  defId: 'sorcerer' },
+    // { x: 48, y: 8,  defId: 'sorcerer' },
+    // { x: 65, y: 12, defId: 'sorcerer' },
+    // { x: 38, y: 15, defId: 'sorcerer' },
+    // // Magicians
+    // { x: 18, y: 12, defId: 'magician' },
+    // { x: 42, y: 5,  defId: 'magician' },
+    // { x: 62, y: 7,  defId: 'magician' },
+
+const KITCHEN_TILES = ['kitchen_tile1', 'kitchen_tile2', 'kitchen_tile3', 'kitchen_tile4']
+
+export function generateKitchenMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(99)
+
+  // Random kitchen floor tiles
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, KITCHEN_TILES[Math.floor(rng() * 4)])
+
+  // Border walls using muur_*_v
+  map.setTile(0,     0,     'muur_corner_tl_v')
+  map.setTile(W - 1, 0,     'muur_corner_tr_v')
+  map.setTile(0,     H - 1, 'muur_corner_bl_v')
+  map.setTile(W - 1, H - 1, 'muur_corner_br_v')
+
+  for (let x = 1; x < W - 1; x++) {
+    map.setTile(x, 0,     'muur_up_v')
+    map.setTile(x, H - 1, 'muur_down_v')
+  }
+
+  for (let y = 1; y < H - 1; y++) {
+    map.setTile(0,     y, 'muur_left_v')
+    map.setTile(W - 1, y, 'muur_right_v')
+  }
+
+  // Exit arrows at top-center (return to garden)
+  const midX = Math.floor(W / 2)
+  for (let x = midX - 2; x <= midX + 2; x++)
+    map.setTile(x, 0, 'kitchen_exit_top')
+
+  // Exit arrows at bottom-center (to hall)
+  for (let x = midX - 2; x <= midX + 2; x++)
+    map.setTile(x, H - 1, 'kitchen_exit')
+
+  return {
+    player: { x: midX, y: 1 },
+    monsters: [
+      { x: midX, y: 10, defId: 'mam', message: 'Cough... Orange juice... Cough... Cough...' },
+      { x: 15,   y: 8,  defId: 'swordsman' },
+      { x: 65,   y: 8,  defId: 'swordsman' },
+      { x: 25,   y: 14, defId: 'hamster' },
+      { x: 55,   y: 14, defId: 'hamster' },
+      { x: 10,   y: 5,  defId: 'cactus' },
+      { x: 30,   y: 5,  defId: 'cactus' },
+      { x: 50,   y: 5,  defId: 'cactus' },
+      { x: 70,   y: 5,  defId: 'cactus' },
+      { x: 20,   y: 15, defId: 'cactus' },
+      { x: 35,   y: 12, defId: 'secitt' },
+      { x: 45,   y: 12, defId: 'secitt' },
+      { x: 20,   y: 7,  defId: 'wierdfume' },
+      { x: 60,   y: 7,  defId: 'wierdfume' },
+    ],
+    items: [
+      { x: 5,  y: 3,  defId: 'banaan' },
+      { x: 14, y: 3,  defId: 'sinaasappel' },
+      { x: 24, y: 3,  defId: 'pannenkoeken' },
+      { x: 34, y: 3,  defId: 'boterham' },
+      { x: 44, y: 3,  defId: 'stroopwafels' },
+      { x: 54, y: 3,  defId: 'speculaas' },
+      { x: 64, y: 3,  defId: 'sprits' },
+      { x: 74, y: 3,  defId: 'dropje' },
+      { x: 5,  y: 17, defId: 'pannenkoek' },
+      { x: 10, y: 10, defId: 'kruk' },
+      { x: 25, y: 8,  defId: 'kruk' },
+      { x: 40, y: 14, defId: 'kruk' },
+      { x: 60, y: 12, defId: 'kruk' },
+      { x: 72, y: 16, defId: 'kruk' },
+      { x: 20, y: 12, defId: 'theedoek' },
+      { x: 35, y: 5,  defId: 'remote' },
+      { x: 40, y: 17, defId: 'lekkervisje' },
+    ],
+  }
+}
+
+export function generateStudyMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'carpet')
+
+  map.setTile(0,     0,     'muur_corner_tl_v')
+  map.setTile(W - 1, 0,     'muur_corner_tr_v')
+  map.setTile(0,     H - 1, 'muur_corner_bl_v')
+  map.setTile(W - 1, H - 1, 'muur_corner_br_v')
+
+  for (let x = 1; x < W - 1; x++) {
+    map.setTile(x, 0,     'muur_up_v')
+    map.setTile(x, H - 1, 'muur_down_v')
+  }
+
+  for (let y = 1; y < H - 1; y++) {
+    map.setTile(0,     y, 'muur_left_v')
+    map.setTile(W - 1, y, 'muur_right_v')
+  }
+
+  const midX = Math.floor(W / 2)
+  map.setTile(midX, H - 1, 'study_exit')
+
+  // Organic pools grown via BFS blob expansion from seed points
+  const rng = seededRng(99)
+  const poolSeeds: Array<[number, number, string, number]> = [
+    [10,  4, 'study_pool',        9],
+    [35,  8, 'study_pool',        8],
+    [62, 12, 'study_pool',       10],
+    [17, 15, 'study_pool_green',  7],
+    [50,  5, 'study_pool_green', 11],
+    [70, 10, 'study_pool_green',  8],
+    [15, 10, 'study_pool_yellow', 9],
+    [45, 16, 'study_pool_yellow', 6],
+    [65,  3, 'study_pool_yellow',10],
+  ]
+  const DIRS4 = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]
+  for (const [sx, sy, pType, target] of poolSeeds) {
+    const blob = new Set<string>()
+    const frontier: Array<{x:number;y:number}> = [{x:sx,y:sy}]
+    blob.add(`${sx},${sy}`)
+    map.setTile(sx, sy, pType)
+    while (frontier.length > 0 && blob.size < target) {
+      const idx = Math.floor(rng() * frontier.length)
+      const {x, y} = frontier[idx]
+      const dirs = DIRS4.slice().sort(() => rng() - 0.5)
+      let grew = false
+      for (const {dx, dy} of dirs) {
+        const nx = x + dx, ny = y + dy
+        if (nx < 1 || nx >= W - 1 || ny < 1 || ny >= H - 1) continue
+        const key = `${nx},${ny}`
+        if (blob.has(key)) continue
+        if (map.getTile(nx, ny)?.defId !== 'carpet') continue
+        blob.add(key)
+        map.setTile(nx, ny, pType)
+        frontier.push({x:nx,y:ny})
+        grew = true
+        break
+      }
+      if (!grew) frontier.splice(idx, 1)
+    }
+  }
+
+  // Broad rectangular water body — center-bottom, tetra habitat (placed after pools so it wins overlap)
+  for (let y = 13; y <= 17; y++)
+    for (let x = 22; x <= 58; x++)
+      map.setTile(x, y, 'water')
+
+  return {
+    player: { x: midX, y: 1 },
+    monsters: [
+      { x: 40,  y: 10, defId: 'pap2' },
+      { x: 27,  y: 14, defId: 'tetra' },
+      { x: 34,  y: 15, defId: 'tetra' },
+      { x: 40,  y: 14, defId: 'tetra' },
+      { x: 47,  y: 16, defId: 'tetra' },
+      { x: 53,  y: 15, defId: 'tetra' },
+      { x: 30,  y: 16, defId: 'tetra' },
+      { x: 44,  y: 15, defId: 'tetra' },
+      { x: 37,  y: 16, defId: 'tetra' },
+      { x: 50,  y: 14, defId: 'tetra' },
+      { x: 25,  y: 16, defId: 'tetra' },
+      { x: 56,  y: 14, defId: 'tetra' },
+      { x: 23,  y: 15, defId: 'tetra' },
+      { x: 5,   y: 8,  defId: 'cactus' },
+      { x: 25,  y: 2,  defId: 'cactus' },
+      { x: 55,  y: 11, defId: 'cactus' },
+      { x: 72,  y: 7,  defId: 'cactus' },
+      { x: 30,  y: 12, defId: 'cactus' },
+      { x: 60,  y: 2,  defId: 'cactus' },
+    ],
+    items: [
+      { x: midX - 2, y: 3, defId: 'empty_vial', qty: 1 },
+      { x: midX + 2, y: 3, defId: 'empty_vial', qty: 1 },
+    ],
+  }
+}
+
+export function generatePantryMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'floor')
+
+  map.setTile(0,     0,     'muur_corner_tl_v')
+  map.setTile(W - 1, 0,     'muur_corner_tr_v')
+  map.setTile(0,     H - 1, 'muur_corner_bl_v')
+  map.setTile(W - 1, H - 1, 'muur_corner_br_v')
+  for (let x = 1; x < W - 1; x++) {
+    map.setTile(x, 0,     'muur_up_v')
+    map.setTile(x, H - 1, 'muur_down_v')
+  }
+  for (let y = 1; y < H - 1; y++) {
+    map.setTile(0,     y, 'muur_left_v')
+    map.setTile(W - 1, y, 'muur_right_v')
+  }
+
+  const midX = Math.floor(W / 2)
+  map.setTile(midX, 0, 'pantry_exit')
+
+  const player = { x: midX, y: 2 }
+
+  const BLOCK_W  = 4
+  const BLOCK_H  = 3
+  const GAP_X    = 2
+  const GAP_Y    = 2
+  const STRIDE_X = BLOCK_W + GAP_X  // 6
+  const STRIDE_Y = BLOCK_H + GAP_Y  // 5
+
+  const categoryPool: string[][] = [
+    ['banaan', 'sinaasappel', 'pannenkoeken', 'boterham', 'stroopwafels', 'speculaas', 'sprits', 'dropje', 'pannenkoek', 'mispel'],
+    ['flying_flippo', 'short_sword', 'long_sword', 'dagger', 'bijl', 'tuinschaar', 'crossbow', 'katana', 'mace', 'silversword', 'wasknijper'],
+    ['scroll_teleport', 'scroll_blank', 'scroll_alliance', 'scroll_cartography', 'scroll_transport', 'scroll_timestop', 'scroll_twelvegates'],
+    ['leather_armor', 'chain_mail', 'mirrorshield', 'ninjabroek', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
+    ['ring', 'ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility'],
+    ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'vaas', 'remote'],
+    ['ericgras'],
+    ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion', 'mystery_potion'],
+  ]
+
+  const numCols = Math.floor((W - 2 - BLOCK_W) / STRIDE_X) + 1
+  const numRows = Math.floor((H - 2 - BLOCK_H) / STRIDE_Y) + 1
+
+  const items: Array<{ x: number; y: number; defId: string; qty: number }> = []
+  let blockIdx = 0
+  for (let row = 0; row < numRows; row++) {
+    const y1 = 1 + row * STRIDE_Y
+    for (let col = 0; col < numCols; col++) {
+      const x1 = 1 + col * STRIDE_X
+      const cat = categoryPool[blockIdx % categoryPool.length]
+      blockIdx++
+      for (let dy = 0; dy < BLOCK_H; dy++)
+        for (let dx = 0; dx < BLOCK_W; dx++)
+          items.push({ x: x1 + dx, y: y1 + dy, defId: cat[Math.floor(Math.random() * cat.length)], qty: 1 })
+    }
+  }
+
+  return { player, monsters: [{ x: midX, y: Math.floor(H / 2), defId: 'eric_trader' }], items }
+}
+
+export function mutateChaosMap(map: MapSystem, playerX: number, playerY: number): void {
+  const W = map.width
+  const H = map.height
+  const total = W * H
+  const count = Math.floor(total / 3)
+  for (let i = 0; i < count; i++) {
+    const tx = Math.floor(Math.random() * W)
+    const ty = Math.floor(Math.random() * H)
+    if (tx === playerX && ty === playerY) continue
+    if (map.getTile(tx, ty)?.defId === 'portal_chaos') continue
+    map.setTile(tx, ty, CHAOS_TILES[Math.floor(Math.random() * CHAOS_TILES.length)])
+  }
+}
