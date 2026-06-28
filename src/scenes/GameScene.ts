@@ -9,7 +9,7 @@ import { SaveSystem } from '../engine/SaveSystem'
 import type { GameSaveData } from '../engine/SaveSystem'
 import { LeaderboardSystem } from '../engine/LeaderboardSystem'
 import type { LeaderboardEntry } from '../engine/LeaderboardSystem'
-import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateUndergroundMap, generateChaosMap, mutateChaosMap, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateCellarMap, generateLoftMap, generateLoft3Map, generateStudyMap, generatePantryMap } from '../engine/MapGenerator'
+import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateUndergroundMap, generateChaosMap, mutateChaosMap, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateCellarMap, generateLoftMap, generateLoft3Map, generateStudyMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map } from '../engine/MapGenerator'
 import { WorldState } from '../engine/WorldState'
 import { Player } from '../entities/Player'
 import { Monster } from '../entities/Monster'
@@ -111,6 +111,7 @@ export class GameScene extends Phaser.Scene {
   private hallMusic:     Phaser.Sound.BaseSound | null = null
   private bathroomMusic: Phaser.Sound.BaseSound | null = null
   private bedroomMusic:  Phaser.Sound.BaseSound | null = null
+  private pondMusic:     Phaser.Sound.BaseSound | null = null
   private musicVolume = 0.5
 
   constructor() {
@@ -147,6 +148,7 @@ export class GameScene extends Phaser.Scene {
     this.hallMusic     = this.sound.add('music_hall',     { loop: true, volume: 0.5 })
     this.bathroomMusic = this.sound.add('music_bathroom', { loop: true, volume: 0.5 })
     this.bedroomMusic  = this.sound.add('music_bedroom',  { loop: true, volume: 0.5 })
+    this.pondMusic     = this.sound.add('music_pond',     { loop: true, volume: 0.5 })
     this.updateMusic(null)
 
     if (this.saveSystem.hasGame()) this.showContinueDialog()
@@ -158,16 +160,19 @@ export class GameScene extends Phaser.Scene {
     const inHall     = area === 'underground'
     const inBathroom = area === 'bathroom_top' || area === 'bathroom_bottom'
     const inBedroom  = area === 'bedroom' || area === 'bedroom_lower'
+    const inPond     = area === 'pond1' || area === 'pond2' || area === 'pond3'
     if (!this.forestMusic?.isPlaying   && inForest)   this.forestMusic?.play()
     if (!this.loftMusic?.isPlaying     && inLoft)     this.loftMusic?.play()
     if (!this.hallMusic?.isPlaying     && inHall)     this.hallMusic?.play()
     if (!this.bathroomMusic?.isPlaying && inBathroom) this.bathroomMusic?.play()
     if (!this.bedroomMusic?.isPlaying  && inBedroom)  this.bedroomMusic?.play()
+    if (!this.pondMusic?.isPlaying     && inPond)     this.pondMusic?.play()
     if (!inForest)   this.forestMusic?.stop()
     if (!inLoft)     this.loftMusic?.stop()
     if (!inHall)     this.hallMusic?.stop()
     if (!inBathroom) this.bathroomMusic?.stop()
     if (!inBedroom)  this.bedroomMusic?.stop()
+    if (!inPond)     this.pondMusic?.stop()
   }
 
   // ─── Stairs level ────────────────────────────────────────────────────────────
@@ -552,7 +557,7 @@ export class GameScene extends Phaser.Scene {
     this.endPlayerTurn()
   }
 
-  private transitionToArea(area: 'bathroom_top' | 'bathroom_bottom' | 'garage_top' | 'garage_bottom' | 'underground' | 'chaos' | 'bedroom' | 'bedroom_lower' | 'stairs' | 'kitchen' | 'cellar' | 'loft' | 'loft3' | 'study' | 'pantry', fromDir?: 'down' | 'up', entryCoord?: number, exactEntry?: { x: number; y: number }): void {
+  private transitionToArea(area: 'bathroom_top' | 'bathroom_bottom' | 'garage_top' | 'garage_bottom' | 'underground' | 'chaos' | 'bedroom' | 'bedroom_lower' | 'stairs' | 'kitchen' | 'cellar' | 'loft' | 'loft3' | 'study' | 'pantry' | 'pond1' | 'pond2' | 'pond3', fromDir?: 'down' | 'up', entryCoord?: number, exactEntry?: { x: number; y: number }): void {
     this.player.itemVision = false
     this.ericChamberEntered = false
     this.traderUnpaid.clear()
@@ -585,6 +590,9 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft3'                 ? generateLoft3Map(this.mapSystem)
       : area === 'study'                 ? generateStudyMap(this.mapSystem)
       : area === 'pantry'               ? generatePantryMap(this.mapSystem)
+      : area === 'pond1'                ? generatePond1Map(this.mapSystem)
+      : area === 'pond2'                ? generatePond2Map(this.mapSystem)
+      : area === 'pond3'                ? generatePond3Map(this.mapSystem)
       :                                      generateUndergroundMap(this.mapSystem, this.worldState.ucx, this.worldState.ucy, this.worldState.UGRID, this.worldState.undergroundSeed)
 
     if (!this.tryRestoreFromSnapshot(this.areaKey(area))) {
@@ -635,8 +643,11 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft3'                 ? 'You venture deeper into the loft.'
       : area === 'study'                 ? 'You enter the study room.'
       : area === 'pantry'               ? 'You step into the pantry.'
+      : area === 'pond1'                ? 'You enter the pond.'
+      : area === 'pond2'                ? 'You swim deeper into the underwater caves.'
+      : area === 'pond3'                ? 'You descend into the depths.'
       :                                     'You descend underground.'
-    this.messageLog.add(msg, area === 'chaos' ? '#ff40ff' : (area === 'bedroom' || area === 'bedroom_lower') ? '#ff80ff' : area === 'stairs' ? '#ffaa00' : area === 'kitchen' ? '#e0c080' : area === 'cellar' ? '#404080' : (area === 'loft' || area === 'loft3') ? '#40c040' : '#80c0ff')
+    this.messageLog.add(msg, area === 'chaos' ? '#ff40ff' : (area === 'bedroom' || area === 'bedroom_lower') ? '#ff80ff' : area === 'stairs' ? '#ffaa00' : area === 'kitchen' ? '#e0c080' : area === 'cellar' ? '#404080' : (area === 'loft' || area === 'loft3') ? '#40c040' : (area === 'pond1' || area === 'pond2' || area === 'pond3') ? '#103060' : '#80c0ff')
     const realm = area === 'bathroom_top' ? 'Bathroom'
       : area === 'bathroom_bottom'        ? 'Bathroom'
       : area === 'garage_top'            ? 'Garage'
@@ -650,6 +661,9 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft3'              ? 'Peter and the Wolf'
       : area === 'study'             ? 'Study Room'
       : area === 'pantry'           ? 'Pantry'
+      : area === 'pond1'            ? 'Pond'
+      : area === 'pond2'            ? 'Underwater Caves'
+      : area === 'pond3'            ? 'Pond Depths'
       :                                    'Hall'
     this.statsPanel.setRealm(realm)
     if (area === 'stairs') this.startBombSpawner()
@@ -1440,6 +1454,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
       if (event.key === 'r' && event.ctrlKey) {
         event.preventDefault()
+        this.stopAllMusic()
         this.scene.restart()
         return
       }
@@ -1825,12 +1840,32 @@ export class GameScene extends Phaser.Scene {
       return
     }
     if (tile?.defId === 'study_exit') { this.transitionFromArea(); return }
+    if (tile?.defId === 'portal_pond') {
+      this.worldState.savedPlayerX = this.player.x
+      this.worldState.savedPlayerY = this.player.y
+      this.transitionToArea('pond1')
+      return
+    }
+    if (tile?.defId === 'pond_exit') { this.transitionFromArea(); return }
     if (tile?.defId === 'loft_exit') { this.transitionFromArea(); return }
     if (tile?.defId === 'loft3_exit') { this.transitionFromArea(); return }
     if (tile?.defId === 'cellar_exit') { this.transitionToArea('bathroom_bottom'); return }
     if (tile?.defId === 'vortex_portal') {
       if (this.worldState.currentArea === 'cellar') { this.transitionToArea('bathroom_bottom', undefined, undefined, { x: 2, y: 9 }); return }
       if (this.worldState.currentArea === 'bathroom_bottom') { this.transitionToArea('cellar'); return }
+    }
+    if (tile?.defId === 'pond_exit_right') {
+      if (this.worldState.currentArea === 'pond1') { this.transitionToArea('pond2'); return }
+      if (this.worldState.currentArea === 'pond2') { this.transitionToArea('pond3', undefined, undefined, { x: 72, y: 2 }); return }
+      return
+    }
+    if (tile?.defId === 'pond_exit_up') {
+      if (this.worldState.currentArea === 'pond3') { this.transitionToArea('pond2', undefined, undefined, { x: 78, y: 17 }); return }
+      this.transitionToArea('pond1', undefined, undefined, { x: 77, y: 16 }); return
+    }
+    if (tile?.defId === 'pond_exit_left') {
+      if (this.worldState.currentArea === 'pond2') { this.transitionToArea('pond1', undefined, undefined, { x: 77, y: 16 }); return }
+      return
     }
 
     // Water: requires Diving skill (must first learn Swimming, then Diving)
@@ -2190,6 +2225,7 @@ export class GameScene extends Phaser.Scene {
     this.hallMusic?.stop()
     this.bathroomMusic?.stop()
     this.bedroomMusic?.stop()
+    this.pondMusic?.stop()
   }
 
 
@@ -2219,6 +2255,7 @@ export class GameScene extends Phaser.Scene {
     if (area === 'garage_top'   || area === 'garage_bottom')   return 'garage'
     if (area === 'bedroom'      || area === 'bedroom_lower')   return 'bedroom'
     if (area === 'loft'         || area === 'loft3')           return 'loft'
+    if (area === 'pond1'        || area === 'pond2' || area === 'pond3') return 'pond'
     return area
   }
 
@@ -2761,7 +2798,7 @@ export class GameScene extends Phaser.Scene {
       const vol = Phaser.Math.Clamp((px - trackX) / trackW, 0, 1)
       this.musicVolume = vol
       drawSlider(vol)
-      for (const m of [this.forestMusic, this.loftMusic, this.hallMusic, this.bathroomMusic, this.bedroomMusic]) {
+      for (const m of [this.forestMusic, this.loftMusic, this.hallMusic, this.bathroomMusic, this.bedroomMusic, this.pondMusic]) {
         if (m) (m as Phaser.Sound.WebAudioSound).setVolume(vol)
       }
     }

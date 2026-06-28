@@ -180,6 +180,7 @@ export function generateForestMap(
     map.setTile(75, 7, 'portal_loft3')
     map.setTile(75, 5, 'portal_study')
     map.setTile(77, 5, 'portal_pantry')
+    map.setTile(73, 7, 'portal_pond')
   }
 
   // Player spawn: NW always uses room 4 (dry, east of lake); others random
@@ -1633,6 +1634,171 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
   }
 
   return { player, monsters: [{ x: midX, y: Math.floor(H / 2), defId: 'eric_trader' }], items }
+}
+
+export function generatePond1Map(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'void')
+
+  // Main wedge x=1..57: surface y=1, floor slopes y=4→11
+  for (let x = 1; x <= 57; x++) {
+    const floorY = 4 + Math.floor((x - 1) * 7 / 56)
+    for (let y = 1; y < floorY; y++)
+      map.setTile(x, y, 'water')
+  }
+
+  // Drop zone x=58..63: full depth, lets player dive down to passage level
+  for (let x = 58; x <= 63; x++)
+    for (let y = 1; y <= 17; y++)
+      map.setTile(x, y, 'water')
+
+  // Right section x=64..78: void wall with narrow bottom passage only
+  for (let x = 64; x <= 78; x++)
+    for (let y = 15; y <= 17; y++)
+      map.setTile(x, y, 'water')
+
+  // Left edge: exit back to overworld
+  map.setTile(0, 1, 'pond_exit')
+
+  // Right edge: arrow passage to pond2
+  for (let y = 15; y <= 17; y++)
+    map.setTile(W - 1, y, 'pond_exit_right')
+
+  return { player: { x: 1, y: 1 }, monsters: [], items: [] }
+}
+
+export function generatePond2Map(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+  const rng = seededRng(99)
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'void')
+
+  // Generate rooms, sort top-left → bottom-right
+  const rooms: Room[] = []
+  for (let i = 0; i < 6; i++) {
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const rw = 6 + Math.floor(rng() * 7)
+      const rh = 3 + Math.floor(rng() * 4)
+      const rx = 2 + Math.floor(rng() * (W - rw - 4))
+      const ry = 1 + Math.floor(rng() * (H - rh - 2))
+      if (rooms.some(r =>
+        rx < r.x + r.w + 2 && rx + rw > r.x - 2 &&
+        ry < r.y + r.h + 2 && ry + rh > r.y - 2
+      )) continue
+      rooms.push({ x: rx, y: ry, w: rw, h: rh })
+      break
+    }
+  }
+  rooms.sort((a, b) => (a.x + a.y) - (b.x + b.y))
+
+  // Fill rooms with water
+  for (const room of rooms)
+    for (let y = room.y; y < room.y + room.h; y++)
+      for (let x = room.x; x < room.x + room.w; x++)
+        map.setTile(x, y, 'water')
+
+  // Connect consecutive rooms with L-shaped corridors
+  for (let i = 1; i < rooms.length; i++) {
+    const a = rooms[i - 1], b = rooms[i]
+    const ax = a.x + Math.floor(a.w / 2), ay = a.y + Math.floor(a.h / 2)
+    const bx = b.x + Math.floor(b.w / 2), by = b.y + Math.floor(b.h / 2)
+    for (let x = Math.min(ax, bx); x <= Math.max(ax, bx); x++) map.setTile(x, ay, 'water')
+    for (let y = Math.min(ay, by); y <= Math.max(ay, by); y++) map.setTile(bx, y, 'water')
+  }
+
+  // Force entry corridor: first room center → x=1
+  const first = rooms[0]
+  const fCX = first.x + Math.floor(first.w / 2)
+  const fCY = first.y + Math.floor(first.h / 2)
+  for (let x = 1; x <= fCX; x++) map.setTile(x, fCY, 'water')
+
+  // Force exit corridor: last room center → right edge → bottom-right corner
+  const last = rooms[rooms.length - 1]
+  const lCX = last.x + Math.floor(last.w / 2)
+  const lCY = last.y + Math.floor(last.h / 2)
+  for (let x = lCX; x <= W - 2; x++) map.setTile(x, lCY, 'water')
+  for (let y = lCY; y <= H - 3; y++) map.setTile(W - 2, y, 'water')
+
+  // Entry: step left from x=1 onto x=0 to return to pond1
+  map.setTile(0, fCY, 'pond_exit_left')
+
+  // Exit: arrows at bottom-right leading to pond3
+  for (let y = H - 3; y <= H - 2; y++) map.setTile(W - 1, y, 'pond_exit_right')
+
+  return { player: { x: fCX, y: fCY }, monsters: [], items: [] }
+}
+
+export function generatePond3Map(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'void')
+
+  // Right entry shaft (full height)
+  for (let y = 1; y <= H - 2; y++)
+    for (let x = 71; x <= W - 2; x++)
+      map.setTile(x, y, 'water')
+
+  // Zigzag tunnel: starts near bottom of shaft, winds up-left to bell entrance.
+  // Segments alternate horizontal/vertical with varying width.
+
+  // Seg A: horizontal, width 2 — exits shaft bottom left
+  for (let y = 13; y <= 14; y++)
+    for (let x = 48; x <= 71; x++)
+      map.setTile(x, y, 'water')
+
+  // Seg B: vertical, width 2 — climbs up
+  for (let x = 48; x <= 49; x++)
+    for (let y = 9; y <= 14; y++)
+      map.setTile(x, y, 'water')
+
+  // Seg C: horizontal, width 3 — wide passage going left
+  for (let y = 8; y <= 10; y++)
+    for (let x = 26; x <= 49; x++)
+      map.setTile(x, y, 'water')
+
+  // Seg D: vertical, width 1 — narrow squeeze going up
+  for (let y = 5; y <= 9; y++)
+    map.setTile(26, y, 'water')
+
+  // Seg E: horizontal, width 2 — approaches bell entrance
+  for (let y = 4; y <= 5; y++)
+    for (let x = 9; x <= 26; x++)
+      map.setTile(x, y, 'water')
+
+  // Seg F: vertical, width 2 — final climb into bell top
+  for (let x = 9; x <= 10; x++)
+    for (let y = 2; y <= 5; y++)
+      map.setTile(x, y, 'water')
+
+  // Bell chamber: narrow top at y=4 (x=6-20), expands to broad flat bottom at y=13-17
+  for (let y = 4; y <= H - 3; y++) {
+    let leftX: number, rightX: number
+    if (y <= 13) {
+      leftX = Math.max(3, 6 - Math.round((y - 4) * 3 / 9))
+      rightX = Math.min(W - 2, 20 + Math.round((y - 4) * 34 / 9))
+    } else {
+      leftX = 3
+      rightX = 54
+    }
+    for (let x = leftX; x <= rightX; x++)
+      map.setTile(x, y, 'water')
+  }
+
+  // Exit: right edge → pond1
+  for (let y = 1; y <= H - 2; y++)
+    map.setTile(W - 1, y, 'pond_exit_up')
+
+  return { player: { x: 78, y: 1 }, monsters: [], items: [] }
 }
 
 export function mutateChaosMap(map: MapSystem, playerX: number, playerY: number): void {

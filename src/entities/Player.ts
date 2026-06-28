@@ -59,7 +59,7 @@ export class Player {
     ring5:  null,
     ring6:  null,
   }
-  skills: Set<string> = new Set()
+  skills: Set<string> = new Set(['swimming', 'diving'])
 
   private equipSys!: EquipmentSystem
   private invSys!: InventorySystem

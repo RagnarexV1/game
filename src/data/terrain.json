@@ -854,5 +854,53 @@
     "color": "#a06020",
     "walkable": true,
     "transparent": true
+  },
+  {
+    "id": "portal_pond",
+    "name": "Pond Portal",
+    "glyph": "O",
+    "color": "#2060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "pond_exit",
+    "name": "Exit Pond",
+    "glyph": "<",
+    "color": "#2060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "pond_exit_left",
+    "name": "Back to Surface",
+    "glyph": "<",
+    "color": "#2060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "pond_exit_right",
+    "name": "Deeper Water",
+    "glyph": ">",
+    "color": "#2060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "pond_exit_down",
+    "name": "Descend Deeper",
+    "glyph": "v",
+    "color": "#103060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "pond_exit_up",
+    "name": "Ascend to Surface",
+    "glyph": "^",
+    "color": "#103060",
+    "walkable": true,
+    "transparent": true
   }
 ]

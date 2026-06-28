@@ -226,6 +226,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('loc_loft',        'assets/locations/loft.png')
     this.load.image('loc_study',       'assets/locations/study.png')
     this.load.image('loc_pantry',      'assets/locations/pantry.png')
+    this.load.image('loc_pond',        'assets/locations/gong.webp')
 
     // Individual column-A icon buttons (left column)
     this.load.image('btn_pack',   'assets/ui/btn_pack.png')
@@ -308,6 +309,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('music_hall',     'assets/sound/Paard-loop.mp3')
     this.load.audio('music_bathroom', 'assets/sound/snd_trololo_8bit2.mp3')
     this.load.audio('music_bedroom',  'assets/sound/spring_song_drums.mp3')
+    this.load.audio('music_pond',     'assets/sound/Groen-is-de-gong.mp3')
   }
 
   create(): void {
