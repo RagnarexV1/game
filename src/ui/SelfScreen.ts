@@ -93,6 +93,12 @@ export class SelfScreen {
     )
     if (hasItemHeat && !hasHeatSkill) resistances.push(SKILL_META.heat_resistance.label)
 
+    const hasColdSkill = player.hasSkill('cold_resistance')
+    const hasItemCold  = Object.values(player.equipment).some(
+      item => item && inventory.getDef(item.defId)?.coldResistance === true
+    )
+    if (hasItemCold && !hasColdSkill) resistances.push(SKILL_META.cold_resistance.label)
+
     // Section content — columns in original image: 12, 165, 320, 478
     const SY = Y(132)
     const LH = Y(13)
@@ -101,7 +107,7 @@ export class SelfScreen {
       items.forEach((item, i) => txt(X(origX), SY + i * LH, item))
 
     addList(12,  player.diagnostics)
-    addList(165, skills)
+    addList(185, skills)
     addList(320, powers)
     addList(478, abilities)
 

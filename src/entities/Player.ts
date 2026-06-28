@@ -30,6 +30,7 @@ export class Player {
   allianceTurns = 0
   timestopTurns = 0
   drunkTurns = 0
+  phasingTurns = 0
   itemVision = false
   gender: 'male' | 'female' = 'male'
   extraFingers = 0

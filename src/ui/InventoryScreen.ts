@@ -236,9 +236,9 @@ export class InventoryScreen {
     }
 
     if (data.equipped && data.slot) {
-      this.eqSys.unequip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.slot)
+      this.eqSys.unequip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.slot, this.currentPlayer)
     } else {
-      this.eqSys.equip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.item.instanceId)
+      this.eqSys.equip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.item.instanceId, this.currentPlayer)
     }
     this.refresh(this.currentPlayer)
   }
@@ -533,7 +533,7 @@ export class InventoryScreen {
         if (this.mode === 'use'   && this.onUse)     { this.onUse(data.item, this.currentPlayer);   return true }
         if (this.mode === 'drop'  && this.onDrop)    { this.onDrop(data.item, this.currentPlayer);  return true }
         if (this.mode === 'remove' && data.slot)     {
-          this.eqSys.unequip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.slot)
+          this.eqSys.unequip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.slot, this.currentPlayer)
           this.refresh(this.currentPlayer)
           return true
         }

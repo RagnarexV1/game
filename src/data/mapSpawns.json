@@ -33,6 +33,7 @@
       { "x": 52, "y":  4, "defId": "short_sword"        },
       { "x": 56, "y":  4, "defId": "long_sword"         },
       { "x": 63, "y":  4, "defId": "leather_armor"      },
+      { "x": 64, "y":  4, "defId": "rubberboots"      },
       { "x": 66, "y":  4, "defId": "chain_mail"         },
       { "x": 72, "y":  4, "defId": "second_life_potion"  },
       { "x": 52, "y": 17, "defId": "relic_scroll_2"     },
@@ -119,7 +120,13 @@
       { "x": 15, "y": 10, "defId": "vis"        },
       { "x": 35, "y":  7, "defId": "squid"      },
       { "x": 67, "y": 15, "defId": "kobold"     },
-      { "x": 60, "y":  5, "defId": "wolf"       }
+      { "x": 60, "y":  5, "defId": "wolf"       },
+      { "x": 56, "y":  5, "defId": "eendGroen", "message": "Quack! The pond holds ancient secrets." },
+      { "x": 64, "y": 14, "defId": "eendGroen", "message": "Quaack! Beware the deep water, traveller." },
+      { "x": 64, "y": 14, "defId": "eendGroen", "message": "Quaack! Wet towels protect against heat." },
+      { "x": 68, "y":  7, "defId": "eendRood",  "message": "QUACK! The great serpent awakens at dusk!" },
+      { "x": 72, "y": 15, "defId": "eendRood",  "message": "Quack quack! I saw lorkest surface this morning." },
+      { "x": 60, "y": 17, "defId": "eendRood",  "message": "Quack! The qivuit took my bread again." }
     ],
     "items": [
       { "x": 55, "y":  5, "defId": "chain_mail"             },

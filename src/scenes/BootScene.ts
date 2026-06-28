@@ -204,7 +204,6 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_lego2',           'assets/items/lego2.png')
     this.load.image('item_lego3',           'assets/items/lego3.png')
     this.load.image('item_propje',          'assets/items/propje.png')
-    this.load.image('item_gompie',          'assets/items/gompie.png')
 
     // Player location indicator for world map
     this.load.image('ui_user_location', 'assets/ui/userLocation.png')
@@ -212,6 +211,21 @@ export class BootScene extends Phaser.Scene {
     // Button panel (full panel from original screenshot)
     this.load.image('btn_panel', 'assets/ui/btn_panel.png')
     this.load.image('ui_panic',  'assets/ui/panic.png')
+
+    // Location splash screens (shown on first visit to each area type)
+    // bathroom_top + bathroom_bottom share one splash; garage_top + garage_bottom share one;
+    // bedroom + bedroom_lower share one; loft + loft3 share one.
+    this.load.image('loc_bathroom',    'assets/locations/bathroom.png')
+    this.load.image('loc_garage',      'assets/locations/garage.png')
+    this.load.image('loc_underground', 'assets/locations/underground.png')
+    this.load.image('loc_chaos',       'assets/locations/chaos.png')
+    this.load.image('loc_bedroom',     'assets/locations/bedroom.webp')
+    this.load.image('loc_stairs',      'assets/locations/stairs.png')
+    this.load.image('loc_kitchen',     'assets/locations/kitchen.png')
+    this.load.image('loc_cellar',      'assets/locations/cellar.png')
+    this.load.image('loc_loft',        'assets/locations/loft.png')
+    this.load.image('loc_study',       'assets/locations/study.png')
+    this.load.image('loc_pantry',      'assets/locations/pantry.png')
 
     // Individual column-A icon buttons (left column)
     this.load.image('btn_pack',   'assets/ui/btn_pack.png')
@@ -293,6 +307,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('music_garden',   'assets/sound/Peter-En-De-Wolf.mp3')
     this.load.audio('music_hall',     'assets/sound/Paard-loop.mp3')
     this.load.audio('music_bathroom', 'assets/sound/snd_trololo_8bit2.mp3')
+    this.load.audio('music_bedroom',  'assets/sound/spring_song_drums.mp3')
   }
 
   create(): void {

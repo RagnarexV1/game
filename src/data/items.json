@@ -572,7 +572,7 @@
   },
   {
     "id": "dropje",
-    "name": "Dropje",
+    "name": "Licorice",
     "glyph": "%",
     "color": "#202020",
     "type": "eat",
@@ -580,7 +580,7 @@
     "foodAmount": 4,
     "weight": 0,
     "value": 2,
-    "description": "A&P stands for Anne and Peter <3."
+    "description": "A&P <3."
   },
   {
     "id": "postzegelRex",
@@ -639,7 +639,7 @@
     "glyph": "[",
     "color": "#a0a0c0",
     "type": "armor",
-    "slot": "hand",
+    "slot": "arms",
     "defense": 1,
     "weight": 2,
     "value": 30,
@@ -749,6 +749,7 @@
     "slot": "ring",
     "weight": 0,
     "value": 200,
+    "speedBonus": 100,
     "description": "A vibrating golden ring. Increases movement speed when worn."
   },
   {
@@ -782,6 +783,7 @@
     "slot": "ring",
     "weight": 0,
     "value": 180,
+    "coldResistance": true,
     "description": "An icy blue ring. Provides resistance against cold."
   },
   {
@@ -947,7 +949,7 @@
     "slot": null,
     "scrollText": "The monsters regard you as kin.",
     "weight": 0,
-    "value": 80,
+    "value": 500,
     "description": "A parchment sealed with a golden emblem. Monsters become your allies."
   },
   {
@@ -1056,16 +1058,5 @@
     "weight": 2,
     "value": 20,
     "description": "Sturdy green rubber boots. Prevents you from slipping in the mud."
-  },
-  {
-    "id": "gompie",
-    "name": "Gompie",
-    "glyph": "b",
-    "color": "#4499ff",
-    "type": "tool",
-    "slot": null,
-    "weight": 1,
-    "value": 80,
-    "description": "Peter's magical boat enables you to travel over water. When not in use, Gompie folds up and fits in your pocket."
   }
 ]

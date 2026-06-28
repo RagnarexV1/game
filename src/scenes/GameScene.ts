@@ -92,6 +92,9 @@ export class GameScene extends Phaser.Scene {
   private throwMode = false
   private zapMode = false
   private panicOverlay: Phaser.GameObjects.Image | null = null
+  private locationOverlay: Phaser.GameObjects.Image | null = null
+  private locationOverlayDismiss: (() => void) | null = null
+  private visitedAreaTypes = new Set<string>()
   private pendingThrowItem: ItemInstance | null = null
   private digMode = false
   private trimMode = false
@@ -107,6 +110,8 @@ export class GameScene extends Phaser.Scene {
   private loftMusic:     Phaser.Sound.BaseSound | null = null
   private hallMusic:     Phaser.Sound.BaseSound | null = null
   private bathroomMusic: Phaser.Sound.BaseSound | null = null
+  private bedroomMusic:  Phaser.Sound.BaseSound | null = null
+  private musicVolume = 0.5
 
   constructor() {
     super({ key: 'GameScene' })
@@ -141,6 +146,7 @@ export class GameScene extends Phaser.Scene {
     this.loftMusic     = this.sound.add('music_garden',   { loop: true, volume: 0.5 })
     this.hallMusic     = this.sound.add('music_hall',     { loop: true, volume: 0.5 })
     this.bathroomMusic = this.sound.add('music_bathroom', { loop: true, volume: 0.5 })
+    this.bedroomMusic  = this.sound.add('music_bedroom',  { loop: true, volume: 0.5 })
     this.updateMusic(null)
 
     if (this.saveSystem.hasGame()) this.showContinueDialog()
@@ -151,14 +157,17 @@ export class GameScene extends Phaser.Scene {
     const inLoft     = area === 'loft' || area === 'loft3'
     const inHall     = area === 'underground'
     const inBathroom = area === 'bathroom_top' || area === 'bathroom_bottom'
+    const inBedroom  = area === 'bedroom' || area === 'bedroom_lower'
     if (!this.forestMusic?.isPlaying   && inForest)   this.forestMusic?.play()
     if (!this.loftMusic?.isPlaying     && inLoft)     this.loftMusic?.play()
     if (!this.hallMusic?.isPlaying     && inHall)     this.hallMusic?.play()
     if (!this.bathroomMusic?.isPlaying && inBathroom) this.bathroomMusic?.play()
+    if (!this.bedroomMusic?.isPlaying  && inBedroom)  this.bedroomMusic?.play()
     if (!inForest)   this.forestMusic?.stop()
     if (!inLoft)     this.loftMusic?.stop()
     if (!inHall)     this.hallMusic?.stop()
     if (!inBathroom) this.bathroomMusic?.stop()
+    if (!inBedroom)  this.bedroomMusic?.stop()
   }
 
   // ─── Stairs level ────────────────────────────────────────────────────────────
@@ -468,7 +477,7 @@ export class GameScene extends Phaser.Scene {
     const label = { right: 'east', left: 'west', down: 'south', up: 'north' }
     const {cx, cy} = this.worldState
     const realm = (cx === 0 && cy === 1) ? 'Mispelheim' : 'Garden'
-    this.messageLog.add(`You travel ${label[fromDir]}. Cell (${cx+1},${cy+1}) of 3×3`, '#00c0ff')
+    this.messageLog.add(`You travel ${label[fromDir]}.`, '#00c0ff')
     this.statsPanel.setRealm(realm)
     this.endPlayerTurn()
   }
@@ -547,7 +556,6 @@ export class GameScene extends Phaser.Scene {
     this.player.itemVision = false
     this.ericChamberEntered = false
     this.traderUnpaid.clear()
-    this.updateMusic(area)
     this.localMapView.groundDecorations = []
     this.saveCellSnapshot(this.worldState.currentArea === null ? this.forestKey() : this.areaKey(this.worldState.currentArea))
     const savedCompanions = this.companions.slice()
@@ -645,6 +653,14 @@ export class GameScene extends Phaser.Scene {
       :                                    'Hall'
     this.statsPanel.setRealm(realm)
     if (area === 'stairs') this.startBombSpawner()
+    const type = this.areaType(area)
+    if (!this.visitedAreaTypes.has(type)) {
+      this.visitedAreaTypes.add(type)
+      this.stopAllMusic()
+      this.showLocationOverlay(type, () => this.updateMusic(area))
+    } else {
+      this.updateMusic(area)
+    }
     this.endPlayerTurn()
   }
 
@@ -876,6 +892,7 @@ export class GameScene extends Phaser.Scene {
         case 'playback': this.messagePanel.scrollUp(); break
         case 'lookat':   this.lookMode ? this.exitLookMode() : this.enterLookMode(); break
         case 'panic':     this.panicOverlay ? this.hidePanic() : this.showPanic(); break
+        case 'settings':  this.showSettingsPanel(); break
         case 'quit':      this.showQuitConfirm(); break
         case 'copyright': this.messageLog.add('RAGNAREX version 1.0 (c) Copyright 2026 by Eric Wessels', '#ffff80'); break
         case 'dig':       this.startDig(); break
@@ -1051,7 +1068,8 @@ export class GameScene extends Phaser.Scene {
         player.hp = Math.min(player.maxHp, player.hp + 20)
         this.messageLog.add('Your form shifts. You feel transformed! (STR +3, Max HP +20)', '#40ffff')
       } else if (item.defId === 'speed_potion') {
-        this.messageLog.add('Your feet move like the wind!', '#ffff40')
+        player.speed += 100
+        this.messageLog.add(`Your feet move like the wind! (Speed +100 → ${player.speed})`, '#ffff40')
       } else if (item.defId === 'phasing_potion') {
         this.messageLog.add('You feel briefly out of phase with reality.', '#8080ff')
       } else if (item.defId === 'blindness_potion') {
@@ -1425,6 +1443,8 @@ export class GameScene extends Phaser.Scene {
         this.scene.restart()
         return
       }
+
+      if (this.locationOverlay) { this.hideLocationOverlay(); return }
 
       if (this.inputBlocked) return
 
@@ -1813,10 +1833,9 @@ export class GameScene extends Phaser.Scene {
       if (this.worldState.currentArea === 'bathroom_bottom') { this.transitionToArea('cellar'); return }
     }
 
-    // Water: requires Diving skill or Gompie boat in inventory
+    // Water: requires Diving skill (must first learn Swimming, then Diving)
     if (tile?.defId === 'water' || tile?.defId === 'loft_water') {
-      const hasBoat = this.player.inventory.some(i => i.defId === 'gompie')
-      if (this.player.hasSkill('diving') || hasBoat) {
+      if (this.player.hasSkill('diving')) {
         this.player.x = nx
         this.player.y = ny
         this.endPlayerTurn()
@@ -1851,7 +1870,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (tile?.defId === 'kitchen_exit_top') { this.transitionFromArea(); return }
 
-    if (!this.mapSystem.isWalkable(nx, ny)) {
+    if (!this.mapSystem.isWalkable(nx, ny) && this.player.phasingTurns <= 0) {
       return
     }
 
@@ -2165,6 +2184,44 @@ export class GameScene extends Phaser.Scene {
     this.panicOverlay = null
   }
 
+  private stopAllMusic(): void {
+    this.forestMusic?.stop()
+    this.loftMusic?.stop()
+    this.hallMusic?.stop()
+    this.bathroomMusic?.stop()
+    this.bedroomMusic?.stop()
+  }
+
+
+
+  private showLocationOverlay(area: string, onDismiss?: () => void): void {
+    const key = `loc_${area}`
+    if (!this.textures.exists(key)) { onDismiss?.(); return }
+    const img = this.add.image(0, 0, key).setOrigin(0, 0)
+    img.setDisplaySize(GAME_W, GAME_H)
+    img.setDepth(1100)
+    img.setInteractive()
+    img.on('pointerdown', () => this.hideLocationOverlay())
+    this.locationOverlay = img
+    this.locationOverlayDismiss = onDismiss ?? null
+  }
+
+  private hideLocationOverlay(): void {
+    this.locationOverlay?.destroy()
+    this.locationOverlay = null
+    const cb = this.locationOverlayDismiss
+    this.locationOverlayDismiss = null
+    cb?.()
+  }
+
+  private areaType(area: string): string {
+    if (area === 'bathroom_top' || area === 'bathroom_bottom') return 'bathroom'
+    if (area === 'garage_top'   || area === 'garage_bottom')   return 'garage'
+    if (area === 'bedroom'      || area === 'bedroom_lower')   return 'bedroom'
+    if (area === 'loft'         || area === 'loft3')           return 'loft'
+    return area
+  }
+
   private passTime(): void {
     this.messageLog.add('You wait.', '#606060')
     this.endPlayerTurn()
@@ -2175,6 +2232,10 @@ export class GameScene extends Phaser.Scene {
     return Object.values(this.player.equipment).some(
       item => item && this.inventory.getDef(item.defId)?.heatResistance === true
     )
+  }
+
+  private hasFamineRing(): boolean {
+    return Object.values(this.player.equipment).some(item => item?.defId === 'ring_famine')
   }
 
   // ─── Turn management ────────────────────────────────────────────────────────
@@ -2190,7 +2251,24 @@ export class GameScene extends Phaser.Scene {
       this.player.drunkTurns--
       if (this.player.drunkTurns === 0) this.messageLog.add('Your head clears. You are sober again.', '#c0e0ff')
     }
-    this.turnManager.processTurn()
+    if (this.player.phasingTurns > 0) {
+      this.player.phasingTurns--
+      if (this.player.phasingTurns === 0) this.messageLog.add('You feel solid again.', '#c0c0ff')
+    }
+    this.player.energy -= 100
+    if (this.player.energy >= 100) {
+      // Player has leftover energy — extra turn before world ticks
+      this.localMapView.render(this.player, this.monsters, this.floorItems, this.corpses)
+      if (this.worldState.currentArea === 'stairs') this.localMapView.renderBombs(this.stairsBombs)
+      this.worldMapView.render(this.player, this.monsters, this.floorItems, this.worldState.currentArea === 'garage_top' || this.worldState.currentArea === 'garage_bottom', this.worldState.currentArea === 'stairs')
+      this.statsPanel.update(this.player, this.turnManager.getTurn())
+      if (this.inventoryScreen.isVisible()) this.inventoryScreen.refresh(this.player)
+      return
+    }
+    // World ticks until player accumulates enough energy to act again
+    while (this.player.energy < 100) {
+      this.turnManager.processTurn()
+    }
     for (const m of [...this.monsters]) {
       if (!m.isAlive()) this.removeMonster(m)
     }
@@ -2199,6 +2277,14 @@ export class GameScene extends Phaser.Scene {
       this.player.hp = Math.min(this.player.hp + 1, this.player.maxHp)
     }
     if (turn % 15 === 0 && this.player.food > 0) {
+      this.player.food = Math.max(0, this.player.food - 1)
+      if (this.player.food === 0) {
+        this.messageLog.add('You are starving to death!', '#ff4000')
+        this.player.hp = 0
+        this.lastKilledBy = 'starvation'
+      }
+    }
+    if (turn % 5 === 0 && this.player.food > 0 && this.hasFamineRing()) {
       this.player.food = Math.max(0, this.player.food - 1)
       if (this.player.food === 0) {
         this.messageLog.add('You are starving to death!', '#ff4000')
@@ -2630,6 +2716,82 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ESC', newGame)
   }
 
+  private showSettingsPanel(): void {
+    this.inputBlocked = true
+    const bx = GAME_W / 2
+    const by = GAME_H / 2
+
+    const box = this.add.graphics()
+      .fillStyle(0x1a1a1a, 0.95)
+      .fillRect(bx - 270, by - 110, 540, 220)
+      .setDepth(500)
+
+    const title = this.add.text(bx, by - 70, 'Settings', {
+      fontSize: '28px', color: '#ffffff', fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(501)
+
+    const label = this.add.text(bx - 210, by - 15, 'Music volume', {
+      fontSize: '18px', color: '#aaaaaa', fontFamily: 'monospace',
+    }).setOrigin(0, 0.5).setDepth(501)
+
+    const trackX = bx - 210
+    const trackY = by + 30
+    const trackW = 420
+    const trackH = 6
+
+    const trackBg = this.add.graphics().setDepth(501)
+      .fillStyle(0x444444).fillRect(trackX, trackY - trackH / 2, trackW, trackH)
+
+    const trackFill = this.add.graphics().setDepth(501)
+    const handle    = this.add.graphics().setDepth(502)
+
+    const drawSlider = (vol: number) => {
+      trackFill.clear().fillStyle(0x50c0ff)
+        .fillRect(trackX, trackY - trackH / 2, trackW * vol, trackH)
+      handle.clear().fillStyle(0xffffff)
+        .fillCircle(trackX + trackW * vol, trackY, 10)
+    }
+    drawSlider(this.musicVolume)
+
+    const zone = this.add.zone(trackX, trackY - 15, trackW, 30)
+      .setOrigin(0, 0).setDepth(502).setInteractive()
+
+    let dragging = false
+    const updateVol = (px: number) => {
+      const vol = Phaser.Math.Clamp((px - trackX) / trackW, 0, 1)
+      this.musicVolume = vol
+      drawSlider(vol)
+      for (const m of [this.forestMusic, this.loftMusic, this.hallMusic, this.bathroomMusic, this.bedroomMusic]) {
+        if (m) (m as Phaser.Sound.WebAudioSound).setVolume(vol)
+      }
+    }
+
+    const onMove = (ptr: Phaser.Input.Pointer) => { if (dragging) updateVol(ptr.x) }
+    const onUp   = () => { dragging = false }
+
+    zone.on('pointerdown', (ptr: Phaser.Input.Pointer) => { dragging = true; updateVol(ptr.x) })
+    this.input.on('pointermove', onMove)
+    this.input.on('pointerup',   onUp)
+
+    const closeBtn = this.add.text(bx, by + 80, '[Esc]  Close', {
+      fontSize: '22px', color: '#50c050', fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true })
+
+    const cleanup = () => {
+      box.destroy(); title.destroy(); label.destroy()
+      trackBg.destroy(); trackFill.destroy(); handle.destroy(); zone.destroy()
+      closeBtn.destroy()
+      this.input.off('pointermove', onMove)
+      this.input.off('pointerup',   onUp)
+      this.input.keyboard!.off('keydown-ESC', close)
+      this.inputBlocked = false
+    }
+    const close = () => cleanup()
+
+    closeBtn.on('pointerdown', close)
+    this.input.keyboard!.on('keydown-ESC', close)
+  }
+
   private showQuitConfirm(): void {
     this.inputBlocked = true
 
@@ -2684,6 +2846,7 @@ export class GameScene extends Phaser.Scene {
 
   private gameOver(cause?: string): void {
     this.inputBlocked = true
+    this.stopAllMusic()
 
     const lb = new LeaderboardSystem()
     const AREA_NAMES: Record<string, string> = {

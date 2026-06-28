@@ -50,6 +50,8 @@ export interface ItemDef {
   throwable?: boolean
   lego?: boolean
   heatResistance?: boolean
+  coldResistance?: boolean
+  speedBonus?: number
   weight: number
   value: number
   description: string

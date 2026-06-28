@@ -12,6 +12,7 @@ export class EquipmentSystem {
     inv: ItemInstance[],
     equipment: EquipmentSlots,
     instanceId: string,
+    player?: { speed: number },
   ): boolean {
     const item = inv.find(i => i.instanceId === instanceId)
     if (!item) return false
@@ -39,6 +40,7 @@ export class EquipmentSystem {
       const idx = inv.findIndex(i => i.instanceId === instanceId)
       if (idx !== -1) inv.splice(idx, 1)
       equipment[freeSlot] = item
+      if (player && def.speedBonus) player.speed += def.speedBonus
       this.log.add(`You put on the ${def.name}.`, '#00ff80')
       return true
     }
@@ -47,7 +49,11 @@ export class EquipmentSystem {
     const current = equipment[slot]
 
     if (current) {
-      // Unequip current item back to inventory
+      // Unequip current item back to inventory — remove its speed bonus first
+      if (player) {
+        const currentDef = this.inventory.getDef(current.defId) as ItemDef | undefined
+        if (currentDef?.speedBonus) player.speed -= currentDef.speedBonus
+      }
       inv.push(current)
       this.log.add(`You remove the ${this.inventory.getItemName(current)}.`, '#c0c0c0')
     }
@@ -56,6 +62,7 @@ export class EquipmentSystem {
     const idx = inv.findIndex(i => i.instanceId === instanceId)
     if (idx !== -1) inv.splice(idx, 1)
     equipment[slot] = item
+    if (player && def.speedBonus) player.speed += def.speedBonus
     this.log.add(`You equip the ${def.name}.`, '#00ff80')
     return true
   }
@@ -64,9 +71,14 @@ export class EquipmentSystem {
     inv: ItemInstance[],
     equipment: EquipmentSlots,
     slot: keyof EquipmentSlots,
+    player?: { speed: number },
   ): boolean {
     const item = equipment[slot]
     if (!item) return false
+    if (player) {
+      const def = this.inventory.getDef(item.defId) as ItemDef | undefined
+      if (def?.speedBonus) player.speed -= def.speedBonus
+    }
     equipment[slot] = null
     inv.push(item)
     this.log.add(`You remove the ${this.inventory.getItemName(item)}.`, '#c0c0c0')
