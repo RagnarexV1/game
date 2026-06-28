@@ -204,6 +204,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_lego2',           'assets/items/lego2.png')
     this.load.image('item_lego3',           'assets/items/lego3.png')
     this.load.image('item_propje',          'assets/items/propje.png')
+    this.load.image('item_gompie',          'assets/items/gompie.png')
 
     // Player location indicator for world map
     this.load.image('ui_user_location', 'assets/ui/userLocation.png')

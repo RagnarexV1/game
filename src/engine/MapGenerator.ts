@@ -85,11 +85,14 @@ export function generateForestMap(
   for (const room of ROOMS) carveRoom(map, room)
 
   // Wall some rooms â€” NW and NE maps are open wilderness/lake
+  // cy===2: skip rooms 7 and 9; floor section overwrites their south walls creating half-open ruins
   if (!(cx === 0 && cy === 0) && !(cx === 2 && cy === 0)) {
     wallRoom(map, ROOMS[0], rng)
     wallRoom(map, ROOMS[2], rng)
-    wallRoom(map, ROOMS[7], rng)
-    wallRoom(map, ROOMS[9], rng)
+    if (cy !== 2) {
+      wallRoom(map, ROOMS[7], rng)
+      wallRoom(map, ROOMS[9], rng)
+    }
   }
 
   // Stairs up in room 0
@@ -107,11 +110,18 @@ export function generateForestMap(
   }
 
   // South maps: indoor floor section + bottom wall (cy=2)
+  // Vertical border columns (mountains or exit arrows) are preserved; bottom row fully restored.
   if (cy === 2) {
     const floorStart = Math.floor((2 * H) / 3)  // row 13
-    for (let y = floorStart; y < H - 1; y++)
-      for (let x = 0; x < W; x++)
+    for (let y = floorStart; y < H - 1; y++) {
+      for (let x = 0; x < W; x++) {
+        if (lBerg && x < 2) continue
+        if (rBerg && x >= W - 2) continue
+        if (!lBerg && x === 0) continue
+        if (!rBerg && x === W - 1) continue
         map.setTile(x, y, 'floor')
+      }
+    }
     for (let x = 0; x < W; x++)
       map.setTile(x, H - 1, 'wall_down')
   }
@@ -460,7 +470,7 @@ export function generateGarageBottomMap(map: MapSystem): SpawnPoints {
   map.setTile(40, Math.floor(H / 2), 'portal_cellar')
 
   const monsters = spawnGarageMonsters(map, W, H, rng, { x: 40, y: H - 2 })
-  return { player: { x: 40, y: H - 2 }, monsters, items: [] }
+  return { player: { x: 40, y: H - 2 }, monsters, items: [{ x: 28, y: H - 2, defId: 'gompie' }] }
 }
 
 export function generateCellarMap(map: MapSystem): SpawnPoints {

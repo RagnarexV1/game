@@ -1056,5 +1056,16 @@
     "weight": 2,
     "value": 20,
     "description": "Sturdy green rubber boots. Prevents you from slipping in the mud."
+  },
+  {
+    "id": "gompie",
+    "name": "Gompie",
+    "glyph": "b",
+    "color": "#4499ff",
+    "type": "tool",
+    "slot": null,
+    "weight": 1,
+    "value": 80,
+    "description": "Peter's magical boat enables you to travel over water. When not in use, Gompie folds up and fits in your pocket."
   }
 ]

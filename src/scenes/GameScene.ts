@@ -1813,9 +1813,10 @@ export class GameScene extends Phaser.Scene {
       if (this.worldState.currentArea === 'bathroom_bottom') { this.transitionToArea('cellar'); return }
     }
 
-    // Water: requires Diving skill (must first learn Swimming, then Diving)
+    // Water: requires Diving skill or Gompie boat in inventory
     if (tile?.defId === 'water' || tile?.defId === 'loft_water') {
-      if (this.player.hasSkill('diving')) {
+      const hasBoat = this.player.inventory.some(i => i.defId === 'gompie')
+      if (this.player.hasSkill('diving') || hasBoat) {
         this.player.x = nx
         this.player.y = ny
         this.endPlayerTurn()
