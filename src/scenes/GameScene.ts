@@ -1467,6 +1467,12 @@ export class GameScene extends Phaser.Scene {
         return
       }
 
+      if (event.key === 'V') {
+        event.preventDefault()
+        this.triggerVictory()
+        return
+      }
+
       if (this.locationOverlay) { this.hideLocationOverlay(); return }
 
       if (this.inputBlocked) return
@@ -1956,6 +1962,11 @@ export class GameScene extends Phaser.Scene {
       this.inventory.addToInventory(this.player.inventory, fi.item)
     }
     this.floorItems.splice(this.floorItems.indexOf(fi), 1)
+    if (fi.item.defId === 'gong') {
+      this.messageLog.add('The gong BOOMS! A wave of power washes over the world!', '#ffd700')
+      this.time.delayedCall(1200, () => this.triggerVictory())
+      return
+    }
     const inForestChamber = this.worldState.cx === 1 && this.worldState.cy === 1 &&
         this.worldState.currentArea === null &&
         this.player.x >= 51 && this.player.x <= 57 &&
@@ -2895,6 +2906,12 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-Y',   yes)
     this.input.keyboard!.on('keydown-N',   no)
     this.input.keyboard!.on('keydown-ESC', no)
+  }
+
+  private triggerVictory(): void {
+    this.inputBlocked = true
+    this.stopAllMusic()
+    this.scene.start('VictoryScene')
   }
 
   private gameOver(cause?: string): void {

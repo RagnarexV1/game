@@ -1058,5 +1058,16 @@
     "weight": 2,
     "value": 20,
     "description": "Sturdy green rubber boots. Prevents you from slipping in the mud."
+  },
+  {
+    "id": "gong",
+    "name": "Ancient Gong",
+    "glyph": "G",
+    "color": "#ffd700",
+    "type": "tool",
+    "slot": null,
+    "weight": 10,
+    "value": 999,
+    "description": "A sacred ceremonial gong. Something stirs as you lift it..."
   }
 ]

@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import { BootScene } from './scenes/BootScene'
 import { GameScene } from './scenes/GameScene'
+import { VictoryScene } from './scenes/VictoryScene'
 import { GAME_W, GAME_H } from './ui/Layout'
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -12,7 +13,7 @@ const config: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   antialias: false,
   roundPixels: true,
-  scene: [BootScene, GameScene],
+  scene: [BootScene, GameScene, VictoryScene],
 }
 
 new Phaser.Game(config)

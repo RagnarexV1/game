@@ -1795,7 +1795,7 @@ export function generatePond3Map(map: MapSystem): SpawnPoints {
   // Top border at shaft x — only exit/entry point
   map.setTile(W - 2, 0, 'pond_exit_up')
 
-  return { player: { x: 78, y: 1 }, monsters: [], items: [] }
+  return { player: { x: 78, y: 1 }, monsters: [], items: [{ defId: 'gong', x: 6, y: 15 }] }
 }
 
 export function mutateChaosMap(map: MapSystem, playerX: number, playerY: number): void {
