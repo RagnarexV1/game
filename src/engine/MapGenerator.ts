@@ -151,19 +151,19 @@ export function generateForestMap(
         map.setTile(tx, ty, 'floor')
 
     // North wall
-    map.setTile(50, 6, 'muur_corner_tl_t')
-    map.setTile(58, 6, 'muur_corner_tr_t')
-    for (let x = 51; x <= 57; x++) map.setTile(x, 6, 'muur_up_t')
+    map.setTile(50, 6, 'wall_corner_tl')
+    map.setTile(58, 6, 'wall_corner_tr')
+    for (let x = 51; x <= 57; x++) map.setTile(x, 6, 'wall_up')
 
     // South wall with door gap at x=54
-    map.setTile(50, 11, 'muur_corner_bl_t')
-    map.setTile(58, 11, 'muur_corner_br_t')
+    map.setTile(50, 11, 'wall_corner_bl')
+    map.setTile(58, 11, 'wall_corner_br')
     for (let x = 51; x <= 57; x++)
-      map.setTile(x, 11, x === 54 ? 'muur_door_bottom_t' : 'muur_down_t')
+      map.setTile(x, 11, x === 54 ? 'door_closed' : 'wall_down')
 
     // West and east walls
-    for (let y = 7; y <= 10; y++) map.setTile(50, y, 'muur_left_t')
-    for (let y = 7; y <= 10; y++) map.setTile(58, y, 'muur_right_t')
+    for (let y = 7; y <= 10; y++) map.setTile(50, y, 'wall_left')
+    for (let y = 7; y <= 10; y++) map.setTile(58, y, 'wall_right')
   }
 
   // NW cell: bathroom portal + garage portal near player start (room 4 center)
@@ -1580,17 +1580,17 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
     for (let x = 0; x < W; x++)
       map.setTile(x, y, 'floor')
 
-  map.setTile(0,     0,     'muur_corner_tl_v')
-  map.setTile(W - 1, 0,     'muur_corner_tr_v')
-  map.setTile(0,     H - 1, 'muur_corner_bl_v')
-  map.setTile(W - 1, H - 1, 'muur_corner_br_v')
+  map.setTile(0,     0,     'muur_corner_tl_t')
+  map.setTile(W - 1, 0,     'muur_corner_tr_t')
+  map.setTile(0,     H - 1, 'muur_corner_bl_t')
+  map.setTile(W - 1, H - 1, 'muur_corner_br_t')
   for (let x = 1; x < W - 1; x++) {
-    map.setTile(x, 0,     'muur_up_v')
-    map.setTile(x, H - 1, 'muur_down_v')
+    map.setTile(x, 0,     'muur_up_t')
+    map.setTile(x, H - 1, 'muur_down_t')
   }
   for (let y = 1; y < H - 1; y++) {
-    map.setTile(0,     y, 'muur_left_v')
-    map.setTile(W - 1, y, 'muur_right_v')
+    map.setTile(0,     y, 'muur_left_t')
+    map.setTile(W - 1, y, 'muur_right_t')
   }
 
   const midX = Math.floor(W / 2)
@@ -1656,17 +1656,20 @@ export function generatePond1Map(map: MapSystem): SpawnPoints {
     for (let y = 1; y <= 17; y++)
       map.setTile(x, y, 'water')
 
-  // Right section x=64..78: void wall with narrow bottom passage only
-  for (let x = 64; x <= 78; x++)
+  // Right section x=64..68: 3-tile passage connecting drop zone
+  for (let x = 64; x <= 68; x++)
     for (let y = 15; y <= 17; y++)
       map.setTile(x, y, 'water')
+
+  // Right section x=69..78: narrows to 1-tile passage matching pond2 entry
+  for (let x = 69; x <= 78; x++)
+    map.setTile(x, 16, 'water')
 
   // Left edge: exit back to overworld
   map.setTile(0, 1, 'pond_exit')
 
-  // Right edge: arrow passage to pond2
-  for (let y = 15; y <= 17; y++)
-    map.setTile(W - 1, y, 'pond_exit_right')
+  // Right edge: single-tile arrow to pond2
+  map.setTile(W - 1, 16, 'pond_exit_right')
 
   return { player: { x: 1, y: 1 }, monsters: [], items: [] }
 }
@@ -1724,15 +1727,15 @@ export function generatePond2Map(map: MapSystem): SpawnPoints {
   const lCX = last.x + Math.floor(last.w / 2)
   const lCY = last.y + Math.floor(last.h / 2)
   for (let x = lCX; x <= W - 2; x++) map.setTile(x, lCY, 'water')
-  for (let y = lCY; y <= H - 3; y++) map.setTile(W - 2, y, 'water')
+  for (let y = lCY; y <= H - 2; y++) map.setTile(W - 2, y, 'water')
 
   // Entry: step left from x=1 onto x=0 to return to pond1
   map.setTile(0, fCY, 'pond_exit_left')
 
-  // Exit: arrows at bottom-right leading to pond3
-  for (let y = H - 3; y <= H - 2; y++) map.setTile(W - 1, y, 'pond_exit_right')
+  // Exit: down arrow at bottom border → pond3
+  map.setTile(W - 2, H - 1, 'pond_exit_down')
 
-  return { player: { x: fCX, y: fCY }, monsters: [], items: [] }
+  return { player: { x: 1, y: fCY }, monsters: [], items: [] }
 }
 
 export function generatePond3Map(map: MapSystem): SpawnPoints {
@@ -1743,42 +1746,37 @@ export function generatePond3Map(map: MapSystem): SpawnPoints {
     for (let x = 0; x < W; x++)
       map.setTile(x, y, 'void')
 
-  // Right entry shaft (full height)
-  for (let y = 1; y <= H - 2; y++)
-    for (let x = 71; x <= W - 2; x++)
+  // Right entry shaft: 1 tile wide at top, broadens 1/row to full 8 tiles by y=8
+  for (let y = 1; y <= H - 2; y++) {
+    const w = Math.min(8, y)
+    for (let x = W - 1 - w; x <= W - 2; x++)
       map.setTile(x, y, 'water')
+  }
 
-  // Zigzag tunnel: starts near bottom of shaft, winds up-left to bell entrance.
-  // Segments alternate horizontal/vertical with varying width.
-
-  // Seg A: horizontal, width 2 — exits shaft bottom left
-  for (let y = 13; y <= 14; y++)
-    for (let x = 48; x <= 71; x++)
-      map.setTile(x, y, 'water')
-
-  // Seg B: vertical, width 2 — climbs up
-  for (let x = 48; x <= 49; x++)
-    for (let y = 9; y <= 14; y++)
-      map.setTile(x, y, 'water')
-
-  // Seg C: horizontal, width 3 — wide passage going left
-  for (let y = 8; y <= 10; y++)
-    for (let x = 26; x <= 49; x++)
-      map.setTile(x, y, 'water')
-
-  // Seg D: vertical, width 1 — narrow squeeze going up
-  for (let y = 5; y <= 9; y++)
-    map.setTile(26, y, 'water')
-
-  // Seg E: horizontal, width 2 — approaches bell entrance
-  for (let y = 4; y <= 5; y++)
-    for (let x = 9; x <= 26; x++)
-      map.setTile(x, y, 'water')
-
-  // Seg F: vertical, width 2 — final climb into bell top
-  for (let x = 9; x <= 10; x++)
-    for (let y = 2; y <= 5; y++)
-      map.setTile(x, y, 'water')
+  // Organic tunnel: bottom of shaft (70,15) → top-center of bell (12,4)
+  {
+    const rng = seededRng(103)
+    const x0 = 70, y0 = 15, x1 = 12, y1 = 4
+    const dx = x1 - x0, dy = y1 - y0
+    const len = Math.sqrt(dx * dx + dy * dy)
+    const perpX = -dy / len
+    const perpY =  dx / len
+    const STEPS = 120
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS
+      const meander = Math.sin(t * Math.PI * 4) * 2.8
+      const cx = Math.round(x0 + dx * t + perpX * meander)
+      const cy = Math.round(y0 + dy * t + perpY * meander)
+      const r = 1.2 + rng() * 0.9
+      for (let oy = -2; oy <= 2; oy++)
+        for (let ox = -2; ox <= 2; ox++)
+          if (ox * ox + oy * oy <= r * r) {
+            const tx = cx + ox, ty = cy + oy
+            if (tx >= 1 && tx < W - 1 && ty >= 1 && ty < H - 1)
+              map.setTile(tx, ty, 'water')
+          }
+    }
+  }
 
   // Bell chamber: narrow top at y=4 (x=6-20), expands to broad flat bottom at y=13-17
   for (let y = 4; y <= H - 3; y++) {
@@ -1794,9 +1792,8 @@ export function generatePond3Map(map: MapSystem): SpawnPoints {
       map.setTile(x, y, 'water')
   }
 
-  // Exit: right edge → pond1
-  for (let y = 1; y <= H - 2; y++)
-    map.setTile(W - 1, y, 'pond_exit_up')
+  // Top border at shaft x — only exit/entry point
+  map.setTile(W - 2, 0, 'pond_exit_up')
 
   return { player: { x: 78, y: 1 }, monsters: [], items: [] }
 }

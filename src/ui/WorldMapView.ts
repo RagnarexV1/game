@@ -48,6 +48,8 @@ export class WorldMapView {
   private offsetX: number
   private offsetY: number
 
+  groundDecorations: Array<{ tx: number; ty: number; key: string }> = []
+
   constructor(
     private scene: Phaser.Scene,
     private x: number,
@@ -157,6 +159,14 @@ export class WorldMapView {
       const spriteKey = ITEM_TYPE_SPRITES[fi.item.defId] ?? 'inv_null'
       if (!this.scene.textures.exists(spriteKey)) continue
       const img = this.scene.add.image(ox + fi.x * ts, oy + fi.y * ts, spriteKey)
+        .setOrigin(0, 0).setDisplaySize(ts, ts).setDepth(2)
+      this.itemPool.push(img)
+    }
+    for (const dec of this.groundDecorations) {
+      const tile = this.map.getTile(dec.tx, dec.ty)
+      if (torchlightOnly ? !tile?.visible : !tile?.explored) continue
+      if (!this.scene.textures.exists(dec.key)) continue
+      const img = this.scene.add.image(ox + dec.tx * ts, oy + dec.ty * ts, dec.key)
         .setOrigin(0, 0).setDisplaySize(ts, ts).setDepth(2)
       this.itemPool.push(img)
     }

@@ -595,6 +595,14 @@ export class GameScene extends Phaser.Scene {
       : area === 'pond3'                ? generatePond3Map(this.mapSystem)
       :                                      generateUndergroundMap(this.mapSystem, this.worldState.ucx, this.worldState.ucy, this.worldState.UGRID, this.worldState.undergroundSeed)
 
+    if (area === 'pond3') {
+      const gongDec = [{ tx: 6, ty: 15, key: 'item_gong' }]
+      this.localMapView.groundDecorations = gongDec
+      this.worldMapView.groundDecorations = [{ tx: 6, ty: 15, key: 'inv_tool' }]
+    } else {
+      this.worldMapView.groundDecorations = []
+    }
+
     if (!this.tryRestoreFromSnapshot(this.areaKey(area))) {
       this.spawnEntities(result.monsters, result.items)
     }
@@ -1856,11 +1864,14 @@ export class GameScene extends Phaser.Scene {
     }
     if (tile?.defId === 'pond_exit_right') {
       if (this.worldState.currentArea === 'pond1') { this.transitionToArea('pond2'); return }
-      if (this.worldState.currentArea === 'pond2') { this.transitionToArea('pond3', undefined, undefined, { x: 72, y: 2 }); return }
+      return
+    }
+    if (tile?.defId === 'pond_exit_down') {
+      if (this.worldState.currentArea === 'pond2') { this.transitionToArea('pond3', undefined, undefined, { x: 78, y: 1 }); return }
       return
     }
     if (tile?.defId === 'pond_exit_up') {
-      if (this.worldState.currentArea === 'pond3') { this.transitionToArea('pond2', undefined, undefined, { x: 78, y: 17 }); return }
+      if (this.worldState.currentArea === 'pond3') { this.transitionToArea('pond2', undefined, undefined, { x: 78, y: 18 }); return }
       this.transitionToArea('pond1', undefined, undefined, { x: 77, y: 16 }); return
     }
     if (tile?.defId === 'pond_exit_left') {
@@ -2493,9 +2504,14 @@ export class GameScene extends Phaser.Scene {
 
   private updateFOV(): void {
     if (this.worldState.currentArea === 'stairs') return  // always fully visible
-    const isGarage = this.worldState.currentArea === 'garage_top' || this.worldState.currentArea === 'garage_bottom'
-    const isCellar = this.worldState.currentArea === 'cellar'
-    this.mapSystem.computeFOV(this.player.x, this.player.y, (isGarage || isCellar) ? 3 : 5)
+    const area = this.worldState.currentArea
+    const isGarage = area === 'garage_top' || area === 'garage_bottom'
+    const isCellar = area === 'cellar'
+    const radius = (isGarage || isCellar) ? 3
+      : area === 'pond3' ? 3
+      : area === 'pond2' ? 4
+      : 5
+    this.mapSystem.computeFOV(this.player.x, this.player.y, radius)
   }
 
   // ─── Monster helpers ────────────────────────────────────────────────────────
