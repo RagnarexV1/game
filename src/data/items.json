@@ -1069,5 +1069,16 @@
     "weight": 10,
     "value": 999,
     "description": "A sacred ceremonial gong. Something stirs as you lift it..."
+  },
+  {
+    "id": "gompie",
+    "name": "Gompie",
+    "glyph": "g",
+    "color": "#80c0ff",
+    "type": "tool",
+    "slot": null,
+    "weight": 1,
+    "value": 10,
+    "description": "A small blue figure. It looks like it might be useful somehow."
   }
 ]

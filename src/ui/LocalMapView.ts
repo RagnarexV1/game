@@ -221,6 +221,7 @@ const ITEM_SPRITES: Record<string, string> = {
   lego3:            'item_lego3',
   propje:           'item_propje',
   gong:             'item_gong',
+  gompie:           'item_gompie',
 }
 
 const MONSTER_SPRITES: Record<string, string> = {

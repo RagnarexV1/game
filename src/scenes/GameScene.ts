@@ -479,10 +479,8 @@ export class GameScene extends Phaser.Scene {
       this.turnManager.addActor(companion)
     }
 
-    const label = { right: 'east', left: 'west', down: 'south', up: 'north' }
     const {cx, cy} = this.worldState
     const realm = (cx === 0 && cy === 1) ? 'Mispelheim' : 'Garden'
-    this.messageLog.add(`You travel ${label[fromDir]}.`, '#00c0ff')
     this.statsPanel.setRealm(realm)
     this.endPlayerTurn()
   }
@@ -548,11 +546,6 @@ export class GameScene extends Phaser.Scene {
       this.turnManager.addActor(companion)
     }
 
-    const label = { right: 'east', left: 'west', down: 'south', up: 'north' }
-    this.messageLog.add(
-      `You move ${label[fromDir]} underground. Cell (${this.worldState.ucx+1},${this.worldState.ucy+1}) of ${this.worldState.UGRID}×${this.worldState.UGRID}`,
-      '#a060c0',
-    )
     this.statsPanel.setRealm('Hall')
     this.endPlayerTurn()
   }
@@ -794,7 +787,7 @@ export class GameScene extends Phaser.Scene {
         for (const { dx, dy } of dirs) {
           const nx = x + dx, ny = y + dy
           const t = this.mapSystem.getTile(nx, ny)
-          if (!t || !this.mapSystem.isWalkable(nx, ny) || noFlood.has(t.defId)) continue
+          if (!t || t.defId !== 'tegel_wit' || !this.mapSystem.isWalkable(nx, ny) || noFlood.has(t.defId)) continue
           const k = `${nx},${ny}`
           if (seen.has(k)) continue
           seen.add(k)

@@ -361,8 +361,9 @@ export function generateBathroomBottomMap(map: MapSystem): SpawnPoints {
   // Tap on left border, stopper 4 tiles right, initial small pool
   map.setTile(1, 9,  'kraan')
   map.setTile(2, 8,  'water_bath')
-  map.setTile(2, 9,  'vortex_portal')
+  map.setTile(2, 9,  'water_bath')
   map.setTile(2, 10, 'water_bath')
+  map.setTile(3, 9,  'vortex_portal')
 
   return {
     player: { x: 40, y: H - 2 },
@@ -552,13 +553,12 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
   const H = map.height
   const rng = seededRng(70)
 
-  // Fill all with loft_wall
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
       map.setTile(x, y, 'loft_wall')
 
-  // DFS maze: each cell is a 2Ã—2 block; 1-tile walls between cells â†’ 2-wide corridors
-  // Cell (cx,cy) occupies tiles (1+3*cx, 1+3*cy)..(2+3*cx, 2+3*cy)
+  // 2x2 floor cells, 1-tile walls: cell (cx,cy) -> 4 tiles at (1+3*cx..2+3*cx, 1+3*cy..2+3*cy)
+  // 26 columns x 6 rows = 156 cells; all corridors 2 tiles wide
   const cellW = Math.floor((W - 1) / 3)  // 26
   const cellH = Math.floor((H - 1) / 3)  // 6
   const visited = new Array(cellW * cellH).fill(false)
@@ -572,12 +572,10 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
 
   const carvePassage = (cx: number, cy: number, nx: number, ny: number) => {
     if (nx !== cx) {
-      // horizontal passage: 1 col Ã— 2 rows
       const wx = 3 + 3 * Math.min(cx, nx)
       map.setTile(wx, 1 + 3 * cy, 'loft_floor')
       map.setTile(wx, 2 + 3 * cy, 'loft_floor')
     } else {
-      // vertical passage: 2 cols Ã— 1 row
       const wy = 3 + 3 * Math.min(cy, ny)
       map.setTile(1 + 3 * cx, wy, 'loft_floor')
       map.setTile(2 + 3 * cx, wy, 'loft_floor')
@@ -585,10 +583,17 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
   }
 
   const DIRS = [{dx: 0, dy: -1}, {dx: 1, dy: 0}, {dx: 0, dy: 1}, {dx: -1, dy: 0}]
+
+  // Pre-reserve exit cell so DFS leaves it as the final leaf - player must traverse
+  // nearly the whole maze before reaching it.
+  const exitCx = 14, exitCy = 0
+  visited[exitCy * cellW + exitCx] = true
+
+  // DFS from bottom-right; bias directions away from exit so far corners fill first.
   const stack: Array<{cx: number; cy: number}> = []
-  visited[0] = true
-  carveCell(0, 0)
-  stack.push({cx: 0, cy: 0})
+  visited[(cellH - 1) * cellW + (cellW - 1)] = true
+  carveCell(cellW - 1, cellH - 1)
+  stack.push({cx: cellW - 1, cy: cellH - 1})
 
   while (stack.length > 0) {
     const {cx, cy} = stack[stack.length - 1]
@@ -597,6 +602,11 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
       const j = Math.floor(rng() * (i + 1))
       const tmp = dirs[i]; dirs[i] = dirs[j]; dirs[j] = tmp
     }
+    dirs.sort((a, b) => {
+      const da = Math.abs(cx + a.dx - exitCx) + Math.abs(cy + a.dy - exitCy)
+      const db = Math.abs(cx + b.dx - exitCx) + Math.abs(cy + b.dy - exitCy)
+      return db - da
+    })
     let moved = false
     for (const {dx, dy} of dirs) {
       const nx = cx + dx, ny = cy + dy
@@ -612,14 +622,46 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
     if (!moved) stack.pop()
   }
 
-  // Exit: two tiles at top border centre, approach row forced to floor
+  // Connect exit as final leaf off (14,1)
+  carveCell(exitCx, exitCy)
+  carvePassage(exitCx, exitCy + 1, exitCx, exitCy)
+
+  // Force exit approach and arrows
   map.setTile(44, 1, 'loft_floor')
   map.setTile(45, 1, 'loft_floor')
   map.setTile(44, 0, 'loft_exit')
   map.setTile(45, 0, 'loft_exit')
-  const playerPos = {x: 1, y: 1}
 
-  // Scatter water, trees and items â€” pick random carved floor tiles via rng
+  // --- Stub pass: add short dead-end nooks throughout the maze ---
+  // Corner tiles sit at the intersection of 4 cells and are always walled in the base DFS.
+  // When exactly 1 of their 4 neighbours is floor they become a clean 1-tile dead end stub.
+  const isFloor = (x: number, y: number) => map.getTile(x, y)?.defId === 'loft_floor'
+  for (let cy2 = 0; cy2 < cellH - 1; cy2++) {
+    for (let cx2 = 0; cx2 < cellW - 1; cx2++) {
+      const tx = 3 + 3 * cx2
+      const ty = 3 + 3 * cy2
+      const adj = (isFloor(tx, ty - 1) ? 1 : 0) + (isFloor(tx, ty + 1) ? 1 : 0)
+              + (isFloor(tx - 1, ty) ? 1 : 0) + (isFloor(tx + 1, ty) ? 1 : 0)
+      if (adj === 1 && rng() < 0.72) map.setTile(tx, ty, 'loft_floor')
+    }
+  }
+  // Right-border stubs: single tile alcove off rightmost cells (x=78 strip)
+  for (let y = 1; y < H - 1; y++) {
+    if (isFloor(77, y) && !isFloor(78, y) && !isFloor(78, y - 1) && !isFloor(78, y + 1) && rng() < 0.55)
+      map.setTile(78, y, 'loft_floor')
+  }
+  // Bottom-border stubs: single tile alcove below bottom-row cells (y=18 strip)
+  for (let x = 1; x < W - 1; x++) {
+    if (isFloor(x, 17) && !isFloor(x, 18) && !isFloor(x - 1, 18) && !isFloor(x + 1, 18) && rng() < 0.55)
+      map.setTile(x, 18, 'loft_floor')
+  }
+
+  // Player starts bottom-right corner
+  const playerPos = {x: 77, y: 17}
+
+  // Testing return portal: right border tile adjacent to player start
+  map.setTile(78, 17, 'loft_exit')
+
   const pickFloor = (skipX: number, skipY: number, radius: number): {x: number; y: number} | null => {
     for (let attempt = 0; attempt < 300; attempt++) {
       const tx = 1 + Math.floor(rng() * (W - 2))
@@ -631,22 +673,18 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
     return null
   }
 
-  // 5 legoBlue water tiles spread away from player start
   for (let i = 0; i < 5; i++) {
-    const pos = pickFloor(1, 1, 6)
+    const pos = pickFloor(playerPos.x, playerPos.y, 6)
     if (pos) map.setTile(pos.x, pos.y, 'loft_water')
   }
-
-  // 4 trees spread across the map
   for (let i = 0; i < 4; i++) {
-    const pos = pickFloor(1, 1, 4)
+    const pos = pickFloor(playerPos.x, playerPos.y, 4)
     if (pos) map.setTile(pos.x, pos.y, 'loft_tree')
   }
 
-  // Lego brick items: one of each colour
   const legoItems: Array<{x: number; y: number; defId: string; qty: number}> = []
   for (const defId of ['lego1', 'lego2', 'lego3']) {
-    const pos = pickFloor(1, 1, 3)
+    const pos = pickFloor(playerPos.x, playerPos.y, 3)
     if (pos) legoItems.push({x: pos.x, y: pos.y, defId, qty: 1})
   }
 
