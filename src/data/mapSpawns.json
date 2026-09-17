@@ -3,7 +3,6 @@
     "cx": 0, "cy": 0,
     "comment": "NW — open wilderness, geen gebouwen",
     "monsters": [
-      { "x": 68, "y": 17, "defId": "paard", "message": "Neigh! Bring me some grass, I'm famished!" },
       { "x": 68, "y": 16, "defId": "ericgras"           },
       { "x": 63, "y":  6, "defId": "eric"  },
       { "x": 73, "y":  6, "defId": "peter" },
@@ -12,8 +11,6 @@
       { "x": 71, "y":  9, "defId": "mar"   },
       { "x": 67, "y":  9, "defId": "cactus"             },
       { "x": 68, "y":  9, "defId": "car"                },
-      { "x": 12, "y":  6, "defId": "wolf"   },
-      { "x": 38, "y": 11, "defId": "wolf"   },
       { "x": 22, "y":  5, "defId": "rat"    },
       { "x": 55, "y": 14, "defId": "kobold" },
       { "x": 44, "y":  9, "defId": "rat"     },
@@ -30,8 +27,7 @@
       { "x": 67, "y":  3, "defId": "postzegelStoom"     },
       { "x": 70, "y":  3, "defId": "scroll_blank"       },
       { "x": 72, "y":  3, "defId": "relic_scroll_1"     },
-      { "x": 52, "y":  4, "defId": "short_sword"        },
-      { "x": 56, "y":  4, "defId": "long_sword"         },
+      { "x": 52, "y":  4, "defId": "branch"        },
       { "x": 63, "y":  4, "defId": "leather_armor"      },
       { "x": 64, "y":  4, "defId": "rubberboots"      },
       { "x": 66, "y":  4, "defId": "chain_mail"         },
@@ -72,7 +68,7 @@
       { "x": 65, "y": 16, "defId": "ring_famine"             },
       { "x": 66, "y": 18, "defId": "silversword"             },
       { "x": 67, "y": 18, "defId": "wand"             },
-      { "x": 68, "y": 18, "defId": "dagger"             },
+      { "x": 68, "y": 18, "defId": "knife"             },
       { "x":  8, "y":  7, "defId": "madelief" },
       { "x": 18, "y":  4, "defId": "madelief" },
       { "x": 30, "y": 10, "defId": "madelief" },
@@ -130,7 +126,6 @@
     ],
     "items": [
       { "x": 55, "y":  5, "defId": "chain_mail"             },
-      { "x": 66, "y": 15, "defId": "long_sword"             },
       { "x": 60, "y":  4, "defId": "gold_coin", "qty": 40   },
       { "x": 70, "y": 15, "defId": "health_potion"          }
     ]
@@ -150,7 +145,7 @@
       { "x":  6, "y":  5, "defId": "health_potion" },
       { "x":  9, "y": 15, "defId": "health_potion" },
       { "x": 40, "y":  7, "defId": "health_potion" },
-      { "x": 21, "y": 14, "defId": "dagger"        },
+      { "x": 21, "y": 14, "defId": "knife"        },
       { "x": 19, "y":  4, "defId": "gold_coin", "qty": 20 },
       { "x":  5, "y":  6, "defId": "mispel" },
       { "x": 12, "y":  8, "defId": "mispel" },
@@ -188,17 +183,15 @@
       { "x": 50, "y": 13, "defId": "wildboar"    }
     ],
     "items": [
-      { "x":  6, "y":  5, "defId": "short_sword"   },
+      { "x":  6, "y":  5, "defId": "branch"   },
       { "x": 10, "y":  6, "defId": "leather_armor" },
-      { "x": 36, "y":  6, "defId": "long_sword"    },
       { "x": 40, "y":  5, "defId": "chain_mail"    },
       { "x":  6, "y": 14, "defId": "health_potion" },
       { "x": 40, "y":  7, "defId": "health_potion" },
       { "x": 19, "y":  4, "defId": "gold_coin", "qty": 50 },
       { "x": 67, "y":  5, "defId": "gold_coin", "qty": 30 },
-      { "x": 51, "y":  7, "defId": "dagger"         },
-      { "x": 52, "y":  7, "defId": "short_sword"    },
-      { "x": 53, "y":  7, "defId": "long_sword"     },
+      { "x": 51, "y":  7, "defId": "knife"         },
+      { "x": 52, "y":  7, "defId": "branch"    },
       { "x": 55, "y":  7, "defId": "silversword"    },
       { "x": 56, "y":  7, "defId": "katana"         },
       { "x": 57, "y":  7, "defId": "mace"           },
@@ -238,7 +231,6 @@
       { "x": 10, "y": 14, "defId": "rat"      }
     ],
     "items": [
-      { "x": 36, "y":  6, "defId": "long_sword"    },
       { "x": 40, "y":  5, "defId": "chain_mail"    },
       { "x": 66, "y": 15, "defId": "health_potion" },
       { "x": 50, "y":  4, "defId": "gold_coin", "qty": 45 },
@@ -285,7 +277,6 @@
       { "x": 12, "y":  8, "defId": "rat"     }
     ],
     "items": [
-      { "x":  6, "y":  5, "defId": "long_sword"    },
       { "x": 36, "y":  6, "defId": "chain_mail"    },
       { "x": 66, "y": 15, "defId": "chain_mail"    },
       { "x": 40, "y":  7, "defId": "health_potion" },
@@ -306,7 +297,6 @@
       { "x": 30, "y":  8, "defId": "rat"     }
     ],
     "items": [
-      { "x": 36, "y":  6, "defId": "long_sword"    },
       { "x": 40, "y":  5, "defId": "chain_mail"    },
       { "x": 66, "y": 15, "defId": "health_potion" },
       { "x":  9, "y": 15, "defId": "health_potion" },

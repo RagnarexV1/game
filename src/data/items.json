@@ -37,32 +37,33 @@
     "description": "A flippo that flies through the air with deadly precision."
   },
   {
-    "id": "short_sword",
-    "name": "Short Sword",
+    "id": "branch",
+    "name": "Branch",
     "glyph": ")",
-    "color": "#c0c0ff",
+    "color": "#8a5a32",
     "type": "weapon",
     "slot": "weapon",
-    "damage": 6,
-    "weight": 3,
-    "value": 50,
-    "description": "A simple iron short sword."
+    "damage": 2,
+    "weight": 1,
+    "value": 1,
+    "description": "A weak tree branch. Better than nothing."
   },
   {
-    "id": "long_sword",
-    "name": "Long Sword",
+    "id": "mjollnir",
+    "name": "Mjollnir",
     "glyph": ")",
     "color": "#8080ff",
     "type": "weapon",
     "slot": "weapon",
-    "damage": 10,
+    "relic": true,
+    "damage": 40,
     "weight": 5,
-    "value": 120,
-    "description": "A well-balanced iron long sword."
+    "value": 9999,
+    "description": "A god-forged hammer humming with thunder. Legends say only the worthy can wield it."
   },
   {
-    "id": "dagger",
-    "name": "Dagger",
+    "id": "knife",
+    "name": "Knife",
     "glyph": ")",
     "color": "#ffffff",
     "type": "weapon",
@@ -727,7 +728,8 @@
     "defense": 1,
     "weight": 2,
     "value": 55,
-    "description": "A flowing red cape that grants minor protection."
+    "heatResistance": true,
+    "description": "A flowing red cape that grants minor protection and wards off heat."
   },
   {
     "id": "ring",
@@ -1071,6 +1073,17 @@
     "description": "A sacred ceremonial gong. Something stirs as you lift it..."
   },
   {
+    "id": "gongmallet",
+    "name": "Gong Mallet",
+    "glyph": "/",
+    "color": "#c08040",
+    "type": "tool",
+    "slot": null,
+    "weight": 1,
+    "value": 0,
+    "description": "A pair of mallets used to sound the magical Green Gong."
+  },
+  {
     "id": "gompie",
     "name": "Gompie",
     "glyph": "g",
@@ -1079,6 +1092,6 @@
     "slot": null,
     "weight": 1,
     "value": 10,
-    "description": "A small blue figure. It looks like it might be useful somehow."
+    "description": "An inflatable boat. It fits in your pocket!"
   }
 ]

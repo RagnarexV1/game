@@ -156,7 +156,7 @@ export class VictoryScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.scene.start('GameScene'))
+      .on('pointerdown', () => { this.sound.stopAll(); this.scene.start('GameScene') })
 
     this.add.text(cx, GAME_H - 24, 'Press R to return to start', {
       fontSize: '18px',
@@ -164,7 +164,7 @@ export class VictoryScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0.5).setDepth(10)
 
-    this.input.keyboard!.on('keydown-R', () => this.scene.start('GameScene'))
+    this.input.keyboard!.on('keydown-R', () => { this.sound.stopAll(); this.scene.start('GameScene') })
   }
 
   update(_time: number, delta: number): void {

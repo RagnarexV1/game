@@ -100,19 +100,19 @@ export class SelfScreen {
     if (hasItemCold && !hasColdSkill) resistances.push(SKILL_META.cold_resistance.label)
 
     // Section content — columns in original image: 12, 165, 320, 478
-    const SY = Y(132)
     const LH = Y(13)
+    const SY = Y(132) + 2 * LH
 
-    const addList = (origX: number, items: string[]) =>
-      items.forEach((item, i) => txt(X(origX), SY + i * LH, item))
+    const addList = (origX: number, items: string[], xOffset = 0) =>
+      items.forEach((item, i) => txt(X(origX) + xOffset, SY + i * LH, item))
 
     addList(12,  player.diagnostics)
     addList(185, skills)
     addList(320, powers)
-    addList(478, abilities)
+    addList(478, abilities, 33)
 
     // Resistances sub-section (in Powers column, lower half)
-    resistances.forEach((r, i) => txt(X(330), Y(325) + i * LH, r))
+    resistances.forEach((r, i) => txt(X(330), Y(325) + (i + 1) * LH, r))
 
     this.container = c
   }

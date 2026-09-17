@@ -71,13 +71,21 @@ export class Monster {
     const dy = this.player.y - this.y
     const dist = Math.abs(dx) + Math.abs(dy)
 
+    if (this.defId === 'paard' && this.aiType !== 'follow') {
+      const tx = this.player.x
+      if (tx !== this.x && this.map.isWalkable(tx, this.y) && this.getMonsterAt(tx, this.y) === null) {
+        this.moveTo(tx, this.y)
+      }
+      return
+    }
+
     if (this.aiType === 'water_wander') {
       this.wanderOnWater()
     } else if (this.aiType === 'water_chase') {
       if (dist <= 14) this.chasePlayerOnWater(dx, dy)
       else this.wanderOnWater()
     } else if (this.aiType === 'follow') {
-      this.followPlayer(dx, dy)
+      this.followPlayer(dx, dy, this.defId === 'paard' ? 2 : 3)
     } else if (this.aiType === 'friendly') {
       this.wander()
     } else if (this.aiType === 'kamikaze') {
@@ -157,7 +165,7 @@ export class Monster {
     'portal', 'portal_garage', 'portal_underground', 'portal_chaos',
     'portal_bedroom', 'portal_stairs', 'portal_stairs_up', 'portal_cellar', 'portal_loft', 'portal_loft3', 'portal_study', 'portal_pantry',
     'bedroom_exit', 'bedroom_stairs_down', 'bedroom_stairs_up',
-    'stairs_exit', 'crypt', 'cellar_exit', 'vortex_portal', 'loft_exit', 'loft3_exit', 'study_exit', 'pantry_exit',
+    'stairs_exit_down', 'stairs_exit_up', 'crypt', 'cellar_exit', 'vortex_portal', 'loft_exit', 'loft3_exit', 'study_exit', 'pantry_exit',
   ])
 
   private canMoveTo(nx: number, ny: number): boolean {
@@ -219,9 +227,9 @@ export class Monster {
     this.wanderOnWater()
   }
 
-  private followPlayer(dx: number, dy: number): void {
+  private followPlayer(dx: number, dy: number, preferredRange = 3): void {
     const chebDist = Math.max(Math.abs(dx), Math.abs(dy))
-    if (chebDist <= 3) return  // within preferred range, stay put
+    if (chebDist <= preferredRange) return  // within preferred range, stay put
     // Too far — close the gap (never attack player)
     const moves: Array<[number, number]> = [
       [this.x + Math.sign(dx), this.y + Math.sign(dy)],

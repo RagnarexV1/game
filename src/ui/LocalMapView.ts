@@ -34,6 +34,7 @@ const TILE_SPRITES: Record<string, string> = {
   wall:         'terrain_wall_x',
   berg:         'terrain_berg',
   water:        'terrain_water',
+  waterbodem:   'terrain_waterbodem',
   tree:         'terrain_tree',
   tree_dead:    'terrain_tree_dead',
   door_closed:  'terrain_door',
@@ -64,7 +65,7 @@ const TILE_SPRITES: Record<string, string> = {
   wcrol:            'terrain_wcrol',
   water_bath:       'terrain_water',
   exit_bathroom:    'terrain_door',
-  bath_exit_left:   'terrain_door',
+  bath_exit_left:   'terrain_next_left',
   bath_exit_down:   'terrain_next_down',
   bath_exit_up:     'terrain_next_up',
   portal:           'terrain_portal',
@@ -75,6 +76,7 @@ const TILE_SPRITES: Record<string, string> = {
   portal_garage:        'terrain_portal',
   portal_underground:   'terrain_portal',
   hall_wall:            'terrain_hall_wall',
+  underground_exit_up: 'terrain_next_up',
   vulkaan:              'terrain_vulkaan',
   portal_chaos:         'terrain_portal',
   tapijt3:              'terrain_tapijt3',
@@ -101,8 +103,9 @@ const TILE_SPRITES: Record<string, string> = {
   bedroom_exit:         'terrain_portal',
   portal_bedroom:       'terrain_portal',
   portal_stairs:        'terrain_portal',
-  portal_stairs_up:     'terrain_portal',
-  stairs_exit:          'terrain_stairs_up',
+  portal_stairs_up:     'terrain_stairs_up',
+  stairs_exit_down:     'terrain_next_down',
+  stairs_exit_up:       'terrain_next_up',
   bedroom_stairs_down:  'terrain_next_down',
   bedroom_stairs_up:    'terrain_next_up',
   kitchen_tile1:        'terrain_kitchen_tile1',
@@ -133,6 +136,14 @@ const TILE_SPRITES: Record<string, string> = {
   study_pool:           'terrain_water',
   study_pool_green:     'terrain_water_green',
   study_pool_yellow:    'terrain_water_yellow',
+  driveway:                 'terrain_mud',
+  garage_portal_driveway:   'terrain_portal',
+  hall_portal_driveway:     'terrain_portal',
+  bedroom_portal_driveway:  'terrain_portal',
+  driveway_exit_garage:     'terrain_next_up',
+  driveway_exit_hall:       'terrain_next_up',
+  driveway_exit_balcony:    'terrain_next_up',
+  garage_exit_driveway:     'terrain_next_down',
 }
 
 const ITEM_SPRITES: Record<string, string> = {
@@ -164,6 +175,8 @@ const ITEM_SPRITES: Record<string, string> = {
   transformation_potion:  'item_potion',
   mystery_potion:         'item_potion',
   empty_vial:          'item_emptyvial',
+  branch:           'item_branch',
+  knife:            'item_knife',
   bijl:             'item_axe',
   tuinschaar:       'item_tuinschaar',
   kruk:             'item_kruk',
@@ -222,6 +235,7 @@ const ITEM_SPRITES: Record<string, string> = {
   propje:           'item_propje',
   gong:             'item_gong',
   gompie:           'item_gompie',
+  mjollnir:         'item_mjollnir',
 }
 
 const MONSTER_SPRITES: Record<string, string> = {
@@ -291,6 +305,7 @@ type RenderObject = Phaser.GameObjects.GameObject
 export class LocalMapView {
   private pool: RenderObject[] = []
   private bg: Phaser.GameObjects.Graphics
+  private _isBedroomMap = false
 
   constructor(
     private scene: Phaser.Scene,
@@ -422,7 +437,29 @@ export class LocalMapView {
     const mapH = this.map.height
 
     // In underground the background is hall_wall; use it as base fallback instead of grass
-    const bgBase = this.map.getTile(0, 0)?.defId === 'hall_wall' ? 'terrain_hall_wall' : 'terrain_grass'
+    let isBathroomMap = false
+    let isBedroomMap = false
+    for (let ty = 0; ty < mapH && !isBathroomMap; ty++)
+      for (let tx = 0; tx < mapW && !isBathroomMap; tx++) {
+        const d = this.map.getTile(tx, ty)?.defId
+        if (d === 'tegel_wit' || d === 'tegel_bruin') isBathroomMap = true
+      }
+    for (let ty = 0; ty < mapH && !isBedroomMap; ty++)
+      for (let tx = 0; tx < mapW && !isBedroomMap; tx++) {
+        if (this.map.getTile(tx, ty)?.defId === 'tapijt3') isBedroomMap = true
+      }
+    if (isBedroomMap) isBathroomMap = false
+    this._isBedroomMap = isBedroomMap
+    let isStudyMap = false
+    for (let ty = 0; ty < mapH && !isStudyMap; ty++)
+      for (let tx = 0; tx < mapW && !isStudyMap; tx++) {
+        if (this.map.getTile(tx, ty)?.defId === 'carpet') isStudyMap = true
+      }
+    const bgBase = this.map.getTile(0, 0)?.defId === 'hall_wall' ? 'terrain_hall_wall'
+      : isBathroomMap ? 'terrain_hall_wall'
+      : isBedroomMap ? 'terrain_tapijt3'
+      : isStudyMap ? 'terrain_carpet'
+      : 'terrain_grass'
 
     // Tiles
     for (let ty = 0; ty < mapH; ty++) {
@@ -504,12 +541,16 @@ export class LocalMapView {
         const needsFloorBase = tile.defId === 'exit_kitchen' || tile.defId === 'exit_garage' ||
           tile.defId === 'kitchen_exit_top' || tile.defId === 'kitchen_exit' ||
           tile.defId === 'crypt' || tile.defId === 'garage_exit_up' || tile.defId === 'garage_exit_down' ||
-          tile.defId === 'cellar_exit' || tile.defId === 'pantry_exit'
+          tile.defId === 'cellar_exit' || tile.defId === 'pantry_exit' ||
+          tile.defId === 'garage_portal_driveway' || tile.defId === 'hall_portal_driveway' ||
+          tile.defId === 'driveway_exit_garage' || tile.defId === 'driveway_exit_hall' ||
+          tile.defId === 'garage_exit_driveway'
         const needsBathroomBase = tile.defId === 'toilet' || tile.defId === 'wcrol' ||
           tile.defId === 'bath_exit_left' || tile.defId === 'bath_exit_down' || tile.defId === 'bath_exit_up' ||
           tile.defId === 'kraan'
         const needsTapijt3Base = tile.defId === 'bedroom_exit' || tile.defId === 'flame'
           || tile.defId === 'bedroom_stairs_down' || tile.defId === 'bedroom_stairs_up'
+          || tile.defId === 'bedroom_portal_driveway' || tile.defId === 'driveway_exit_balcony'
         const needsLoftBase = tile.defId === 'loft_exit' || tile.defId === 'loft_tree' || tile.defId === 'loft3_exit'
         const needsCarpetBase = tile.defId === 'study_exit'
 
@@ -520,7 +561,10 @@ export class LocalMapView {
             this.map.getTile(tx, ty - 1)?.defId,
             this.map.getTile(tx, ty + 1)?.defId,
           ]
-          const baseKey = nbrs4.some(d => d === 'tegel_wit') ? 'terrain_tegel_wit'
+          const isDoorTile = tile.defId === 'door_closed' || tile.defId === 'exit_bathroom'
+          const baseKey = isBathroomMap && isDoorTile ? 'terrain_tegel_wit'
+            : isBathroomMap ? 'terrain_hall_wall'
+            : nbrs4.some(d => d === 'tegel_wit') ? 'terrain_tegel_wit'
             : nbrs4.some(d => d === 'hall_wall') ? 'terrain_hall_wall'
             : this.hasTapijt3Neighbor(tx, ty) ? 'terrain_tapijt3'
             : bgBase
@@ -608,7 +652,7 @@ export class LocalMapView {
     // Floor items
     for (const fi of floorItems) {
       const tile = this.map.getTile(fi.x, fi.y)
-      if (!tile?.visible && !(player.itemVision && tile?.explored)) continue
+      if (!tile?.visible) continue
       const sx = x + camOffX + fi.x * TILE
       const sy = y + camOffY + fi.y * TILE
 
@@ -669,9 +713,9 @@ export class LocalMapView {
 
   private itemGlyph(defId: string): { glyph: string; color: string } {
     const map: Record<string, { glyph: string; color: string }> = {
-      short_sword:       { glyph: ')', color: '#c0c0ff' },
-      long_sword:        { glyph: ')', color: '#8080ff' },
-      dagger:            { glyph: ')', color: '#ffffff' },
+      branch:            { glyph: ')', color: '#8a5a32' },
+      mjollnir:          { glyph: ')', color: '#8080ff' },
+      knife:             { glyph: ')', color: '#ffffff' },
       bijl:              { glyph: ')', color: '#c08000' },
       tuinschaar:        { glyph: ')', color: '#80c080' },
       kruk:              { glyph: ')', color: '#c0a060' },
@@ -727,7 +771,7 @@ export class LocalMapView {
   }
 
   private wallSprite(defId: string, x: number, y: number): string | null {
-    const v = this.hasTapijt3Neighbor(x, y)
+    const v = this._isBedroomMap || this.hasTapijt3Neighbor(x, y)
     if (defId === 'door_closed') {
       const l = this.map.getTile(x - 1, y)?.defId
       const r = this.map.getTile(x + 1, y)?.defId

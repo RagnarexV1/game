@@ -112,6 +112,14 @@
     "transparent": true
   },
   {
+    "id": "underground_exit_up",
+    "name": "Exit Up",
+    "glyph": "^",
+    "color": "#806040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
     "id": "sand",
     "name": "Sandy Ground",
     "glyph": ".",
@@ -432,9 +440,17 @@
     "transparent": true
   },
   {
-    "id": "stairs_exit",
-    "name": "Exit Stairs",
-    "glyph": "<",
+    "id": "stairs_exit_down",
+    "name": "Exit Stairs (down)",
+    "glyph": "v",
+    "color": "#ffffff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "stairs_exit_up",
+    "name": "Exit Stairs (up)",
+    "glyph": "^",
     "color": "#ffffff",
     "walkable": true,
     "transparent": true
@@ -900,6 +916,78 @@
     "name": "Ascend to Surface",
     "glyph": "^",
     "color": "#103060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "waterbodem",
+    "name": "Pond Lakebed",
+    "glyph": " ",
+    "color": "#000000",
+    "walkable": false,
+    "transparent": false
+  },
+  {
+    "id": "driveway",
+    "name": "Driveway",
+    "glyph": ".",
+    "color": "#707070",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "garage_portal_driveway",
+    "name": "Portal to Driveway",
+    "glyph": "O",
+    "color": "#607080",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "hall_portal_driveway",
+    "name": "Portal to Driveway",
+    "glyph": "O",
+    "color": "#505050",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bedroom_portal_driveway",
+    "name": "Portal to Driveway",
+    "glyph": "O",
+    "color": "#ff80ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "driveway_exit_garage",
+    "name": "Back to Garage",
+    "glyph": "^",
+    "color": "#607080",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "driveway_exit_hall",
+    "name": "Back to Hall",
+    "glyph": "^",
+    "color": "#505050",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "driveway_exit_balcony",
+    "name": "Back to Bedroom",
+    "glyph": "^",
+    "color": "#ff80ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "garage_exit_driveway",
+    "name": "Exit Down",
+    "glyph": "v",
+    "color": "#607080",
     "walkable": true,
     "transparent": true
   }

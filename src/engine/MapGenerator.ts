@@ -84,20 +84,6 @@ export function generateForestMap(
   // Carve all rooms
   for (const room of ROOMS) carveRoom(map, room)
 
-  // Wall some rooms â€” NW and NE maps are open wilderness/lake
-  // cy===2: skip rooms 7 and 9; floor section overwrites their south walls creating half-open ruins
-  if (!(cx === 0 && cy === 0) && !(cx === 2 && cy === 0)) {
-    wallRoom(map, ROOMS[0], rng)
-    wallRoom(map, ROOMS[2], rng)
-    if (cy !== 2) {
-      wallRoom(map, ROOMS[7], rng)
-      wallRoom(map, ROOMS[9], rng)
-    }
-  }
-
-  // Stairs up in room 0
-  map.setTile(ROOMS[0].x + 1, ROOMS[0].y + 1, 'stairs_up')
-
   // === Cell-specific terrain overrides ===
 
   // NE: large oval lake (cx=2, cy=0)
@@ -433,6 +419,9 @@ export function generateGarageTopMap(map: MapSystem): SpawnPoints {
     for (let x = 36; x <= 44; x++)
       map.setTile(x, y, 'floor')
 
+  // Portal out to the driveway
+  map.setTile(5, 1, 'garage_portal_driveway')
+
   const monsters = spawnGarageMonsters(map, W, H, rng, { x: 40, y: 2 })
   return { player: { x: 40, y: 2 }, monsters, items: [] }
 }
@@ -446,11 +435,9 @@ export function generateGarageBottomMap(map: MapSystem): SpawnPoints {
     for (let x = 0; x < W; x++)
       map.setTile(x, y, 'floor')
 
-  // Top row: exit back to upper garage; bottom: sealed wall
+  // Top row: exit back to upper garage; bottom row: exit down to the driveway
   for (let x = 0; x < W; x++) map.setTile(x, 0, 'garage_exit_up')
-  for (let x = 0; x < W; x++) map.setTile(x, H - 1, 'wall_down')
-  map.setTile(0, H - 1, 'wall_corner_bl')
-  map.setTile(W - 1, H - 1, 'wall_corner_br')
+  for (let x = 0; x < W; x++) map.setTile(x, H - 1, 'garage_exit_driveway')
 
   // Side borders: crypt
   for (let y = 1; y < H - 1; y++) {
@@ -687,6 +674,9 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
     const pos = pickFloor(playerPos.x, playerPos.y, 3)
     if (pos) legoItems.push({x: pos.x, y: pos.y, defId, qty: 1})
   }
+
+  const mjollnirPos = pickFloor(playerPos.x, playerPos.y, 8)
+  if (mjollnirPos) legoItems.push({x: mjollnirPos.x, y: mjollnirPos.y, defId: 'mjollnir', qty: 1})
 
   const SPECIAL_TILES = new Set(['loft_wall', 'loft_exit', 'loft_water', 'loft_tree'])
   const monsters: Array<{x: number; y: number; defId: string}> = []
@@ -977,10 +967,23 @@ export function generateUndergroundMap(
   // Extend corridors to inner grid borders (no exits on outer grid edges)
   addUndergroundBorderExits(map, connected, W, H, ucx, ucy, ugrid)
 
-  // Stairs up only in the underground entry cell (ucx=0, ucy=0)
+  // Kitchen entrance only in the underground entry cell (ucx=0, ucy=0): extend
+  // room[0]'s north-facing door path up to the map's top border and start there
   const r0 = rooms[0]
   const sx = r0.x + 1, sy = r0.y + 1
-  if (ucx === 0 && ucy === 0) map.setTile(sx, sy, 'stairs_up')
+  let entryPos = { x: sx, y: sy }
+  if (ucx === 0 && ucy === 0) {
+    const northDoor = (doorsByRoom.get(0) ?? []).find(d => d.exitY < d.doorY)
+    if (northDoor) {
+      for (let y = northDoor.exitY; y >= 0; y--) {
+        map.setTile(northDoor.exitX, y, y === 0 ? 'underground_exit_up' : 'tegel_wit')
+        connected.add(`${northDoor.exitX},${y}`)
+      }
+      entryPos = { x: northDoor.exitX, y: 1 }
+    } else {
+      map.setTile(sx, sy, 'underground_exit_up')
+    }
+  }
 
   // Spawn crypt monsters in rooms 1+
   const cryptMonsters = ['bat', 'dwarf', 'lowerdwarf', 'pissebed', 'muddman']
@@ -1001,8 +1004,11 @@ export function generateUndergroundMap(
     monsters.push({ x: wr.x + Math.floor(wr.w / 2), y: wr.y + Math.floor(wr.h / 2), defId: 'watcher' })
     items.push({ x: wr.x + 1, y: wr.y + 1, defId: 'clay' })
   }
+  if (ucx === 0 && ucy === 0) {
+    monsters.push({ x: sx + 2, y: sy, defId: 'paard' })
+  }
 
-  return { player: { x: sx, y: sy }, monsters, items }
+  return { player: entryPos, monsters, items }
 }
 
 function collectRoomDoors(map: MapSystem, rooms: Room[]): Map<number, DoorInfo[]> {
@@ -1209,6 +1215,16 @@ function seededRng(seed: number): () => number {
   }
 }
 
+// Converts void tiles sitting directly below a water tile into waterbodem (pond lakebed).
+function addWaterbodem(map: MapSystem): void {
+  const W = map.width
+  const H = map.height
+  for (let y = 1; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (map.getTile(x, y)?.defId === 'void' && map.getTile(x, y - 1)?.defId === 'water')
+        map.setTile(x, y, 'waterbodem')
+}
+
 const CHAOS_TILES = [
   'water', 'grass', 'berg', 'lava', 'mud',
   'tree', 'crypt', 'tree_dead', 'vulkaan',
@@ -1216,6 +1232,22 @@ const CHAOS_TILES = [
 ]
 
 export const CHAOS_TILE_POOL = CHAOS_TILES
+
+const CHAOS_LOOT_POOL = [
+  'health_potion', 'speed_potion', 'gold_coin', 'banaan', 'sinaasappel',
+  'boterham', 'stroopwafels', 'dropje', 'bracers', 'gorget', 'helmet',
+  'pickaxe',
+]
+
+function randomChaosSpot(W: number, H: number, cx: number, cy: number, taken: Set<string>): { x: number; y: number } {
+  let x: number, y: number
+  do {
+    x = Math.floor(Math.random() * W)
+    y = Math.floor(Math.random() * H)
+  } while ((x === cx && y === cy) || (x === cx + 1 && y === cy) || taken.has(`${x},${y}`))
+  taken.add(`${x},${y}`)
+  return { x, y }
+}
 
 export function generateChaosMap(map: MapSystem): SpawnPoints {
   const W = map.width
@@ -1227,10 +1259,22 @@ export function generateChaosMap(map: MapSystem): SpawnPoints {
   const cy = Math.floor(H / 2)
   map.setTile(cx, cy, 'portal_chaos')
   map.setTile(cx + 1, cy, 'floor')
+
+  const taken = new Set<string>()
+  const trousersSpot = randomChaosSpot(W, H, cx, cy, taken)
+  map.setTile(trousersSpot.x, trousersSpot.y, 'floor')
+  const lootSpots = [randomChaosSpot(W, H, cx, cy, taken), randomChaosSpot(W, H, cx, cy, taken)]
+  for (const spot of lootSpots) map.setTile(spot.x, spot.y, 'floor')
+  const lootIds = lootSpots.map(() => CHAOS_LOOT_POOL[Math.floor(Math.random() * CHAOS_LOOT_POOL.length)])
+
   return {
     player: { x: cx, y: cy },
     monsters: [{ x: cx + 1, y: cy, defId: 'eric', message: 'The floor is lava!' }],
-    items: [],
+    items: [
+      { x: trousersSpot.x, y: trousersSpot.y, defId: 'ninjabroek' },
+      { x: lootSpots[0].x, y: lootSpots[0].y, defId: lootIds[0] },
+      { x: lootSpots[1].x, y: lootSpots[1].y, defId: lootIds[1] },
+    ],
   }
 }
 
@@ -1284,6 +1328,9 @@ export function generateBedroomMap(map: MapSystem): SpawnPoints {
   for (let x = 1; x < W - 1; x++) map.setTile(x, 0, 'wall_up')
   for (let y = 1; y < H - 1; y++) { map.setTile(0, y, 'wall_left'); map.setTile(W - 1, y, 'wall_right') }
   for (let sx = 0; sx < W; sx++) map.setTile(sx, H - 1, 'bedroom_stairs_down')
+
+  // Balcony door out to the driveway, in the north wall
+  map.setTile(75, 0, 'bedroom_portal_driveway')
 
   // Walled sanctuary â€” schema origin at (W/2-3, H/2-4) = (37, 6)
   // wall types=directional walls f=flame g=guardian m=summoner t=tegel_wit+widget
@@ -1365,7 +1412,7 @@ export function generateBedroomMap(map: MapSystem): SpawnPoints {
     { x: 55,        y: 8,        defId: 'guineapig' },
     { x: 15,        y: 5,        defId: 'ogre'    },
     { x: 65,        y: 5,        defId: 'ogre'    },
-    { x: 15,        y: 14,       defId: 'watcher' },
+    { x: 14,        y: 14,       defId: 'watcher' },
     { x: 65,        y: 14,       defId: 'watcher' },
     { x: 30,        y: 10,       defId: 'spirit'  },
     { x: 50,        y: 10,       defId: 'spirit'  },
@@ -1374,7 +1421,12 @@ export function generateBedroomMap(map: MapSystem): SpawnPoints {
     { x: 70,        y: 10,       defId: 'nymph'   },
   ]
 
-  return { player: { x: 2, y: H - 2 }, monsters, items: [...sanctuaryItems, ...scrollItems] }
+  const clayClump: SpawnPoints['items'] = [
+    { x: 13, y: 13, defId: 'clay' },
+    { x: 67, y: 18, defId: 'clay' },
+  ]
+
+  return { player: { x: 2, y: H - 2 }, monsters, items: [...sanctuaryItems, ...scrollItems, ...clayClump] }
 }
 
 export function generateBedroomLowerMap(map: MapSystem): SpawnPoints {
@@ -1534,6 +1586,7 @@ export function generateStudyMap(map: MapSystem): SpawnPoints {
 
   const midX = Math.floor(W / 2)
   map.setTile(midX, H - 1, 'study_exit')
+  map.setTile(W - 2, H - 2, 'portal_stairs_up')
 
   // Organic pools grown via BFS blob expansion from seed points
   const rng = seededRng(99)
@@ -1602,6 +1655,20 @@ export function generateStudyMap(map: MapSystem): SpawnPoints {
       { x: 72,  y: 7,  defId: 'cactus' },
       { x: 30,  y: 12, defId: 'cactus' },
       { x: 60,  y: 2,  defId: 'cactus' },
+      { x: 3,   y: 3,  defId: 'cactus' },
+      { x: 3,   y: 16, defId: 'cactus' },
+      { x: 8,   y: 13, defId: 'cactus' },
+      { x: 12,  y: 17, defId: 'cactus' },
+      { x: 15,  y: 5,  defId: 'cactus' },
+      { x: 18,  y: 17, defId: 'cactus' },
+      { x: 20,  y: 9,  defId: 'cactus' },
+      { x: 33,  y: 4,  defId: 'cactus' },
+      { x: 48,  y: 3,  defId: 'cactus' },
+      { x: 65,  y: 15, defId: 'cactus' },
+      { x: 75,  y: 3,  defId: 'cactus' },
+      { x: 75,  y: 14, defId: 'cactus' },
+      { x: 68,  y: 9,  defId: 'cactus' },
+      { x: 12,  y: 12, defId: 'cactus' },
     ],
     items: [
       { x: midX - 2, y: 3, defId: 'empty_vial', qty: 1 },
@@ -1645,7 +1712,7 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
 
   const categoryPool: string[][] = [
     ['banaan', 'sinaasappel', 'pannenkoeken', 'boterham', 'stroopwafels', 'speculaas', 'sprits', 'dropje', 'pannenkoek', 'mispel'],
-    ['flying_flippo', 'short_sword', 'long_sword', 'dagger', 'bijl', 'tuinschaar', 'crossbow', 'katana', 'mace', 'silversword', 'wasknijper'],
+    ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'crossbow', 'katana', 'mace', 'silversword', 'wasknijper'],
     ['scroll_teleport', 'scroll_blank', 'scroll_alliance', 'scroll_cartography', 'scroll_transport', 'scroll_timestop', 'scroll_twelvegates'],
     ['leather_armor', 'chain_mail', 'mirrorshield', 'ninjabroek', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
     ['ring', 'ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility'],
@@ -1709,7 +1776,25 @@ export function generatePond1Map(map: MapSystem): SpawnPoints {
   // Right edge: single-tile arrow to pond2
   map.setTile(W - 1, 16, 'pond_exit_right')
 
-  return { player: { x: 1, y: 1 }, monsters: [], items: [] }
+  addWaterbodem(map)
+
+  return {
+    player: { x: 1, y: 1 },
+    monsters: [
+      { x: 10, y:  3, defId: 'vis'     },
+      { x: 20, y:  4, defId: 'tetra'   },
+      { x: 30, y:  5, defId: 'vis'     },
+      { x: 40, y:  6, defId: 'tetra'   },
+      { x: 50, y:  7, defId: 'qivuit'  },
+      { x: 60, y: 10, defId: 'lorkest' },
+      { x: 61, y:  6, defId: 'squid'   },
+      { x: 65, y: 16, defId: 'tetra'   },
+      { x: 67, y: 15, defId: 'vis'     },
+      { x: 72, y: 16, defId: 'tetra'   },
+      { x: 76, y: 16, defId: 'vis'     },
+    ],
+    items: [],
+  }
 }
 
 export function generatePond2Map(map: MapSystem): SpawnPoints {
@@ -1773,7 +1858,17 @@ export function generatePond2Map(map: MapSystem): SpawnPoints {
   // Exit: down arrow at bottom border → pond3
   map.setTile(W - 2, H - 1, 'pond_exit_down')
 
-  return { player: { x: 1, y: fCY }, monsters: [], items: [] }
+  addWaterbodem(map)
+
+  // Water monsters — one per room, cycling through the pond bestiary
+  const roomMonsterTypes = ['vis', 'tetra', 'qivuit', 'lorkest', 'squid', 'jormungand']
+  const monsters = rooms.map((room, i) => ({
+    x: room.x + Math.floor(room.w / 2),
+    y: room.y + Math.floor(room.h / 2),
+    defId: roomMonsterTypes[i % roomMonsterTypes.length],
+  }))
+
+  return { player: { x: 1, y: fCY }, monsters, items: [] }
 }
 
 export function generatePond3Map(map: MapSystem): SpawnPoints {
@@ -1833,7 +1928,93 @@ export function generatePond3Map(map: MapSystem): SpawnPoints {
   // Top border at shaft x — only exit/entry point
   map.setTile(W - 2, 0, 'pond_exit_up')
 
-  return { player: { x: 78, y: 1 }, monsters: [], items: [{ defId: 'gong', x: 6, y: 15 }] }
+  addWaterbodem(map)
+
+  return {
+    player: { x: 78, y: 1 },
+    monsters: [
+      { x: 10, y:  6, defId: 'vis'        },
+      { x: 14, y:  8, defId: 'tetra'      },
+      { x: 35, y: 15, defId: 'vis'        },
+      { x: 30, y: 10, defId: 'qivuit'     },
+      { x: 45, y: 12, defId: 'lorkest'    },
+      { x: 20, y: 15, defId: 'squid'      },
+      { x: 50, y: 16, defId: 'tetra'      },
+    ],
+    items: [{ defId: 'gong', x: 6, y: 15 }],
+  }
+}
+
+export function generateDrivewayMap(map: MapSystem): SpawnPoints {
+  const W = map.width
+  const H = map.height
+
+  // Base fill: outdoor pavement everywhere, then carve regions on top
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      map.setTile(x, y, 'driveway')
+
+  // Garage room (top-left): rows 0-5, cols 0-50
+  for (let y = 1; y <= 5; y++)
+    for (let x = 1; x <= 50; x++)
+      map.setTile(x, y, 'floor')
+  for (let x = 0; x <= 50; x++) map.setTile(x, 0, 'driveway_exit_garage')
+  for (let y = 1; y <= 5; y++) map.setTile(0, y, 'wall')
+
+  // Hall room (top-right): rows 0-11, cols 51-79
+  for (let y = 1; y <= 11; y++)
+    for (let x = 52; x <= 78; x++)
+      map.setTile(x, y, 'floor')
+  for (let x = 51; x <= 79; x++) map.setTile(x, 0, 'driveway_exit_hall')
+  for (let y = 1; y <= 11; y++) map.setTile(79, y, 'driveway_exit_hall')
+
+  // Vertical divider between garage/driveway and hall, with a closed door
+  for (let y = 1; y <= 11; y++) map.setTile(51, y, 'wall')
+  map.setTile(51, 8,  'wall_left')
+  map.setTile(51, 10, 'wall_left')
+  map.setTile(51, 9,  'door_closed')
+
+  // Horizontal divider between garage and the driveway, with a closed door
+  for (let x = 0; x <= 50; x++) map.setTile(x, 6, 'wall')
+  map.setTile(19, 6, 'wall_up')
+  map.setTile(21, 6, 'wall_up')
+  map.setTile(20, 6, 'door_closed')
+
+  // Driveway (bottom-left, main open area): rows 7-18, cols 1-50
+  for (let y = 7; y <= 18; y++)
+    for (let x = 1; x <= 50; x++)
+      map.setTile(x, y, 'driveway')
+  for (let y = 7; y <= 19; y++) map.setTile(0, y, 'wall')
+  for (let x = 0; x <= 50; x++) map.setTile(x, 19, 'wall')
+
+  // Divider between hall and the wooded balcony grounds (row 12)
+  for (let x = 51; x <= 64; x++) map.setTile(x, 12, 'wall')
+  for (let x = 65; x <= 79; x++) map.setTile(x, 12, 'driveway_exit_balcony')
+
+  // Wooded path (west) leading into the balcony's floor (east) — rows 13-14
+  for (let y = 13; y <= 14; y++) {
+    for (let x = 51; x <= 63; x++) map.setTile(x, y, 'grass')
+    for (let x = 64; x <= 79; x++) map.setTile(x, y, 'tapijt3')
+  }
+
+  // Balcony's south wall; trees continue the boundary to the west
+  for (let x = 51; x <= 64; x++) map.setTile(x, 15, 'tree')
+  for (let x = 65; x <= 79; x++) map.setTile(x, 15, 'wall')
+
+  // Remaining grounds filled with trees
+  for (let y = 16; y <= 19; y++)
+    for (let x = 51; x <= 79; x++)
+      map.setTile(x, y, 'tree')
+
+  // Entire map is visible on arrival — no fog of war here
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      map.markExplored(x, y)
+      map.setVisible(x, y, true)
+    }
+  }
+
+  return { player: { x: 25, y: 12 }, monsters: [], items: [] }
 }
 
 export function mutateChaosMap(map: MapSystem, playerX: number, playerY: number): void {

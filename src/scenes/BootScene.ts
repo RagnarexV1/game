@@ -10,6 +10,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('terrain_grass', 'assets/terrain/gras.png')
     this.load.image('terrain_floor', 'assets/terrain/vloer.png')
     this.load.image('terrain_water', 'assets/terrain/water.png')
+    this.load.image('terrain_waterbodem', 'assets/terrain/waterbodem.png')
     this.load.image('terrain_berg', 'assets/terrain/berg.png')
     this.load.image('terrain_wall_x', 'assets/terrain/muurX.png')
     this.load.image('terrain_wall_h', 'assets/terrain/muurH.png')
@@ -149,6 +150,7 @@ export class BootScene extends Phaser.Scene {
     // Items
     this.load.image('item_amulet',          'assets/items/amulet.png')
     this.load.image('item_axe',             'assets/items/bijl.png')
+    this.load.image('item_branch',          'assets/items/branch.png')
     this.load.image('item_banaan',          'assets/items/banaan.png')
     this.load.image('item_boterham',        'assets/items/spr_boterham.png')
     this.load.image('item_bow',             'assets/items/boog.png')
@@ -156,6 +158,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_ericgras',        'assets/items/ericgras.png')
     this.load.image('item_coin',            'assets/items/stuiver.png')
     this.load.image('item_kruk',            'assets/items/kruk.png')
+    this.load.image('item_knife',           'assets/items/knife.png')
     this.load.image('item_lekkervisje',     'assets/items/lekkervisje.png')
     this.load.image('item_mirrorshield',    'assets/items/mirrorshield.png')
     this.load.image('item_ninjabroek',      'assets/items/ninjabroek.png')
@@ -205,7 +208,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_lego3',           'assets/items/lego3.png')
     this.load.image('item_propje',          'assets/items/propje.png')
     this.load.image('item_gong',            'assets/items/gong.png')
+    this.load.image('item_gongmallet',      'assets/items/gongmallet.png')
     this.load.image('item_gompie',          'assets/items/gompie.png')
+    this.load.image('item_mjollnir',        'assets/items/mjollnir.png')
 
     // Player location indicator for world map
     this.load.image('ui_user_location', 'assets/ui/userLocation.png')
@@ -312,6 +317,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('music_bathroom', 'assets/sound/snd_trololo_8bit2.mp3')
     this.load.audio('music_bedroom',  'assets/sound/spring_song_drums.mp3')
     this.load.audio('music_pond',     'assets/sound/Groen-is-de-gong.mp3')
+    this.load.audio('music_defeat',   'assets/sound/funeral_march.mp3')
   }
 
   create(): void {

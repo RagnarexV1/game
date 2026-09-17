@@ -155,7 +155,8 @@ export class WorldMapView {
     this.itemPool = []
     for (const fi of floorItems) {
       const tile = this.map.getTile(fi.x, fi.y)
-      if (torchlightOnly ? !tile?.visible : !tile?.explored) continue
+      const revealed = player.itemVision || (torchlightOnly ? tile?.visible : tile?.explored)
+      if (!revealed) continue
       const spriteKey = ITEM_TYPE_SPRITES[fi.item.defId] ?? 'inv_null'
       if (!this.scene.textures.exists(spriteKey)) continue
       const img = this.scene.add.image(ox + fi.x * ts, oy + fi.y * ts, spriteKey)
