@@ -1,6 +1,7 @@
 ﻿import type { MapSystem } from './MapSystem'
 import type { WorldState } from './WorldState'
 import mapSpawnsData from '../data/mapSpawns.json'
+import { scatterRandomItems } from './ItemPlacement'
 
 interface Room {
   x: number; y: number; w: number; h: number
@@ -126,11 +127,8 @@ export function generateForestMap(
       map.setTile(x, H - 1, 'exit_kitchen')
   }
 
-  // Center cell: bathroom entrance door + Eric the trader's chamber
+  // Center cell: Eric the trader's chamber
   if (cx === 1 && cy === 1) {
-    map.setTile(40, 10, 'exit_bathroom')
-
-    
     // Clear chamber area to floor
     for (let ty = 6; ty <= 11; ty++)
       for (let tx = 50; tx <= 58; tx++)
@@ -186,7 +184,9 @@ export function generateForestMap(
   const monsters = cellData?.monsters ?? []
   const items    = cellData?.items    ?? []
 
-  return { player, monsters, items }
+  const scattered = scatterRandomItems(map, rng, 'forest', 8, [player, ...monsters, ...items])
+
+  return { player, monsters, items: [...items, ...scattered] }
 }
 
 function addBorderRocks(
@@ -315,17 +315,18 @@ export function generateBathroomTopMap(map: MapSystem): SpawnPoints {
   map.setTile(30, 3, 'toilet'); map.setTile(31, 3, 'wcrol')
   map.setTile(50, 3, 'toilet'); map.setTile(51, 3, 'wcrol')
 
-  return {
-    player: { x: 2, y: 9 },
-    monsters: [
-      { x: 35, y: 8,  defId: 'silvervisje' },
-      { x: 60, y: 14, defId: 'silvervisje' },
-      { x: 20, y: 15, defId: 'silvervisje' },
-      { x: 45, y: 10, defId: 'muddman' },
-      { x: 15, y: 12, defId: 'muddman' },
-    ],
-    items: [],
-  }
+  const player = { x: 2, y: 9 }
+  const monsters = [
+    { x: 35, y: 8,  defId: 'silvervisje' },
+    { x: 60, y: 14, defId: 'silvervisje' },
+    { x: 20, y: 15, defId: 'silvervisje' },
+    { x: 45, y: 10, defId: 'muddman' },
+    { x: 15, y: 12, defId: 'muddman' },
+  ]
+  const rng = seededRng(210)
+  const items = scatterRandomItems(map, rng, 'bathroom', 4, [player, ...monsters])
+
+  return { player, monsters, items }
 }
 
 export function generateBathroomBottomMap(map: MapSystem): SpawnPoints {
@@ -351,22 +352,22 @@ export function generateBathroomBottomMap(map: MapSystem): SpawnPoints {
   map.setTile(2, 10, 'water_bath')
   map.setTile(3, 9,  'vortex_portal')
 
-  return {
-    player: { x: 40, y: H - 2 },
-    monsters: [
-      { x: 40, y: 10, defId: 'eric' },
-      { x: 20, y: 15, defId: 'pissebed' },
-      { x: 65, y: 15, defId: 'pissebed' },
-      { x: 40, y: 5,  defId: 'pissebed' },
-      { x: 10, y: 3,  defId: 'silvervisje' },
-      { x: 70, y: 3,  defId: 'silvervisje' },
-      { x: 55, y: 10, defId: 'muddman' },
-      { x: 25, y: 7,  defId: 'muddman' },
-    ],
-    items: [
-      { x: 5, y: 9, defId: 'stop' },
-    ],
-  }
+  const player = { x: 40, y: H - 2 }
+  const monsters = [
+    { x: 40, y: 10, defId: 'eric' },
+    { x: 20, y: 15, defId: 'pissebed' },
+    { x: 65, y: 15, defId: 'pissebed' },
+    { x: 40, y: 5,  defId: 'pissebed' },
+    { x: 10, y: 3,  defId: 'silvervisje' },
+    { x: 70, y: 3,  defId: 'silvervisje' },
+    { x: 55, y: 10, defId: 'muddman' },
+    { x: 25, y: 7,  defId: 'muddman' },
+  ]
+  const stopItem = { x: 5, y: 9, defId: 'stop' }
+  const rng = seededRng(211)
+  const scattered = scatterRandomItems(map, rng, 'bathroom', 4, [player, ...monsters, stopItem])
+
+  return { player, monsters, items: [stopItem, ...scattered] }
 }
 
 const GARAGE_MONSTERS = ['bat', 'dwarf', 'lowerdwarf', 'pissebed']
@@ -422,8 +423,10 @@ export function generateGarageTopMap(map: MapSystem): SpawnPoints {
   // Portal out to the driveway
   map.setTile(5, 1, 'garage_portal_driveway')
 
-  const monsters = spawnGarageMonsters(map, W, H, rng, { x: 40, y: 2 })
-  return { player: { x: 40, y: 2 }, monsters, items: [] }
+  const player = { x: 40, y: 2 }
+  const monsters = spawnGarageMonsters(map, W, H, rng, player)
+  const items = scatterRandomItems(map, rng, 'garage', 6, [player, ...monsters])
+  return { player, monsters, items }
 }
 
 export function generateGarageBottomMap(map: MapSystem): SpawnPoints {
@@ -458,8 +461,11 @@ export function generateGarageBottomMap(map: MapSystem): SpawnPoints {
   // Portal to cellar at centre of map
   map.setTile(40, Math.floor(H / 2), 'portal_cellar')
 
-  const monsters = spawnGarageMonsters(map, W, H, rng, { x: 40, y: H - 2 })
-  return { player: { x: 40, y: H - 2 }, monsters, items: [{ x: 28, y: H - 2, defId: 'gompie' }] }
+  const player = { x: 40, y: H - 2 }
+  const monsters = spawnGarageMonsters(map, W, H, rng, player)
+  const gompieItem = { x: 28, y: H - 2, defId: 'gompie' }
+  const scattered = scatterRandomItems(map, rng, 'garage', 6, [player, ...monsters, gompieItem])
+  return { player, monsters, items: [gompieItem, ...scattered] }
 }
 
 export function generateCellarMap(map: MapSystem): SpawnPoints {
@@ -528,10 +534,13 @@ export function generateCellarMap(map: MapSystem): SpawnPoints {
     break
   }
 
+  const specialItem = { x: itemX, y: itemY, defId: 'second_life_potion', qty: 1 }
+  const scattered = scatterRandomItems(map, rng, 'cellar', 5, [playerPos, specialItem, ...monsters])
+
   return {
     player: playerPos,
     monsters,
-    items: [{ x: itemX, y: itemY, defId: 'second_life_potion', qty: 1 }],
+    items: [specialItem, ...scattered],
   }
 }
 
@@ -701,7 +710,9 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
     }
   }
 
-  return {player: playerPos, monsters, items: legoItems}
+  const scattered = scatterRandomItems(map, rng, 'loft', 6, [playerPos, ...legoItems, ...monsters])
+
+  return {player: playerPos, monsters, items: [...legoItems, ...scattered]}
 }
 
 export function generateLoft3Map(map: MapSystem): SpawnPoints {
@@ -844,7 +855,7 @@ export function generateLoft3Map(map: MapSystem): SpawnPoints {
   const monsters: Array<{x: number; y: number; defId: string}> = []
   const loft3Monsters: Array<{defId: string; count: number}> = [
     {defId: 'peter',     count: 1},
-    {defId: 'wolf',      count: 2},
+    {defId: 'werewolf',  count: 1},
     {defId: 'bat',       count: 3},
     {defId: 'eendGroen', count: 2},
     {defId: 'hamster',   count: 2},
@@ -865,7 +876,9 @@ export function generateLoft3Map(map: MapSystem): SpawnPoints {
     }
   }
 
-  return {player: playerPos, monsters, items: legoItems}
+  const scattered = scatterRandomItems(map, rng, 'loft', 5, [playerPos, ...legoItems, ...monsters])
+
+  return {player: playerPos, monsters, items: [...legoItems, ...scattered]}
 }
 
 interface DoorInfo {
@@ -1008,7 +1021,9 @@ export function generateUndergroundMap(
     monsters.push({ x: sx + 2, y: sy, defId: 'paard' })
   }
 
-  return { player: entryPos, monsters, items }
+  const scattered = scatterRandomItems(map, rng, 'underground', 6, [entryPos, ...items, ...monsters])
+
+  return { player: entryPos, monsters, items: [...items, ...scattered] }
 }
 
 function collectRoomDoors(map: MapSystem, rooms: Room[]): Map<number, DoorInfo[]> {
@@ -1267,14 +1282,18 @@ export function generateChaosMap(map: MapSystem): SpawnPoints {
   for (const spot of lootSpots) map.setTile(spot.x, spot.y, 'floor')
   const lootIds = lootSpots.map(() => CHAOS_LOOT_POOL[Math.floor(Math.random() * CHAOS_LOOT_POOL.length)])
 
+  const player = { x: cx, y: cy }
+  const specialItems = [
+    { x: trousersSpot.x, y: trousersSpot.y, defId: 'ninjabroek' },
+    { x: lootSpots[0].x, y: lootSpots[0].y, defId: lootIds[0] },
+    { x: lootSpots[1].x, y: lootSpots[1].y, defId: lootIds[1] },
+  ]
+  const scattered = scatterRandomItems(map, Math.random, 'chaos', 3, [player, ...specialItems])
+
   return {
-    player: { x: cx, y: cy },
+    player,
     monsters: [{ x: cx + 1, y: cy, defId: 'eric', message: 'The floor is lava!' }],
-    items: [
-      { x: trousersSpot.x, y: trousersSpot.y, defId: 'ninjabroek' },
-      { x: lootSpots[0].x, y: lootSpots[0].y, defId: lootIds[0] },
-      { x: lootSpots[1].x, y: lootSpots[1].y, defId: lootIds[1] },
-    ],
+    items: [...specialItems, ...scattered],
   }
 }
 
@@ -1419,6 +1438,7 @@ export function generateBedroomMap(map: MapSystem): SpawnPoints {
     { x: 10,        y: 10,       defId: 'nymph'   },
     { x: 40,        y: 4,        defId: 'nymph'   },
     { x: 70,        y: 10,       defId: 'nymph'   },
+    { x: 25,        y: 6,        defId: 'troll'   },
   ]
 
   const clayClump: SpawnPoints['items'] = [
@@ -1426,7 +1446,11 @@ export function generateBedroomMap(map: MapSystem): SpawnPoints {
     { x: 67, y: 18, defId: 'clay' },
   ]
 
-  return { player: { x: 2, y: H - 2 }, monsters, items: [...sanctuaryItems, ...scrollItems, ...clayClump] }
+  const player = { x: 2, y: H - 2 }
+  const specialItems = [...sanctuaryItems, ...scrollItems, ...clayClump]
+  const scattered = scatterRandomItems(map, Math.random, 'bedroom', 8, [player, ...specialItems, ...monsters])
+
+  return { player, monsters, items: [...specialItems, ...scattered] }
 }
 
 export function generateBedroomLowerMap(map: MapSystem): SpawnPoints {
@@ -1452,7 +1476,10 @@ export function generateBedroomLowerMap(map: MapSystem): SpawnPoints {
     { x: 40, y: 8,  defId: 'firedragon' },
   ]
 
-  return { player: { x: 2, y: H - 3 }, monsters, items: [] }
+  const player = { x: 2, y: H - 3 }
+  const items = scatterRandomItems(map, Math.random, 'bedroom', 6, [player, ...monsters])
+
+  return { player, monsters, items }
 }
 
     // { x: 30, y: 3,  defId: 'firedragon' },
@@ -1521,44 +1548,45 @@ export function generateKitchenMap(map: MapSystem): SpawnPoints {
   for (let x = midX - 2; x <= midX + 2; x++)
     map.setTile(x, H - 1, 'kitchen_exit')
 
-  return {
-    player: { x: midX, y: 1 },
-    monsters: [
-      { x: midX, y: 10, defId: 'mam', message: 'Cough... Orange juice... Cough... Cough...' },
-      { x: 15,   y: 8,  defId: 'swordsman' },
-      { x: 65,   y: 8,  defId: 'swordsman' },
-      { x: 25,   y: 14, defId: 'hamster' },
-      { x: 55,   y: 14, defId: 'hamster' },
-      { x: 10,   y: 5,  defId: 'cactus' },
-      { x: 30,   y: 5,  defId: 'cactus' },
-      { x: 50,   y: 5,  defId: 'cactus' },
-      { x: 70,   y: 5,  defId: 'cactus' },
-      { x: 20,   y: 15, defId: 'cactus' },
-      { x: 35,   y: 12, defId: 'secitt' },
-      { x: 45,   y: 12, defId: 'secitt' },
-      { x: 20,   y: 7,  defId: 'wierdfume' },
-      { x: 60,   y: 7,  defId: 'wierdfume' },
-    ],
-    items: [
-      { x: 5,  y: 3,  defId: 'banaan' },
-      { x: 14, y: 3,  defId: 'sinaasappel' },
-      { x: 24, y: 3,  defId: 'pannenkoeken' },
-      { x: 34, y: 3,  defId: 'boterham' },
-      { x: 44, y: 3,  defId: 'stroopwafels' },
-      { x: 54, y: 3,  defId: 'speculaas' },
-      { x: 64, y: 3,  defId: 'sprits' },
-      { x: 74, y: 3,  defId: 'dropje' },
-      { x: 5,  y: 17, defId: 'pannenkoek' },
-      { x: 10, y: 10, defId: 'kruk' },
-      { x: 25, y: 8,  defId: 'kruk' },
-      { x: 40, y: 14, defId: 'kruk' },
-      { x: 60, y: 12, defId: 'kruk' },
-      { x: 72, y: 16, defId: 'kruk' },
-      { x: 20, y: 12, defId: 'theedoek' },
-      { x: 35, y: 5,  defId: 'remote' },
-      { x: 40, y: 17, defId: 'lekkervisje' },
-    ],
-  }
+  const player = { x: midX, y: 1 }
+  const monsters = [
+    { x: midX, y: 10, defId: 'mam', message: 'Cough... Orange juice... Cough... Cough...' },
+    { x: 15,   y: 8,  defId: 'swordsman' },
+    { x: 65,   y: 8,  defId: 'swordsman' },
+    { x: 25,   y: 14, defId: 'hamster' },
+    { x: 55,   y: 14, defId: 'hamster' },
+    { x: 10,   y: 5,  defId: 'cactus' },
+    { x: 30,   y: 5,  defId: 'cactus' },
+    { x: 50,   y: 5,  defId: 'cactus' },
+    { x: 70,   y: 5,  defId: 'cactus' },
+    { x: 20,   y: 15, defId: 'cactus' },
+    { x: 35,   y: 12, defId: 'secitt' },
+    { x: 45,   y: 12, defId: 'secitt' },
+    { x: 20,   y: 7,  defId: 'wierdfume' },
+    { x: 60,   y: 7,  defId: 'wierdfume' },
+  ]
+  const specialItems = [
+    { x: 5,  y: 3,  defId: 'banaan' },
+    { x: 14, y: 3,  defId: 'sinaasappel' },
+    { x: 24, y: 3,  defId: 'pannenkoeken' },
+    { x: 34, y: 3,  defId: 'boterham' },
+    { x: 44, y: 3,  defId: 'stroopwafels' },
+    { x: 54, y: 3,  defId: 'speculaas' },
+    { x: 64, y: 3,  defId: 'sprits' },
+    { x: 74, y: 3,  defId: 'dropje' },
+    { x: 5,  y: 17, defId: 'pannenkoek' },
+    { x: 10, y: 10, defId: 'kruk' },
+    { x: 25, y: 8,  defId: 'kruk' },
+    { x: 40, y: 14, defId: 'kruk' },
+    { x: 60, y: 12, defId: 'kruk' },
+    { x: 72, y: 16, defId: 'kruk' },
+    { x: 20, y: 12, defId: 'theedoek' },
+    { x: 35, y: 5,  defId: 'remote' },
+    { x: 40, y: 17, defId: 'lekkervisje' },
+  ]
+  const scattered = scatterRandomItems(map, rng, 'kitchen', 5, [player, ...specialItems, ...monsters])
+
+  return { player, monsters, items: [...specialItems, ...scattered] }
 }
 
 export function generateStudyMap(map: MapSystem): SpawnPoints {
@@ -1633,9 +1661,8 @@ export function generateStudyMap(map: MapSystem): SpawnPoints {
     for (let x = 22; x <= 58; x++)
       map.setTile(x, y, 'water')
 
-  return {
-    player: { x: midX, y: 1 },
-    monsters: [
+  const player = { x: midX, y: 1 }
+  const monsters = [
       { x: 40,  y: 10, defId: 'pap2' },
       { x: 27,  y: 14, defId: 'tetra' },
       { x: 34,  y: 15, defId: 'tetra' },
@@ -1669,12 +1696,14 @@ export function generateStudyMap(map: MapSystem): SpawnPoints {
       { x: 75,  y: 14, defId: 'cactus' },
       { x: 68,  y: 9,  defId: 'cactus' },
       { x: 12,  y: 12, defId: 'cactus' },
-    ],
-    items: [
-      { x: midX - 2, y: 3, defId: 'empty_vial', qty: 1 },
-      { x: midX + 2, y: 3, defId: 'empty_vial', qty: 1 },
-    ],
-  }
+  ]
+  const specialItems = [
+    { x: midX - 2, y: 3, defId: 'empty_vial', qty: 1 },
+    { x: midX + 2, y: 3, defId: 'empty_vial', qty: 1 },
+  ]
+  const scattered = scatterRandomItems(map, rng, 'study', 5, [player, ...specialItems, ...monsters])
+
+  return { player, monsters, items: [...specialItems, ...scattered] }
 }
 
 export function generatePantryMap(map: MapSystem): SpawnPoints {
@@ -1718,7 +1747,7 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
     ['ring', 'ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility'],
     ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'vaas', 'remote'],
     ['ericgras'],
-    ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion', 'mystery_potion'],
+    ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion'],
   ]
 
   const numCols = Math.floor((W - 2 - BLOCK_W) / STRIDE_X) + 1
@@ -2014,7 +2043,9 @@ export function generateDrivewayMap(map: MapSystem): SpawnPoints {
     }
   }
 
-  return { player: { x: 25, y: 12 }, monsters: [], items: [] }
+  const player = { x: 25, y: 12 }
+  const items = scatterRandomItems(map, Math.random, 'driveway', 5, [player])
+  return { player, monsters: [], items }
 }
 
 export function mutateChaosMap(map: MapSystem, playerX: number, playerY: number): void {
