@@ -25,6 +25,7 @@ export class WorldState {
   mamHasOrange = false
   mamHasVase   = false
   widgetFound  = false
+  peterWarned  = false
 
   hasRight() { return this.cx < this.GRID - 1 }
   hasLeft()  { return this.cx > 0 }

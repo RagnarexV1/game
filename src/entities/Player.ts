@@ -31,6 +31,8 @@ export class Player {
   timestopTurns = 0
   drunkTurns = 0
   phasingTurns = 0
+  blindTurns = 0
+  translucenceTurns = 0
   itemVision = false
   gender: 'male' | 'female' = 'male'
   extraFingers = 0
@@ -83,8 +85,8 @@ export class Player {
   }
 
   getAC(): number {
-    if (!this.equipSys) return 10
-    return 10 - this.equipSys.getArmorBonus(this.equipment, this.invSys)
+    const base = this.equipSys ? 10 - this.equipSys.getArmorBonus(this.equipment, this.invSys) : 10
+    return this.translucenceTurns > 0 ? base - 20 : base
   }
 
   gainXP(amount: number): void {

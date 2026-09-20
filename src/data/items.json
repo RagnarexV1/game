@@ -554,7 +554,7 @@
     "slot": null,
     "foodAmount": -8,
     "healAmount": -6,
-    "eatMessage": "This speculaas tastes soft and sour. You feel ill.",
+    "eatMessage": "This speculaas tastes soft and sour. Yuck!",
     "weight": 0,
     "value": 0,
     "description": "Spiced shortcrust biscuits. Festive and fortifying."
@@ -866,7 +866,7 @@
   },
   {
     "id": "mispel",
-    "name": "Mispel",
+    "name": "Mespilus germanica",
     "glyph": "%",
     "color": "#806040",
     "type": "eat",
@@ -874,7 +874,7 @@
     "throwable": true,
     "foodAmount": -10,
     "healAmount": -5,
-    "eatMessage": "The mispel is overripe and rotten. You feel drunk.",
+    "eatMessage": "You eat the rotten Mespilus germanica. Your head starts spinning!",
     "weight": 1,
     "value": 0,
     "description": "An overripe squishy fruit."

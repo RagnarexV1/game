@@ -105,6 +105,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_hela',      'assets/monsters/hela.png')
     this.load.image('monster_icedragon', 'assets/monsters/icedragon.png')
     this.load.image('monster_koe',       'assets/monsters/koe.png')
+    this.load.image('monster_lex',       'assets/monsters/lex.png')
     this.load.image('monster_magician',  'assets/monsters/magician.png')
     this.load.image('monster_mam',       'assets/monsters/mam.png')
     this.load.image('monster_mar',       'assets/monsters/mar.png')
@@ -146,6 +147,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_nymph',       'assets/monsters/nymph.png')
     this.load.image('monster_cat',         'assets/monsters/cat.png')
     this.load.image('monster_wolf',        'assets/monsters/wolf.png')
+    this.load.image('monster_troll',       'assets/monsters/troll.png')
 
     // Items
     this.load.image('item_amulet',          'assets/items/amulet.png')

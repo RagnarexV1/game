@@ -258,6 +258,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   mar:         'monster_mar',
   mar_bedroom: 'monster_mar',
   sas:       'monster_sas',
+  lex:       'monster_lex',
   koe:       'monster_koe',
   magician:         'monster_magician',
   summoner:         'monster_summoner',
@@ -296,8 +297,9 @@ const MONSTER_SPRITES: Record<string, string> = {
   muddman:     'monster_muddman',
   nymph:       'monster_nymph',
   cat:         'monster_cat',
-  wolf:        'monster_wolf',
+  werewolf:    'monster_wolf',
   stinkdier:   'monster_stinkdier',
+  troll:       'monster_troll',
 }
 
 type RenderObject = Phaser.GameObjects.GameObject
@@ -332,6 +334,18 @@ export class LocalMapView {
 
     // We'll apply the mask per-object at render time
     this._mask = mask
+
+    // Dedicated camera scoped to the local-map viewport, so a blur filter
+    // (blindness) only affects this rectangle and never the rest of the UI.
+    // The main camera is told to ignore this.pool each render() so the pool
+    // is drawn exactly once, by this camera.
+    this.blindCam = scene.cameras.add(x, y, w, h)
+    this.blindCam.setBackgroundColor('rgba(0,0,0,0)')
+    // Pool objects use absolute screen coords (baked-in x/y offset), same as
+    // the main camera's default 1:1 mapping. This camera's viewport itself
+    // already shifts drawing by (x,y), so scroll by the same amount to cancel
+    // that out and land back on the same absolute coordinates.
+    this.blindCam.setScroll(x, y)
   }
 
   groundDecorations: Array<{ tx: number; ty: number; key: string }> = []
@@ -339,6 +353,8 @@ export class LocalMapView {
   private _mask: Phaser.Display.Masks.GeometryMask
   private lastCamOffX = 0
   private lastCamOffY = 0
+  private blindCam: Phaser.Cameras.Scene2D.Camera
+  private blindActive = false
 
   getMask(): Phaser.Display.Masks.GeometryMask { return this._mask }
 
@@ -350,6 +366,7 @@ export class LocalMapView {
       if (bsx + TILE < x || bsy + TILE < y || bsx > x + w || bsy > y + h) continue
       const img = this.scene.add.image(bsx, bsy, 'stairs_banaan').setOrigin(0, 0).setDepth(5)
       img.setMask(this._mask)
+      this.scene.cameras.main.ignore(img)
       this.pool.push(img)
     }
   }
@@ -397,6 +414,8 @@ export class LocalMapView {
       targetY = to.sy + 6
     }
 
+    this.scene.cameras.main.ignore(projectile)
+
     const dx = toTileX - fromTileX
     const dy = toTileY - fromTileY
     const dist = Math.sqrt(dx * dx + dy * dy)
@@ -424,6 +443,13 @@ export class LocalMapView {
     // Destroy previous pool
     for (const obj of this.pool) obj.destroy()
     this.pool = []
+
+    const wantBlind = player.blindTurns > 0
+    if (wantBlind !== this.blindActive) {
+      this.blindActive = wantBlind
+      if (wantBlind) this.blindCam.filters.internal.addBlur(2, 1, 1, 2, 0xffffff, 16)
+      else this.blindCam.filters.internal.clear()
+    }
 
     const { x, y, w, h } = this
 
@@ -699,16 +725,19 @@ export class LocalMapView {
     // Player
     const px = x + camOffX + player.x * TILE
     const py = y + camOffY + player.y * TILE
+    const playerAlpha = player.translucenceTurns > 0 ? 0.5 : 1
     if (this.scene.textures.exists(player.spriteKey)) {
-      const img = this.scene.add.image(px, py, player.spriteKey).setOrigin(0, 0).setDepth(4)
+      const img = this.scene.add.image(px, py, player.spriteKey).setOrigin(0, 0).setDepth(4).setAlpha(playerAlpha)
       img.setMask(this._mask)
       this.pool.push(img)
     } else {
       const t = this.scene.add.text(px + 4, py + 4, '@', {
         fontSize: '20px', color: '#ffffff', fontFamily: 'monospace',
-      }).setDepth(4).setMask(this._mask)
+      }).setDepth(4).setMask(this._mask).setAlpha(playerAlpha)
       this.pool.push(t)
     }
+
+    this.scene.cameras.main.ignore(this.pool)
   }
 
   private itemGlyph(defId: string): { glyph: string; color: string } {

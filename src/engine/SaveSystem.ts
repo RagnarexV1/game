@@ -18,6 +18,10 @@ export interface GamePlayerSave {
   inventory: ItemInstance[]
   equipment: EquipmentSlots
   skills: string[]
+  speed: number; energy: number
+  allianceTurns: number; timestopTurns: number; drunkTurns: number; phasingTurns: number
+  blindTurns: number; translucenceTurns: number
+  itemVision: boolean
 }
 
 export interface WorldStateSave {
@@ -28,6 +32,7 @@ export interface WorldStateSave {
   savedPlayerX: number; savedPlayerY: number
   mamHasOrange: boolean; mamHasVase: boolean
   widgetFound?: boolean
+  peterWarned?: boolean
 }
 
 export interface GameSaveData {

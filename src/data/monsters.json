@@ -130,12 +130,12 @@
     "name": "Lorkest",
     "glyph": "L",
     "color": "#4080c0",
-    "hp": 28,
-    "maxHp": 28,
-    "str": 11,
-    "ac": 3,
-    "speed": 1,
-    "xpValue": 30,
+    "hp": 65,
+    "maxHp": 65,
+    "str": 20,
+    "ac": 5,
+    "speed": 3,
+    "xpValue": 60,
     "aiType": "water_wander",
     "description": "A sleek predator that glides silently through dark water."
   },
@@ -241,7 +241,7 @@
   },
   {
     "id": "mam",
-    "name": "Mam",
+    "name": "Mom",
     "glyph": "@",
     "color": "#ff80c0",
     "hp": 30,
@@ -256,7 +256,7 @@
   },
   {
     "id": "pap2",
-    "name": "Pap",
+    "name": "Dad",
     "glyph": "@",
     "color": "#ffc080",
     "hp": 30,
@@ -313,6 +313,21 @@
     "aiType": "friendly",
     "npc": true,
     "description": "Seems to know the way out."
+  },
+  {
+    "id": "lex",
+    "name": "Lex",
+    "glyph": "@",
+    "color": "#80c0ff",
+    "hp": 30,
+    "maxHp": 30,
+    "str": 1,
+    "ac": 0,
+    "speed": 1,
+    "xpValue": 0,
+    "aiType": "friendly",
+    "npc": true,
+    "description": "Arrived earlier than expected."
   },
   {
     "id": "koe",
@@ -385,8 +400,8 @@
     "ac": 1,
     "speed": 1,
     "xpValue": 5,
-    "aiType": "water_wander",
-    "description": "A small silver fish darting through the shallows."
+    "aiType": "water_chase",
+    "description": "An angry looking fish."
   },
   {
     "id": "squid",
@@ -443,7 +458,7 @@
     "ac": 1,
     "speed": 2,
     "xpValue": 3,
-    "aiType": "wander",
+    "aiType": "chase",
     "description": "A quick silvery insect that lurks in damp places."
   },
   {
@@ -457,7 +472,7 @@
     "ac": 2,
     "speed": 1,
     "xpValue": 4,
-    "aiType": "wander",
+    "aiType": "chase",
     "description": "A small armoured crustacean that rolls into a ball when threatened."
   },
   {
@@ -498,7 +513,7 @@
     "str": 37,
     "ac": 10,
     "speed": 1,
-    "xpValue": 8,
+    "xpValue": 25,
     "aiType": "chase",
     "description": "A smaller, weaker kin of the crypt dwarf lurking in the deepest passages."
   },
@@ -704,12 +719,12 @@
     "name": "Muddman",
     "glyph": "M",
     "color": "#8b6040",
-    "hp": 40,
-    "maxHp": 40,
-    "str": 13,
-    "ac": 5,
+    "hp": 65,
+    "maxHp": 65,
+    "str": 20,
+    "ac": 6,
     "speed": 1,
-    "xpValue": 32,
+    "xpValue": 45,
     "aiType": "chase",
     "description": "A hulking figure of animated mud, dripping and relentless."
   },
@@ -742,18 +757,18 @@
     "description": "A sleek cat that has decided you are its person."
   },
   {
-    "id": "wolf",
-    "name": "Wolf",
+    "id": "werewolf",
+    "name": "Werewolf",
     "glyph": "w",
-    "color": "#909090",
-    "hp": 18,
-    "maxHp": 18,
-    "str": 9,
-    "ac": 2,
-    "speed": 1,
-    "xpValue": 22,
+    "color": "#604030",
+    "hp": 34,
+    "maxHp": 34,
+    "str": 15,
+    "ac": 3,
+    "speed": 2,
+    "xpValue": 50,
     "aiType": "chase",
-    "description": "A grey wolf with cold yellow eyes."
+    "description": "A cursed man-beast, more wolf than man under the full moon."
   },
   {
     "id": "stinkdier",

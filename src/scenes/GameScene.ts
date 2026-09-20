@@ -21,6 +21,8 @@ import { WorldMapView } from '../ui/WorldMapView'
 import { LocalMapView } from '../ui/LocalMapView'
 import { InventoryScreen } from '../ui/InventoryScreen'
 import { SelfScreen } from '../ui/SelfScreen'
+import { SkillScreen } from '../ui/SkillScreen'
+import { QuestScreen } from '../ui/QuestScreen'
 import {
   GAME_W, GAME_H, TILE,
   STATS_X, STATS_Y, STATS_W, STATS_H,
@@ -32,14 +34,7 @@ import {
 import monsterData from '../data/monsters.json'
 import type { ItemInstance, MonsterDef } from '../types'
 
-const MIX_RECIPES: Array<{ a: string; b: string; result: string }> = [
-  { a: 'health_potion',      b: 'strength_potion',    result: 'invulnerability_potion' },
-  { a: 'speed_potion',       b: 'translucence_potion', result: 'second_life_potion'    },
-  { a: 'experience_potion',  b: 'phasing_potion',      result: 'transformation_potion' },
-  { a: 'depredation_potion', b: 'blindness_potion',    result: 'music_potion'          },
-]
-const SKILLED_POOL  = ['second_life_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion']
-const MYSTERY_POOL  = ['speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion']
+import { MIX_RECIPES, SKILLED_POOL, MYSTERY_POOL } from '../data/mixRecipes'
 
 const MAP_W = 80
 const MAP_H = 20
@@ -68,6 +63,8 @@ export class GameScene extends Phaser.Scene {
   private localMapView!: LocalMapView
   private inventoryScreen!: InventoryScreen
   private selfScreen!: SelfScreen
+  private skillScreen!: SkillScreen
+  private questScreen!: QuestScreen
 
   private inputBlocked = false
   private lookMode = false
@@ -79,11 +76,11 @@ export class GameScene extends Phaser.Scene {
     relic_scroll_1: { npcId: 'mar_bedroom', message: 'Mar takes the ancient fragment, eyes wide with wonder.' },
     relic_scroll_2: { npcId: 'mar_bedroom', message: 'Mar takes the ancient fragment, eyes wide with wonder.' },
     relic_scroll_3: { npcId: 'mar_bedroom', message: 'Mar takes the ancient fragment, eyes wide with wonder.' },
-    postzegelRex:   { npcId: 'pap2',  message: 'Pap excitedly adds the Rex stamp to his collection!' },
-    postzegelStego: { npcId: 'pap2',  message: 'Pap excitedly adds the Stego stamp to his collection!' },
-    postzegelStoom: { npcId: 'pap2',  message: 'Pap excitedly adds the Steam stamp to his collection!' },
-    sinaasappel:    { npcId: 'mam',   message: 'Mam happily accepts the orange. "Thank you, dear!"' },
-    vaas:           { npcId: 'mam',   message: 'Mam\'s eyes light up. "A blue vase! Oh, it\'s perfect!"' },
+    postzegelRex:   { npcId: 'pap2',  message: 'Dad excitedly adds the Rex stamp to his collection!' },
+    postzegelStego: { npcId: 'pap2',  message: 'Dad excitedly adds the Stego stamp to his collection!' },
+    postzegelStoom: { npcId: 'pap2',  message: 'Dad excitedly adds the Steam stamp to his collection!' },
+    sinaasappel:    { npcId: 'mam',   message: 'Mom happily accepts the orange. "Thank you, dear!"' },
+    vaas:           { npcId: 'mam',   message: 'Mom\'s eyes light up. "A blue vase! Oh, it\'s perfect!"' },
     ericgras:       { npcId: 'paard', message: 'The horse eagerly chomps on the Ericgras.' },
     petergras:      { npcId: 'paard', message: 'The horse sniffs the Petergras and reluctantly eats it.' },
     widget2:        { npcId: 'eric',  message: 'Eric\'s eyes light up. "Where did you find him?! I\'ll teach you to swim as a thank you!"' },
@@ -923,6 +920,8 @@ export class GameScene extends Phaser.Scene {
         case 'copyright': this.messageLog.add('RAGNAREX version 1.0 (c) Copyright 2026 by Eric Wessels', '#ffff80'); break
         case 'dig':       this.startDig(); break
         case 'self':      this.selfScreen.show(this.player, this.inventory); break
+        case 'skill':     this.skillScreen.show(this.player); break
+        case 'help':      this.questScreen.show(this.player, this.worldState); break
         case 'movedown':  this.tryDiveIntoPond(); break
         case 'moveup':    this.tryClimbStairsUp(); break
       }
@@ -942,6 +941,8 @@ export class GameScene extends Phaser.Scene {
     )
 
     this.selfScreen = new SelfScreen(this)
+    this.skillScreen = new SkillScreen(this, this.inventory)
+    this.questScreen = new QuestScreen(this)
 
     this.inventoryScreen = new InventoryScreen(
       this, this.inventory, this.equipment, this.messageLog,
@@ -1007,7 +1008,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (item.defId === 'scroll_twelvegates') {
-        const pool = ['snail', 'hagedis', 'egel', 'troll', 'bat', 'rat', 'wilddog', 'wolf', 'ogre', 'spirit', 'muddman', 'pissebed']
+        const pool = ['snail', 'hagedis', 'egel', 'troll', 'bat', 'rat', 'wilddog', 'ogre', 'spirit', 'muddman', 'pissebed']
         const candidates: { x: number; y: number }[] = []
         for (let ty = 0; ty < this.mapSystem.height; ty++) {
           for (let tx = 0; tx < this.mapSystem.width; tx++) {
@@ -1098,9 +1099,11 @@ export class GameScene extends Phaser.Scene {
         player.phasingTurns = 20
         this.messageLog.add('You feel briefly out of phase with reality.', '#8080ff')
       } else if (item.defId === 'blindness_potion') {
-        this.messageLog.add('Everything goes dark!', '#200020')
+        player.blindTurns = 100
+        this.messageLog.add('Your eyes hurt!', '#200020')
       } else if (item.defId === 'translucence_potion') {
-        this.messageLog.add('You can see through your own hands.', '#c0c0ff')
+        player.translucenceTurns = 30
+        this.messageLog.add('You can see through your own hands. (AC -20 for 30 turns)', '#c0c0ff')
       } else if (item.defId === 'music_potion') {
         this.messageLog.add('Ethereal music fills your mind.', '#ff40ff')
       } else if (item.defId === 'mystery_potion') {
@@ -1110,7 +1113,7 @@ export class GameScene extends Phaser.Scene {
           this.messageLog.add('The Mystery potion tingles. You feel stronger! (STR +2)', '#808080')
         } else if (poolId === 'experience_potion') {
           player.gainXP(100)
-          this.messageLog.add('The Mystery potion glows briefly. (+100 XP)', '#808080')
+          this.messageLog.add('The belly potion glows briefly. (+100 XP)', '#808080')
         } else if (poolId === 'depredation_potion') {
           player.itemVision = true
           this.messageLog.add('The Mystery potion sharpens your senses. You perceive all nearby items.', '#808080')
@@ -1123,10 +1126,13 @@ export class GameScene extends Phaser.Scene {
             this.messageLog.add('The Mystery potion fizzes. Your belly turns a vivid pink!', '#ff80c0')
           }
         } else if (poolId === 'phasing_potion') {
+          player.phasingTurns = 30
           this.messageLog.add('The Mystery potion shimmers. You feel briefly incorporeal.', '#808080')
         } else if (poolId === 'blindness_potion') {
+          player.blindTurns = 100
           this.messageLog.add('The Mystery potion stings your eyes. Everything blurs.', '#808080')
         } else if (poolId === 'translucence_potion') {
+          player.translucenceTurns = 100
           this.messageLog.add('The Mystery potion glows. You become harder to see.', '#808080')
         }
       } else if (item.defId === 'banaan') {
@@ -1148,7 +1154,20 @@ export class GameScene extends Phaser.Scene {
         player.drunkTurns = 20
         player.food = Math.max(0, Math.min(player.maxFood, player.food + (def.foodAmount ?? 0)))
         player.hp   = Math.max(0, Math.min(player.maxHp,   player.hp   + (def.healAmount ?? 0)))
-        this.messageLog.add('You eat the mispel. Your head starts spinning!', '#c0a0ff')
+        this.messageLog.add('You eat the rotten Mespilus germanica. Your head starts spinning!', '#c0a0ff')
+      } else if (item.defId === 'boterham') {
+        player.str += 0.2
+        const prevFood = player.food
+        const prevHp   = player.hp
+        player.food = Math.max(0, Math.min(player.maxFood, player.food + (def.foodAmount ?? 0)))
+        player.hp   = Math.max(0, Math.min(player.maxHp,   player.hp   + (def.healAmount ?? 0)))
+        const foodDelta = player.food - prevFood
+        const hpDelta   = player.hp   - prevHp
+        const parts: string[] = ['+0.2 STR']
+        if (foodDelta !== 0) parts.push(`${foodDelta > 0 ? '+' : ''}${foodDelta} food`)
+        if (hpDelta   !== 0) parts.push(`${hpDelta   > 0 ? '+' : ''}${hpDelta} HP`)
+        const baseMsg = def.eatMessage ?? `You eat the ${def.name}.`
+        this.messageLog.add(`${baseMsg} (${parts.join(', ')})`, '#80c040')
       } else if (def.type === 'eat') {
         const prevFood = player.food
         const prevHp   = player.hp
@@ -1229,7 +1248,7 @@ export class GameScene extends Phaser.Scene {
       }
       // Gate: vase requires orange first
       if (item.defId === 'vaas' && !this.worldState.mamHasOrange) {
-        this.messageLog.add('Mam is busy coughing. She doesn\'t notice your gift.', '#808080')
+        this.messageLog.add('Mom is busy coughing. She doesn\'t notice your gift.', '#808080')
         this.inventoryScreen.hide()
         return
       }
@@ -1240,13 +1259,13 @@ export class GameScene extends Phaser.Scene {
 
       let questComplete = true
 
-      // Pap rewards mixing skill after receiving all 3 stamps
+      // Dad rewards mixing skill after receiving all 3 stamps
       if (quest.npcId === 'pap2' && !player.hasSkill('mixing')) {
         const stampIds = ['postzegelRex', 'postzegelStego', 'postzegelStoom']
         const remaining = player.inventory.filter(i => stampIds.includes(i.defId)).length
         if (remaining === 0) {
           player.learnSkill('mixing')
-          this.messageLog.add('"You have completed my collection!" Pap teaches you the art of mixing potions.', '#ffd080')
+          this.messageLog.add('"You have completed my collection!" Dad teaches you the art of mixing potions.', '#ffd080')
           this.messageLog.add('You learned the skill: Alchemy!', '#40ff80')
         } else {
           questComplete = false
@@ -1286,7 +1305,7 @@ export class GameScene extends Phaser.Scene {
         if (mar) { mar.message = "So, what's next?"; mar.hasSpoken = false }
       }
 
-      // Mam quests
+      // Mom quests
       if (quest.npcId === 'mam') {
         if (item.defId === 'sinaasappel') {
           this.worldState.mamHasOrange = true
@@ -1301,10 +1320,10 @@ export class GameScene extends Phaser.Scene {
           target.hasSpoken = false
           player.maxHp += 25
           player.hp = Math.min(player.hp + 25, player.maxHp)
-          this.messageLog.add('Mam\'s joy fills your heart. (Max HP +25)', '#ff80c0')
+          this.messageLog.add('Mom\'s joy fills your heart. (Max HP +25)', '#ff80c0')
           if (!player.hasSkill('singing')) {
             player.learnSkill('singing')
-            this.messageLog.add('Mam teaches you her favourite song.', '#ff80c0')
+            this.messageLog.add('Mom teaches you her favourite song.', '#ff80c0')
             this.messageLog.add('You learned the skill: Singing!', '#40ff80')
           }
         }
@@ -1480,11 +1499,19 @@ export class GameScene extends Phaser.Scene {
       if (event.key === 'Escape') {
         if (this.panicOverlay) { this.hidePanic(); return }
         if (this.selfScreen.isVisible()) { this.selfScreen.hide(); return }
+        if (this.skillScreen.isVisible()) { this.skillScreen.hide(); return }
+        if (this.questScreen.isVisible()) { this.questScreen.handleKey(event); return }
         if (this.lookMode) { this.exitLookMode(); return }
       }
 
       // Self screen swallows all keys when open
       if (this.selfScreen.isVisible()) return
+
+      // Skill screen swallows all keys when open
+      if (this.skillScreen.isVisible()) return
+
+      // Quest screen swallows all keys when open (number keys drill into a quest)
+      if (this.questScreen.isVisible()) { this.questScreen.handleKey(event); return }
 
       // Inventory screen swallows keys when open
       if (this.inventoryScreen.isVisible()) {
@@ -1687,6 +1714,7 @@ export class GameScene extends Phaser.Scene {
       if (monster.aiType === 'friendly' || monster.aiType === 'follow') {
         if (monster.defId === 'peter' && !monster.hasSpoken) {
           monster.hasSpoken = true
+          this.worldState.peterWarned = true
           this.inventory.addToInventory(this.player.inventory, this.inventory.createInstance('gongmallet'))
           this.messageLog.add('You fulfill your quest by telling Peter the news.', '#80ff80')
           this.messageLog.add('Peter: "Here, use these Gong mallets to sound the magical Green Gong. You will find it in the pond! Quick!"', '#80ff80')
@@ -1951,7 +1979,11 @@ export class GameScene extends Phaser.Scene {
     }
     if (tile?.defId === 'kitchen_exit_top') { this.transitionFromArea(); return }
 
-    if (!this.mapSystem.isWalkable(nx, ny) && this.player.phasingTurns <= 0) {
+    const lockedIn = this.traderUnpaid.size > 0 && this.isInShopArea()
+    if (!this.mapSystem.isWalkable(nx, ny) && (this.player.phasingTurns <= 0 || lockedIn)) {
+      if (lockedIn && this.player.phasingTurns > 0) {
+        this.messageLog.add("You can't phase through the trader's walls while you owe gold.", '#808080')
+      }
       return
     }
 
@@ -1991,8 +2023,8 @@ export class GameScene extends Phaser.Scene {
 
   private checkTraderDoor(): void {
     if (this.traderUnpaid.size === 0) {
-      if (this.mapSystem.getTile(54, 11)?.defId === 'muur_down_t') {
-        this.mapSystem.setTile(54, 11, 'muur_door_bottom_t')
+      if (this.mapSystem.getTile(54, 11)?.defId === 'wall_down') {
+        this.mapSystem.setTile(54, 11, 'door_closed')
         this.messageLog.add('The doors open again.', '#c09060')
       }
     }
@@ -2036,8 +2068,8 @@ export class GameScene extends Phaser.Scene {
     const inTraderChamber = inForestChamber || this.worldState.currentArea === 'pantry'
     if (inTraderChamber) {
       if (def?.type !== 'gold') this.traderUnpaid.add(fi.item.instanceId)
-      if (inForestChamber && this.mapSystem.getTile(54, 11)?.defId === 'muur_door_bottom_t') {
-        this.mapSystem.setTile(54, 11, 'muur_down_t')
+      if (inForestChamber && this.mapSystem.getTile(54, 11)?.defId === 'door_closed') {
+        this.mapSystem.setTile(54, 11, 'wall_down')
         this.messageLog.add('The doors close.', '#c09060')
       }
     }
@@ -2393,6 +2425,14 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
+    if (this.player.blindTurns > 0) {
+      this.player.blindTurns--
+      if (this.player.blindTurns === 0) this.messageLog.add('Your vision clears.', '#c0c0c0')
+    }
+    if (this.player.translucenceTurns > 0) {
+      this.player.translucenceTurns--
+      if (this.player.translucenceTurns === 0) this.messageLog.add('You fade back into full view.', '#c0c0ff')
+    }
     this.player.energy -= 100
     if (this.player.energy >= 100) {
       // Player has leftover energy — extra turn before world ticks
@@ -2521,6 +2561,10 @@ export class GameScene extends Phaser.Scene {
     const tx = this.player.x + dx
     const ty = this.player.y + dy
     const tile = this.mapSystem.getTile(tx, ty)
+    if (this.traderUnpaid.size > 0 && this.isInShopArea()) {
+      this.messageLog.add("You can't dig your way out while you owe gold.", '#808080')
+      return
+    }
     const indestructible = ['muur_up_t', 'muur_down_t', 'muur_left_t', 'muur_right_t',
       'muur_corner_tl_t', 'muur_corner_tr_t', 'muur_corner_bl_t', 'muur_corner_br_t']
     if (tile && indestructible.includes(tile.defId)) {
@@ -2586,14 +2630,24 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private isInShopArea(): boolean {
+    const inForestChamber = this.worldState.cx === 1 && this.worldState.cy === 1 &&
+        this.worldState.currentArea === null &&
+        this.player.x >= 51 && this.player.x <= 57 &&
+        this.player.y >= 7 && this.player.y <= 10
+    return inForestChamber || this.worldState.currentArea === 'pantry'
+  }
+
   private notifyItemsUnderfoot(): void {
     const here = this.floorItems.filter(fi => fi.x === this.player.x && fi.y === this.player.y)
     if (here.length === 0) return
+    const inShop = this.isInShopArea()
     for (const fi of here) {
       const def = this.inventory.getDef(fi.item.defId)
       const name = def?.name ?? fi.item.defId
       const qty  = fi.item.quantity > 1 ? ` (${fi.item.quantity})` : ''
-      this.messageLog.add(`You see here: ${name}${qty}.`, '#c8a060')
+      const price = inShop && def?.type !== 'gold' ? `  [${def?.value ?? 0}g]` : ''
+      this.messageLog.add(`You see here: ${name}${qty}.${price}`, '#c8a060')
     }
   }
 
@@ -2754,6 +2808,11 @@ export class GameScene extends Phaser.Scene {
         inventory: this.player.inventory.map(i => ({ ...i })),
         equipment: JSON.parse(JSON.stringify(this.player.equipment)),
         skills: [...this.player.skills],
+        speed: this.player.speed, energy: this.player.energy,
+        allianceTurns: this.player.allianceTurns, timestopTurns: this.player.timestopTurns,
+        drunkTurns: this.player.drunkTurns, phasingTurns: this.player.phasingTurns,
+        blindTurns: this.player.blindTurns, translucenceTurns: this.player.translucenceTurns,
+        itemVision: this.player.itemVision,
       },
       worldState: {
         cx: this.worldState.cx, cy: this.worldState.cy,
@@ -2762,6 +2821,7 @@ export class GameScene extends Phaser.Scene {
         savedCx: this.worldState.savedCx, savedCy: this.worldState.savedCy,
         savedPlayerX: this.worldState.savedPlayerX, savedPlayerY: this.worldState.savedPlayerY,
         mamHasOrange: this.worldState.mamHasOrange, mamHasVase: this.worldState.mamHasVase, widgetFound: this.worldState.widgetFound,
+        peterWarned: this.worldState.peterWarned,
       },
       currentMapKey: currentKey,
       cellSnapshots: snapshots as GameSaveData['cellSnapshots'],
@@ -2786,6 +2846,15 @@ export class GameScene extends Phaser.Scene {
     this.player.inventory = p.inventory.map(i => ({ ...i }))
     this.player.equipment = JSON.parse(JSON.stringify(p.equipment))
     this.player.skills = new Set(p.skills)
+    this.player.speed = p.speed ?? 100
+    this.player.energy = p.energy ?? 100
+    this.player.allianceTurns = p.allianceTurns ?? 0
+    this.player.timestopTurns = p.timestopTurns ?? 0
+    this.player.drunkTurns = p.drunkTurns ?? 0
+    this.player.phasingTurns = p.phasingTurns ?? 0
+    this.player.blindTurns = p.blindTurns ?? 0
+    this.player.translucenceTurns = p.translucenceTurns ?? 0
+    this.player.itemVision = p.itemVision ?? false
     this.turnManager.addActor(this.player)
     this.turnManager.setTurn(data.turn)
 
@@ -2796,6 +2865,7 @@ export class GameScene extends Phaser.Scene {
     this.worldState.savedCx = ws.savedCx; this.worldState.savedCy = ws.savedCy
     this.worldState.savedPlayerX = ws.savedPlayerX; this.worldState.savedPlayerY = ws.savedPlayerY
     this.worldState.mamHasOrange = ws.mamHasOrange; this.worldState.mamHasVase = ws.mamHasVase; this.worldState.widgetFound = ws.widgetFound ?? false
+    this.worldState.peterWarned = ws.peterWarned ?? false
 
     this.worldState.cellSnapshots.clear()
     for (const [k, v] of Object.entries(data.cellSnapshots)) this.worldState.cellSnapshots.set(k, v)

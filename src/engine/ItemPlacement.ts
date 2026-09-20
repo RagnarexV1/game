@@ -5,7 +5,7 @@ import itemData from '../data/items.json'
 const ITEMS = itemData as ItemDef[]
 
 // Unique/quest items — kept only at their hand-placed spot, never duplicated by random scatter.
-const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion'])
+const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion'])
 
 // Items clearly tied to one kind of location — never scattered onto an unrelated map type.
 const RESTRICTED: Record<string, string[]> = {

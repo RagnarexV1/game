@@ -2044,8 +2044,12 @@ export function generateDrivewayMap(map: MapSystem): SpawnPoints {
   }
 
   const player = { x: 25, y: 12 }
-  const items = scatterRandomItems(map, Math.random, 'driveway', 5, [player])
-  return { player, monsters: [], items }
+  const monsters = [
+    { x: 12, y: 10, defId: 'lex' },
+    { x: 15, y: 10, defId: 'sas' },
+  ]
+  const items = scatterRandomItems(map, Math.random, 'driveway', 5, [player, ...monsters])
+  return { player, monsters, items }
 }
 
 export function mutateChaosMap(map: MapSystem, playerX: number, playerY: number): void {
