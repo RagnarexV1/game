@@ -14,16 +14,20 @@ interface SkillEntry {
   id: string
   label: string
   icon: string // stand-in glyph until dedicated icon sprites exist
+  active?: boolean // clicking uses the skill immediately instead of opening a detail view
 }
 
 const SKILL_LIST: SkillEntry[] = [
   { id: 'mixing', label: 'Alchemy', icon: '⚗' },
+  { id: 'ventriloquism', label: 'Ventriloquism', icon: '♪', active: true },
 ]
 
 export class SkillScreen {
   private container: Phaser.GameObjects.Container | null = null
   private view: 'list' | 'detail' = 'list'
   private player: Player | null = null
+
+  onActivate: ((skillId: string) => void) | null = null
 
   constructor(private scene: Phaser.Scene, private invSys: InventorySystem) {}
 
@@ -102,6 +106,11 @@ export class SkillScreen {
       hit.on('pointerdown', (pointer: Phaser.Input.Pointer, lx: number, ly: number, event: { stopPropagation: () => void }) => {
         event.stopPropagation()
         if (!known) return
+        if (skill.active) {
+          this.hide()
+          this.onActivate?.(skill.id)
+          return
+        }
         this.view = 'detail'
         this.render()
       })

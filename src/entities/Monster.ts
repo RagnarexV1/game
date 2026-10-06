@@ -24,6 +24,7 @@ export class Monster {
   message?: string
   hasSpoken = false
   stunTurns = 0
+  confuseTurns = 0
   onSplit?: (monster: Monster) => void
   onAfterMove?: (fromX: number, fromY: number) => void
 
@@ -67,6 +68,13 @@ export class Monster {
     if (!this.isAlive()) return
     if (this.stunTurns > 0) { this.stunTurns--; return }
 
+    if (this.confuseTurns > 0) {
+      this.confuseTurns--
+      if (this.aiType === 'water_chase') this.wanderOnWater()
+      else this.wander()
+      return
+    }
+
     const dx = this.player.x - this.x
     const dy = this.player.y - this.y
     const dist = Math.abs(dx) + Math.abs(dy)
@@ -76,6 +84,14 @@ export class Monster {
       if (tx !== this.x && this.map.isWalkable(tx, this.y) && this.getMonsterAt(tx, this.y) === null) {
         this.moveTo(tx, this.y)
       }
+      return
+    }
+
+    if (this.player.allianceTurns > 0 &&
+        (this.aiType === 'chase' || this.aiType === 'water_chase' || this.aiType === 'guard' ||
+         this.aiType === 'kamikaze' || this.aiType === 'split')) {
+      if (this.aiType === 'water_chase') this.wanderOnWater()
+      else this.wander()
       return
     }
 
@@ -162,15 +178,20 @@ export class Monster {
     'exit_kitchen', 'exit_garage', 'kitchen_exit', 'kitchen_exit_top',
     'exit_bathroom', 'bath_exit_left', 'bath_exit_down', 'bath_exit_up',
     'garage_exit_up', 'garage_exit_down',
-    'portal', 'portal_garage', 'portal_underground', 'portal_chaos',
-    'portal_bedroom', 'portal_stairs', 'portal_stairs_up', 'portal_cellar', 'portal_loft', 'portal_loft3', 'portal_study', 'portal_pantry',
+    'portal', 'portal_garage', 'portal_hall', 'portal_chaos',
+    'portal_bedroom', 'portal_stairs', 'portal_stairs_up', 'portal_tub_enclosure', 'portal_loft', 'portal_loft3', 'portal_study', 'portal_pantry', 'portal_driveway',
     'bedroom_exit', 'bedroom_stairs_down', 'bedroom_stairs_up',
-    'stairs_exit_down', 'stairs_exit_up', 'crypt', 'cellar_exit', 'vortex_portal', 'loft_exit', 'loft3_exit', 'study_exit', 'pantry_exit',
+    'stairs_exit_down', 'stairs_exit_up', 'crypt', 'tub_enclosure_exit', 'vortex_portal', 'loft_exit', 'loft_exit_stairs', 'loft3_exit', 'loft3_exit_down', 'study_exit', 'pantry_exit',
+    'portal_upper_hall_left', 'portal_upper_hall_right',
+    'upper_hall_exit_chaos', 'upper_hall_exit_bathroom', 'upper_hall_exit_study', 'upper_hall_exit_mar',
+    'bath_exit_upper_hall', 'chaos_exit_upper_hall', 'study_exit_upper_hall', 'mar_exit_upper_hall',
+    'loft_stairs_exit_down', 'loft_stairs_exit_up',
   ])
 
   private canMoveTo(nx: number, ny: number): boolean {
-    if (!this.map.isWalkable(nx, ny)) return false
     const defId = this.map.getTile(nx, ny)?.defId
+    const klopperPassable = this.defId === 'klopper' && (defId === 'tree' || defId === 'water' || defId === 'water_bath')
+    if (!klopperPassable && !this.map.isWalkable(nx, ny)) return false
     if (defId === 'flame') return false
     if (defId && Monster.TRANSITION_TILES.has(defId)) return false
     if (this.getMonsterAt(nx, ny) !== null) return false

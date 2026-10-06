@@ -44,7 +44,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   tool:   '#AAAAAA',
 }
 
-type ScreenMode = 'all' | 'wear' | 'wield' | 'remove' | 'eat' | 'drink' | 'read' | 'throw' | 'use' | 'drop' | 'examine' | 'mix' | 'pay'
+type ScreenMode = 'all' | 'wear' | 'wield' | 'remove' | 'eat' | 'drink' | 'read' | 'throw' | 'use' | 'drop' | 'examine' | 'mix' | 'pay' | 'zap'
 
 interface LineEntry {
   item: ItemInstance
@@ -82,11 +82,14 @@ export class InventoryScreen {
   onConsume: ((item: ItemInstance, player: Player) => void) | null = null
   onRead:    ((item: ItemInstance, player: Player) => void) | null = null
   onThrow:   ((item: ItemInstance, player: Player) => void) | null = null
+  onZap:     ((item: ItemInstance, player: Player) => void) | null = null
   onUse:     ((item: ItemInstance, player: Player) => void) | null = null
   onDrop:    ((item: ItemInstance, player: Player) => void) | null = null
   onMix:     ((item1: ItemInstance, item2: ItemInstance, player: Player) => void) | null = null
   onPay: ((item: ItemInstance, player: Player) => void) | null = null
   private payFilter: Set<string> | null = null
+  // Live map (not a snapshot) so items paid off or newly consumed show up without a re-show().
+  private payGhosts: Map<string, ItemInstance> | null = null
   unpaidItems: Set<string> | null = null
 
   private mixFirstItem: ItemInstance | null = null
@@ -211,6 +214,10 @@ export class InventoryScreen {
       if (this.onThrow) this.onThrow(data.item, this.currentPlayer)
       return
     }
+    if (this.mode === 'zap') {
+      if (this.onZap) this.onZap(data.item, this.currentPlayer)
+      return
+    }
     if (this.mode === 'use') {
       if (this.onUse) this.onUse(data.item, this.currentPlayer)
       return
@@ -243,8 +250,9 @@ export class InventoryScreen {
     this.refresh(this.currentPlayer)
   }
 
-  show(player: Player, mode: ScreenMode = 'all', payFilter?: Set<string>): void {
+  show(player: Player, mode: ScreenMode = 'all', payFilter?: Set<string>, payGhosts?: Map<string, ItemInstance>): void {
     this.payFilter = payFilter ?? null
+    this.payGhosts = payGhosts ?? null
     this.mode = mode
     this.currentPlayer = player
     this.selectedIdx = 0
@@ -259,6 +267,7 @@ export class InventoryScreen {
     this.currentPlayer = null
     this.mixFirstItem = null
     this.payFilter = null
+    this.payGhosts = null
   }
 
   isVisible(): boolean {
@@ -290,9 +299,9 @@ export class InventoryScreen {
     const equip = player.equipment
 
     const ringSlots:   (keyof EquipmentSlots)[] = ['ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
-    const armorSlots:  (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'leg', 'neck', 'shield', 'cape', ...ringSlots]
+    const armorSlots:  (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
     const weaponSlots: (keyof EquipmentSlots)[] = ['weapon']
-    const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'body', 'head', 'feet', 'hand', 'leg', 'neck', 'shield', 'cape', ...ringSlots]
+    const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'body', 'head', 'feet', 'hand', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
 
     // Which equipment slots contribute to the display
     const equippedSlots: (keyof EquipmentSlots)[] =
@@ -320,13 +329,24 @@ export class InventoryScreen {
         const def = this.invSys.getDef(item.defId)
         if (!def) continue
         if (this.mode === 'wear'  && def.type !== 'armor' && def.type !== 'ring') continue
-        if (this.mode === 'wield' && def.type !== 'weapon')  continue
+        if (this.mode === 'wield' && (def.type !== 'weapon' || def.noWield))  continue
         if (this.mode === 'eat'   && def.type !== 'eat')     continue
         if (this.mode === 'drink' && def.type !== 'drink')   continue
         if (this.mode === 'read'  && def.type !== 'scroll')  continue
         if (this.mode === 'throw' && def.type !== 'weapon' && !def.throwable)  continue
         if (this.mode === 'mix'   && def.type !== 'drink')   continue
+        if (this.mode === 'zap'   && def.type !== 'wand')    continue
         if (this.mode === 'pay' && !this.payFilter?.has(item.instanceId)) continue
+        allItems.push({ item, def, equipped: false, category: getItemCategory(def.id, def.type) })
+      }
+    }
+
+    // Unpaid items already used up (potion drunk, scroll read, ...) still owe gold —
+    // keep them on the pay list (with a ghost note) even though they're gone from the pack.
+    if (this.mode === 'pay' && this.payGhosts) {
+      for (const item of this.payGhosts.values()) {
+        const def = this.invSys.getDef(item.defId)
+        if (!def) continue
         allItems.push({ item, def, equipped: false, category: getItemCategory(def.id, def.type) })
       }
     }
@@ -344,7 +364,8 @@ export class InventoryScreen {
     for (const di of allItems) {
       if (!di.equipped) {
         const prev = groupedItems[groupedItems.length - 1]
-        if (prev && !prev.equipped && prev.item.defId === di.item.defId) {
+        // Wands each carry their own charges, so they're never merged
+        if (prev && !prev.equipped && prev.item.defId === di.item.defId && !di.def.wandEffect && di.def.id !== 'remote') {
           prev.count++
           continue
         }
@@ -379,9 +400,11 @@ export class InventoryScreen {
       let desc = def.name
       if (di.count > 1) desc += ` (${di.count})`
       else if (item.quantity > 1) desc += ` (${item.quantity})`
+      if (def.wandEffect || def.id === 'remote') desc += ` (${item.charges ?? 0})`
       if (def.damage)  desc += ` (+${def.damage} dmg)`
       if (def.defense) desc += ` (-${def.defense} AC)`
       if (this.mode === 'pay') desc += `  [${def.value ?? 0}g]`
+      if (this.mode === 'pay' && this.payGhosts?.has(item.instanceId)) desc += ' (used)'
       if (this.mode !== 'pay' && this.unpaidItems?.has(item.instanceId)) desc += ' (unpaid)'
 
       let text: string
@@ -413,6 +436,7 @@ export class InventoryScreen {
         this.mode === 'drink'   ? '  (no potions in pack)'       :
         this.mode === 'read'    ? '  (no scrolls in pack)'       :
         this.mode === 'throw'   ? '  (no weapons to throw)'      :
+        this.mode === 'zap'     ? '  (nothing to zap)'           :
         this.mode === 'use'     ? '  (nothing to use)'           :
         this.mode === 'examine' ? '  (nothing to examine)'       :
         this.mode === 'mix'     ? '  (need at least 2 potions)'  :
@@ -458,6 +482,7 @@ export class InventoryScreen {
     else if (this.mode === 'drink')  this.header.setText('DRINK POTION' + pageHint)
     else if (this.mode === 'read')   this.header.setText('READ SCROLL' + pageHint)
     else if (this.mode === 'throw')  this.header.setText('THROW WEAPON' + pageHint)
+    else if (this.mode === 'zap')    this.header.setText('ZAP WAND' + pageHint)
     else if (this.mode === 'use')    this.header.setText('USE / GIVE ITEM' + pageHint)
     else if (this.mode === 'drop')    this.header.setText('DROP ITEM' + pageHint)
     else if (this.mode === 'examine') this.header.setText('EXAMINE ITEM' + pageHint)
@@ -465,21 +490,23 @@ export class InventoryScreen {
       const selHint = this.mixFirstItem ? '— select second' : '— select first'
       this.header.setText(`MIX POTIONS  ${selHint}` + pageHint)
     }
-    else if (this.mode === 'pay') this.header.setText(`PAY FOR ITEMS  (Gold: ${player.gold}g)` + pageHint)
-    else this.header.setText(`INVENTORY  (Gold: ${player.gold})` + pageHint)
+    else if (this.mode === 'pay') this.header.setText(`PAY FOR ITEMS  (Cents: ${player.gold})` + pageHint)
+    else this.header.setText(`INVENTORY  (Cents: ${player.gold})` + pageHint)
 
     // ── Footer ────────────────────────────────────────────────────────────
     const pageKeys = multi ? '  ◄►=page' : ''
     if (this.mode === 'wear' || this.mode === 'wield' || this.mode === 'remove')
       this.footer.setText('Click item to equip/remove   ESC to close' + pageKeys)
     else if (this.mode === 'eat')
-      this.footer.setText('Click food to eat   E to close' + pageKeys)
+      this.footer.setText('Letter/click food to eat   E to close' + pageKeys)
     else if (this.mode === 'drink')
-      this.footer.setText('Click potion to drink   D to close' + pageKeys)
+      this.footer.setText('Letter/click potion to drink   D to close' + pageKeys)
     else if (this.mode === 'read')
-      this.footer.setText('Click scroll to read   R to close' + pageKeys)
+      this.footer.setText('Letter/click scroll to read   R to close' + pageKeys)
     else if (this.mode === 'throw')
       this.footer.setText('Click or letter to throw   T to close' + pageKeys)
+    else if (this.mode === 'zap')
+      this.footer.setText('Click or letter to zap   Z to close' + pageKeys)
     else if (this.mode === 'use')
       this.footer.setText('Click or letter to use/give   U to close' + pageKeys)
     else if (this.mode === 'drop')
@@ -506,6 +533,7 @@ export class InventoryScreen {
       || (this.mode === 'remove' && (event.key === 'v' || event.key === 'V'))
       || (this.mode === 'wield'  && (event.key === 'h' || event.key === 'H'))
       || (this.mode === 'throw'  && (event.key === 't' || event.key === 'T'))
+      || (this.mode === 'zap'    && (event.key === 'z' || event.key === 'Z'))
       || (this.mode === 'use'    && (event.key === 'u' || event.key === 'U'))
       || (this.mode === 'drop'    && (event.key === 'p' || event.key === 'P'))
       || (this.mode === 'examine' && (event.key === 'x' || event.key === 'X'))
@@ -522,14 +550,18 @@ export class InventoryScreen {
       this.changePage(-1); return true
     }
 
-    if (this.mode !== 'all' && this.mode !== 'throw' && this.mode !== 'use' && this.mode !== 'remove' && this.mode !== 'drop' && this.mode !== 'examine' && this.mode !== 'mix' && this.mode !== 'pay') return true
+    if (this.mode !== 'all' && this.mode !== 'throw' && this.mode !== 'zap' && this.mode !== 'use' && this.mode !== 'remove' && this.mode !== 'drop' && this.mode !== 'examine' && this.mode !== 'mix' && this.mode !== 'pay'
+      && this.mode !== 'eat' && this.mode !== 'drink' && this.mode !== 'read') return true
 
     const letterLineIdx = this.letterToLine.get(event.key)
     if (letterLineIdx !== undefined) {
       const data = this.lineData[letterLineIdx]
       if (data?.item && this.currentPlayer) {
+        if ((this.mode === 'eat' || this.mode === 'drink') && this.onConsume) { this.onConsume(data.item, this.currentPlayer); return true }
+        if (this.mode === 'read' && this.onRead)     { this.onRead(data.item, this.currentPlayer);  return true }
         if (this.mode === 'pay'   && this.onPay)      { this.onPay(data.item, this.currentPlayer!); return true }
         if (this.mode === 'throw' && this.onThrow)   { this.onThrow(data.item, this.currentPlayer); return true }
+        if (this.mode === 'zap'   && this.onZap)     { this.onZap(data.item, this.currentPlayer);   return true }
         if (this.mode === 'use'   && this.onUse)     { this.onUse(data.item, this.currentPlayer);   return true }
         if (this.mode === 'drop'  && this.onDrop)    { this.onDrop(data.item, this.currentPlayer);  return true }
         if (this.mode === 'remove' && data.slot)     {

@@ -28,7 +28,7 @@ const INV_SPRITES: Record<string, string> = (() => {
 
 const TILE = 32
 
-const TILE_SPRITES: Record<string, string> = {
+export const TILE_SPRITES: Record<string, string> = {
   floor:        'terrain_floor',
   grass:        'terrain_grass',
   wall:         'terrain_wall_x',
@@ -37,6 +37,7 @@ const TILE_SPRITES: Record<string, string> = {
   waterbodem:   'terrain_waterbodem',
   tree:         'terrain_tree',
   tree_dead:    'terrain_tree_dead',
+  tree_down:    'terrain_tree_down',
   door_closed:  'terrain_door',
   door_open:    'terrain_grass',
   stairs_up:    'terrain_stairs_up',
@@ -74,9 +75,10 @@ const TILE_SPRITES: Record<string, string> = {
   garage_exit_up:   'terrain_next_up',
   garage_exit_down: 'terrain_next_down',
   portal_garage:        'terrain_portal',
-  portal_underground:   'terrain_portal',
+  portal_driveway:      'terrain_portal',
+  portal_hall:   'terrain_portal',
   hall_wall:            'terrain_hall_wall',
-  underground_exit_up: 'terrain_next_up',
+  hall_exit_up: 'terrain_next_up',
   vulkaan:              'terrain_vulkaan',
   portal_chaos:         'terrain_portal',
   tapijt3:              'terrain_tapijt3',
@@ -102,7 +104,7 @@ const TILE_SPRITES: Record<string, string> = {
   flame:                'terrain_flame',
   bedroom_exit:         'terrain_portal',
   portal_bedroom:       'terrain_portal',
-  portal_stairs:        'terrain_portal',
+  portal_stairs:        'terrain_stairs_up',
   portal_stairs_up:     'terrain_stairs_up',
   stairs_exit_down:     'terrain_next_down',
   stairs_exit_up:       'terrain_next_up',
@@ -114,8 +116,8 @@ const TILE_SPRITES: Record<string, string> = {
   kitchen_tile4:        'terrain_kitchen_tile4',
   kitchen_exit:         'terrain_next_down',
   kitchen_exit_top:     'terrain_next_up',
-  portal_cellar:        'terrain_portal',
-  cellar_exit:          'terrain_next_up',
+  portal_tub_enclosure:        'terrain_portal',
+  tub_enclosure_exit:          'terrain_next_up',
   vortex_portal:        'ui_vortex',
   loft_floor:           'terrain_lego_green',
   loft_wall:            'terrain_lego_black',
@@ -125,31 +127,44 @@ const TILE_SPRITES: Record<string, string> = {
   loft_tree:            'terrain_tree',
   portal_loft3:         'terrain_portal',
   loft3_exit:           'terrain_next_left',
+  loft3_exit_down:      'terrain_next_down',
   lego_blue:            'terrain_lego_blue',
   lego_brown:           'terrain_lego_brown',
   lego_red:             'terrain_lego_red',
   lego_grey:            'terrain_lego_grey',
   portal_study:         'terrain_portal',
   study_exit:           'terrain_next_down',
+  loft_exit_stairs:     'terrain_next_up',
+  loft_stairs_exit_down: 'terrain_next_down',
+  loft_stairs_exit_up:  'terrain_next_up',
   portal_pantry:        'terrain_portal',
   pantry_exit:          'terrain_next_up',
   study_pool:           'terrain_water',
   study_pool_green:     'terrain_water_green',
   study_pool_yellow:    'terrain_water_yellow',
-  driveway:                 'terrain_mud',
+  driveway:                 'terrain_driveway',
   garage_portal_driveway:   'terrain_portal',
   hall_portal_driveway:     'terrain_portal',
-  bedroom_portal_driveway:  'terrain_portal',
+  bedroom_portal_driveway:  'terrain_next_right',
   driveway_exit_garage:     'terrain_next_up',
   driveway_exit_hall:       'terrain_next_up',
   driveway_exit_balcony:    'terrain_next_up',
   garage_exit_driveway:     'terrain_next_down',
+  portal_upper_hall_left:   'terrain_portal',
+  portal_upper_hall_right:  'terrain_portal',
+  upper_hall_exit_chaos:    'terrain_next_left',
+  upper_hall_exit_bathroom: 'terrain_next_down',
+  upper_hall_exit_study:    'terrain_next_right',
+  upper_hall_exit_mar:      'terrain_next_up',
+  bath_exit_upper_hall:     'terrain_next_up',
+  chaos_exit_upper_hall:    'terrain_next_right',
+  study_exit_upper_hall:    'terrain_next_left',
+  mar_exit_upper_hall:      'terrain_next_down',
 }
 
 const ITEM_SPRITES: Record<string, string> = {
   ericgras:         'item_ericgras',
   petergras:        'item_petergras',
-  scroll_blank:       'item_scroll',
   scroll_teleport:    'item_scroll',
   scroll_alliance:    'item_scroll',
   scroll_cartography: 'item_scroll',
@@ -158,6 +173,13 @@ const ITEM_SPRITES: Record<string, string> = {
   scroll_twelvegates: 'item_scroll',
   scroll_extinction:  'item_scroll',
   scroll_knowledge:   'item_scroll',
+  scroll_ventriloquism:   'item_scroll',
+  scroll_fact_beavers:    'item_scroll',
+  scroll_fact_dinosaurs:  'item_scroll',
+  scroll_fact_prokofiev:  'item_scroll',
+  scroll_fact_cavalcanti: 'item_scroll',
+  scroll_fact_eric:       'item_scroll',
+  scroll_fact_medlar:     'item_scroll',
   relic_scroll_1:     'item_scroll',
   relic_scroll_2:     'item_scroll',
   relic_scroll_3:     'item_scroll',
@@ -209,7 +231,6 @@ const ITEM_SPRITES: Record<string, string> = {
   bracers:          'item_bracers',
   chain_mail:       'item_chainmail',
   leather_armor:    'item_leatherArmor',
-  crossbow:         'item_crossbow',
   gorget:           'item_gorget',
   helmet:           'item_helmet',
   rubberboots:      'item_rubberboots',
@@ -224,6 +245,11 @@ const ITEM_SPRITES: Record<string, string> = {
   ring_cold:          'item_ring',
   silversword:      'item_silversword',
   wand:             'item_wand',
+  wand_displacement: 'item_wand',
+  wand_fire:        'item_wand',
+  wand_cold:        'item_wand',
+  wand_evocation:   'item_wand',
+  wand_tunneling:   'item_wand',
   vaas:             'item_vaas',
   widget2:          'item_widget2',
   pannenkoek:       'item_pannenkoek',
@@ -236,6 +262,7 @@ const ITEM_SPRITES: Record<string, string> = {
   gong:             'item_gong',
   gompie:           'item_gompie',
   mjollnir:         'item_mjollnir',
+  clarinet:         'item_clarinet',
 }
 
 const MONSTER_SPRITES: Record<string, string> = {
@@ -288,6 +315,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   wierdfume:   'monster_wierdfume',
   rat:         'monster_rat',
   wilddog:     'monster_wilddog',
+  klopper:     'monster_klopper',
   wildboar:    'monster_wildboar',
   ogre:        'monster_ogre',
   spirit:      'monster_spirit',
@@ -297,7 +325,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   muddman:     'monster_muddman',
   nymph:       'monster_nymph',
   cat:         'monster_cat',
-  werewolf:    'monster_wolf',
+  werewolf:    'monster_werewolf',
   stinkdier:   'monster_stinkdier',
   troll:       'monster_troll',
 }
@@ -357,6 +385,12 @@ export class LocalMapView {
   private blindActive = false
 
   getMask(): Phaser.Display.Masks.GeometryMask { return this._mask }
+
+  clearBlind(): void {
+    if (!this.blindActive) return
+    this.blindActive = false
+    this.blindCam.filters.internal.clear()
+  }
 
   renderBombs(bombs: Array<{tx: number; ty: number}>): void {
     const { x, y, w, h } = this
@@ -434,6 +468,47 @@ export class LocalMapView {
     })
   }
 
+  // A wand ray: a '*' flying from one tile to another
+  animateBolt(
+    fromTileX: number, fromTileY: number,
+    toTileX: number, toTileY: number,
+    color: string,
+    onComplete: () => void,
+  ): void {
+    this.animateBoltPath([{ x: fromTileX, y: fromTileY }, { x: toTileX, y: toTileY }], color, onComplete)
+  }
+
+  // Same, but along a chain of tiles (a ray bouncing off walls)
+  animateBoltPath(waypoints: Array<{ x: number; y: number }>, color: string, onComplete: () => void): void {
+    const start = this.getTileScreenPos(waypoints[0].x, waypoints[0].y)
+    const bolt = this.scene.add.text(start.sx + TILE / 2, start.sy + TILE / 2, '*', {
+      fontSize: '24px', color, fontFamily: 'monospace', fontStyle: 'bold',
+    }).setOrigin(0.5, 0.5).setDepth(10).setMask(this._mask)
+    this.scene.cameras.main.ignore(bolt)
+
+    const leg = (i: number) => {
+      if (i >= waypoints.length) {
+        bolt.destroy()
+        onComplete()
+        return
+      }
+      const to = this.getTileScreenPos(waypoints[i].x, waypoints[i].y)
+      const dx = waypoints[i].x - waypoints[i - 1].x
+      const dy = waypoints[i].y - waypoints[i - 1].y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      this.scene.tweens.add({
+        targets: bolt,
+        x: to.sx + TILE / 2,
+        y: to.sy + TILE / 2,
+        angle: bolt.angle + 360,
+        duration: Math.max(80, Math.min(60 * dist, 500)),
+        ease: 'Linear',
+        onComplete: () => leg(i + 1),
+      })
+    }
+    leg(1)
+  }
+
   render(
     player: Player,
     monsters: Monster[],
@@ -462,7 +537,7 @@ export class LocalMapView {
     const mapW = this.map.width
     const mapH = this.map.height
 
-    // In underground the background is hall_wall; use it as base fallback instead of grass
+    // In hall the background is hall_wall; use it as base fallback instead of grass
     let isBathroomMap = false
     let isBedroomMap = false
     for (let ty = 0; ty < mapH && !isBathroomMap; ty++)
@@ -474,6 +549,14 @@ export class LocalMapView {
       for (let tx = 0; tx < mapW && !isBedroomMap; tx++) {
         if (this.map.getTile(tx, ty)?.defId === 'tapijt3') isBedroomMap = true
       }
+    // The driveway map has a small carpeted balcony floor but isn't a bedroom —
+    // don't let that flip the whole map's background/wall styling to bedroom mode.
+    let isDrivewayMap = false
+    for (let ty = 0; ty < mapH && !isDrivewayMap; ty++)
+      for (let tx = 0; tx < mapW && !isDrivewayMap; tx++) {
+        if (this.map.getTile(tx, ty)?.defId === 'driveway') isDrivewayMap = true
+      }
+    if (isDrivewayMap) isBedroomMap = false
     if (isBedroomMap) isBathroomMap = false
     this._isBedroomMap = isBedroomMap
     let isStudyMap = false
@@ -481,6 +564,7 @@ export class LocalMapView {
       for (let tx = 0; tx < mapW && !isStudyMap; tx++) {
         if (this.map.getTile(tx, ty)?.defId === 'carpet') isStudyMap = true
       }
+    const isHallMap = this.map.getTile(0, 0)?.defId === 'hall_wall' && !isBathroomMap
     const bgBase = this.map.getTile(0, 0)?.defId === 'hall_wall' ? 'terrain_hall_wall'
       : isBathroomMap ? 'terrain_hall_wall'
       : isBedroomMap ? 'terrain_tapijt3'
@@ -552,7 +636,7 @@ export class LocalMapView {
 
         const spriteKey = this.wallSprite(tile.defId, tx, ty)
         const visible = tile.visible
-        const needsGrassBase = tile.defId === 'tree' || tile.defId === 'tree_dead' || tile.defId === 'berg' ||
+        const needsGrassBase = tile.defId === 'tree' || tile.defId === 'tree_dead' || tile.defId === 'tree_down' || tile.defId === 'berg' ||
           tile.defId === 'exit_right' || tile.defId === 'exit_left' ||
           tile.defId === 'exit_down'  || tile.defId === 'exit_up'   ||
           tile.defId === 'wall_up'    || tile.defId === 'wall_down' ||
@@ -560,25 +644,36 @@ export class LocalMapView {
           tile.defId === 'wall_corner_tl' || tile.defId === 'wall_corner_tr' ||
           tile.defId === 'wall_corner_bl' || tile.defId === 'wall_corner_br' ||
           tile.defId === 'door_closed' || tile.defId === 'exit_bathroom' || tile.defId === 'portal' ||
-          tile.defId === 'portal_garage' || tile.defId === 'portal_underground' ||
-          tile.defId === 'portal_bedroom' || tile.defId === 'portal_stairs' || tile.defId === 'portal_stairs_up' ||
-          tile.defId === 'portal_cellar' || tile.defId === 'portal_loft' || tile.defId === 'portal_loft3' ||
-          tile.defId === 'portal_study' || tile.defId === 'portal_pantry'
+          tile.defId === 'portal_garage' || tile.defId === 'portal_driveway' || tile.defId === 'portal_hall' ||
+          tile.defId === 'portal_bedroom' || tile.defId === 'portal_stairs' ||
+          (tile.defId === 'portal_stairs_up' && !isHallMap) ||
+          tile.defId === 'portal_tub_enclosure' || tile.defId === 'portal_loft' || tile.defId === 'portal_loft3' ||
+          tile.defId === 'portal_study' || tile.defId === 'portal_pantry' ||
+          tile.defId === 'portal_upper_hall_left' || tile.defId === 'portal_upper_hall_right' ||
+          tile.defId === 'upper_hall_exit_chaos' || tile.defId === 'upper_hall_exit_bathroom' ||
+          tile.defId === 'upper_hall_exit_study' || tile.defId === 'upper_hall_exit_mar' ||
+          tile.defId === 'chaos_exit_upper_hall'
         const needsFloorBase = tile.defId === 'exit_kitchen' || tile.defId === 'exit_garage' ||
           tile.defId === 'kitchen_exit_top' || tile.defId === 'kitchen_exit' ||
           tile.defId === 'crypt' || tile.defId === 'garage_exit_up' || tile.defId === 'garage_exit_down' ||
-          tile.defId === 'cellar_exit' || tile.defId === 'pantry_exit' ||
+          tile.defId === 'tub_enclosure_exit' || tile.defId === 'pantry_exit' ||
           tile.defId === 'garage_portal_driveway' || tile.defId === 'hall_portal_driveway' ||
           tile.defId === 'driveway_exit_garage' || tile.defId === 'driveway_exit_hall' ||
-          tile.defId === 'garage_exit_driveway'
+          tile.defId === 'garage_exit_driveway' ||
+          (tile.defId === 'portal_stairs_up' && isHallMap) ||
+          (isDrivewayMap && (tile.defId === 'muur_down_t' || tile.defId === 'muur_left_t' ||
+            tile.defId === 'muur_corner_bl_t' || tile.defId === 'muur_corner_br_t' ||
+            tile.defId === 'muur_corner_tr_t' || tile.defId === 'muur_corner_tl_t' ||
+            tile.defId === 'muur_right_t'))
         const needsBathroomBase = tile.defId === 'toilet' || tile.defId === 'wcrol' ||
           tile.defId === 'bath_exit_left' || tile.defId === 'bath_exit_down' || tile.defId === 'bath_exit_up' ||
-          tile.defId === 'kraan'
+          tile.defId === 'kraan' || tile.defId === 'bath_exit_upper_hall'
         const needsTapijt3Base = tile.defId === 'bedroom_exit' || tile.defId === 'flame'
           || tile.defId === 'bedroom_stairs_down' || tile.defId === 'bedroom_stairs_up'
           || tile.defId === 'bedroom_portal_driveway' || tile.defId === 'driveway_exit_balcony'
-        const needsLoftBase = tile.defId === 'loft_exit' || tile.defId === 'loft_tree' || tile.defId === 'loft3_exit'
-        const needsCarpetBase = tile.defId === 'study_exit'
+          || tile.defId === 'mar_exit_upper_hall'
+        const needsLoftBase = tile.defId === 'loft_exit' || tile.defId === 'loft_exit_stairs' || tile.defId === 'loft_tree' || tile.defId === 'loft3_exit' || tile.defId === 'loft3_exit_down'
+        const needsCarpetBase = tile.defId === 'study_exit' || tile.defId === 'study_exit_upper_hall' || tile.defId === 'loft_stairs_exit_down' || tile.defId === 'loft_stairs_exit_up'
 
         if (needsGrassBase) {
           const nbrs4 = [
@@ -709,7 +804,9 @@ export class LocalMapView {
       const baseSpriteKey = MONSTER_SPRITES[m.defId]
       const tileUnder = this.map.getTile(m.x, m.y)?.defId
       const isOnWater = tileUnder === 'water_bath' || tileUnder === 'water'
-      const spriteKey = (m.defId === 'eric' && isOnWater) ? 'monster_eric_water' : baseSpriteKey
+      const spriteKey = (m.defId === 'eric' && isOnWater) ? 'monster_eric_water'
+        : (m.defId === 'klopper' && isOnWater) ? 'monster_klopper_water'
+        : baseSpriteKey
       if (spriteKey && this.scene.textures.exists(spriteKey)) {
         const img = this.scene.add.image(sx, sy, spriteKey).setOrigin(0, 0).setDepth(3)
         img.setMask(this._mask)
@@ -769,7 +866,6 @@ export class LocalMapView {
       speculaas:         { glyph: '%', color: '#c06820' },
       sprits:            { glyph: '%', color: '#e0d080' },
       dropje:            { glyph: '%', color: '#202020' },
-      scroll_blank:        { glyph: '?', color: '#c0c080' },
       scroll_teleport:     { glyph: '?', color: '#c0c080' },
       scroll_alliance:     { glyph: '?', color: '#c0c080' },
       scroll_cartography:  { glyph: '?', color: '#c0c080' },
@@ -778,6 +874,13 @@ export class LocalMapView {
       scroll_twelvegates:  { glyph: '?', color: '#c0c080' },
       scroll_extinction:   { glyph: '?', color: '#c0c080' },
       scroll_knowledge:    { glyph: '?', color: '#c0c080' },
+      scroll_ventriloquism:   { glyph: '?', color: '#40ffff' },
+      scroll_fact_beavers:    { glyph: '?', color: '#40ffff' },
+      scroll_fact_dinosaurs:  { glyph: '?', color: '#40ffff' },
+      scroll_fact_prokofiev:  { glyph: '?', color: '#40ffff' },
+      scroll_fact_cavalcanti: { glyph: '?', color: '#40ffff' },
+      scroll_fact_eric:       { glyph: '?', color: '#40ffff' },
+      scroll_fact_medlar:     { glyph: '?', color: '#40ffff' },
       relic_scroll_1:      { glyph: '?', color: '#ffd080' },
       relic_scroll_2:      { glyph: '?', color: '#ffd080' },
       relic_scroll_3:      { glyph: '?', color: '#ffd080' },
@@ -802,14 +905,19 @@ export class LocalMapView {
   private wallSprite(defId: string, x: number, y: number): string | null {
     const v = this._isBedroomMap || this.hasTapijt3Neighbor(x, y)
     if (defId === 'door_closed') {
+      // Any wall skin (plain / muur_*_t / muur_*_v) counts the same for door orientation.
+      const TOP_LIKE    = new Set(['wall_up',    'muur_up_t',    'muur_up_v',    'wall_corner_tl', 'muur_corner_tl_t', 'muur_corner_tl_v', 'wall_corner_tr', 'muur_corner_tr_t', 'muur_corner_tr_v'])
+      const BOTTOM_LIKE = new Set(['wall_down',  'muur_down_t',  'muur_down_v',  'wall_corner_bl', 'muur_corner_bl_t', 'muur_corner_bl_v', 'wall_corner_br', 'muur_corner_br_t', 'muur_corner_br_v'])
+      const LEFT_LIKE   = new Set(['wall_left',  'muur_left_t',  'muur_left_v',  'wall_corner_tl', 'muur_corner_tl_t', 'muur_corner_tl_v', 'wall_corner_bl', 'muur_corner_bl_t', 'muur_corner_bl_v'])
+      const RIGHT_LIKE  = new Set(['wall_right', 'muur_right_t', 'muur_right_v', 'wall_corner_tr', 'muur_corner_tr_t', 'muur_corner_tr_v', 'wall_corner_br', 'muur_corner_br_t', 'muur_corner_br_v'])
       const l = this.map.getTile(x - 1, y)?.defId
       const r = this.map.getTile(x + 1, y)?.defId
       const u = this.map.getTile(x, y - 1)?.defId
       const d = this.map.getTile(x, y + 1)?.defId
-      if (l === 'wall_up'    || r === 'wall_up'    || l === 'wall_corner_tl' || r === 'wall_corner_tr') return v ? 'terrain_door_top_v'    : 'terrain_door_top'
-      if (l === 'wall_down'  || r === 'wall_down'  || l === 'wall_corner_bl' || r === 'wall_corner_br') return v ? 'terrain_door_bottom_v' : 'terrain_door_bottom'
-      if (u === 'wall_left'  || d === 'wall_left'  || u === 'wall_corner_tl' || d === 'wall_corner_bl') return v ? 'terrain_door_left_v'   : 'terrain_door_left'
-      if (u === 'wall_right' || d === 'wall_right' || u === 'wall_corner_tr' || d === 'wall_corner_br') return v ? 'terrain_door_right_v'  : 'terrain_door_right'
+      if ((l && TOP_LIKE.has(l))    || (r && TOP_LIKE.has(r)))    return v ? 'terrain_door_top_v'    : 'terrain_door_top'
+      if ((l && BOTTOM_LIKE.has(l)) || (r && BOTTOM_LIKE.has(r))) return v ? 'terrain_door_bottom_v' : 'terrain_door_bottom'
+      if ((u && LEFT_LIKE.has(u))   || (d && LEFT_LIKE.has(d)))   return v ? 'terrain_door_left_v'   : 'terrain_door_left'
+      if ((u && RIGHT_LIKE.has(u))  || (d && RIGHT_LIKE.has(d)))  return v ? 'terrain_door_right_v'  : 'terrain_door_right'
       return v ? 'terrain_door_top_v' : 'terrain_door_top'
     }
 

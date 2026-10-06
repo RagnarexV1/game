@@ -136,7 +136,7 @@
     "ac": 5,
     "speed": 3,
     "xpValue": 60,
-    "aiType": "water_wander",
+    "aiType": "water_chase",
     "description": "A sleek predator that glides silently through dark water."
   },
   {
@@ -150,7 +150,7 @@
     "ac": 3,
     "speed": 3,
     "xpValue": 18,
-    "aiType": "water_wander",
+    "aiType": "water_chase",
     "description": "A small shimmering creature that skims the lake surface."
   },
   {
@@ -222,7 +222,7 @@
     "xpValue": 0,
     "aiType": "friendly",
     "npc": true,
-    "description": "Looks oddly familiar."
+    "description": "He is the most kind person you know."
   },
   {
     "id": "peter",
@@ -252,7 +252,7 @@
     "xpValue": 0,
     "aiType": "friendly",
     "npc": true,
-    "description": "She worries about you."
+    "description": "You are afraid she will put you in the washing machine."
   },
   {
     "id": "pap2",
@@ -267,7 +267,7 @@
     "xpValue": 0,
     "aiType": "friendly",
     "npc": true,
-    "description": "He says everything will be fine."
+    "description": "A friendly man."
   },
   {
     "id": "mar",
@@ -282,7 +282,7 @@
     "xpValue": 0,
     "aiType": "friendly",
     "npc": true,
-    "description": "Always cheerful, even down here."
+    "description": "Most of the time she is reading a book."
   },
   {
     "id": "mar_bedroom",
@@ -312,7 +312,7 @@
     "xpValue": 0,
     "aiType": "friendly",
     "npc": true,
-    "description": "Seems to know the way out."
+    "description": "She is heading right for you!"
   },
   {
     "id": "lex",
@@ -342,7 +342,7 @@
     "xpValue": 8,
     "aiType": "wander",
     "dropType": "eat",
-    "description": "A placid cow chewing cud."
+    "description": "A cow."
   },
   {
     "id": "magician",
@@ -501,7 +501,7 @@
     "speed": 1,
     "xpValue": 15,
     "aiType": "chase",
-    "description": "A stocky, grim-faced dwarf who guards the underground passages."
+    "description": "A stocky, grim-faced dwarf."
   },
   {
     "id": "lowerdwarf",
@@ -589,6 +589,21 @@
     "description": "The local trader. He keeps a watchful eye on his wares."
   },
   {
+    "id": "klopper",
+    "name": "Klopper",
+    "glyph": "b",
+    "color": "#a0703c",
+    "hp": 20,
+    "maxHp": 20,
+    "str": 0,
+    "ac": 0,
+    "speed": 1,
+    "xpValue": 0,
+    "aiType": "wander",
+    "npc": true,
+    "description": "A stuffed beaver. Eric's favorite!"
+  },
+  {
     "id": "watcher",
     "name": "Watcher",
     "glyph": "W",
@@ -614,7 +629,7 @@
     "speed": 1,
     "xpValue": 6,
     "aiType": "split",
-    "description": "A strange creature that divides when observed."
+    "description": "A strange creature that divides when observed, kill them quickly!"
   },
   {
     "id": "wierdfume",
@@ -740,7 +755,7 @@
     "speed": 0,
     "xpValue": 0,
     "aiType": "friendly",
-    "description": "A battered old car. It won't move for anyone."
+    "description": "An old car. It has no use for you."
   },
   {
     "id": "cat",

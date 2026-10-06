@@ -32,13 +32,15 @@ export interface MonsterDef {
   npc?: boolean
 }
 
+export type WandEffect = 'displacement' | 'fire' | 'cold' | 'evocation' | 'tunneling'
+
 export interface ItemDef {
   id: string
   name: string
   glyph: string
   color: string
   type: 'weapon' | 'armor' | 'drink' | 'eat' | 'gold' | 'scroll' | 'ring' | 'wand' | 'tool'
-  slot: 'weapon' | 'body' | 'head' | 'hand' | 'feet' | 'leg' | 'neck' | 'shield' | 'cape' | 'ring' | 'tool' | null
+  slot: 'weapon' | 'body' | 'head' | 'hand' | 'feet' | 'leg' | 'neck' | 'amulet' | 'shield' | 'cape' | 'ring' | 'tool' | null
   damage?: number
   defense?: number
   healAmount?: number
@@ -46,12 +48,16 @@ export interface ItemDef {
   eatMessage?: string
   goldValue?: number
   scrollText?: string
+  factScroll?: boolean
+  skillScroll?: string
   relic?: boolean
   throwable?: boolean
+  noWield?: boolean
   lego?: boolean
   heatResistance?: boolean
   coldResistance?: boolean
   speedBonus?: number
+  wandEffect?: WandEffect
   weight: number
   value: number
   description: string
@@ -71,6 +77,7 @@ export interface EquipmentSlots {
   feet: ItemInstance | null
   leg:  ItemInstance | null
   neck: ItemInstance | null
+  amulet: ItemInstance | null
   shield: ItemInstance | null
   cape:   ItemInstance | null
   ring1: ItemInstance | null
@@ -85,6 +92,9 @@ export interface ItemInstance {
   instanceId: string
   defId: string
   quantity: number
+  charges?: number
+  // Scroll of Transport: spot remembered on first read, returned to on the second
+  transportMark?: { area: string | null; cx?: number; cy?: number; ucx?: number; ucy?: number; x: number; y: number }
 }
 
 export interface SaveData {

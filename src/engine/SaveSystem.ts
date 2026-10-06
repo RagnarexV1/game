@@ -1,5 +1,5 @@
 import type { SaveData, ItemInstance, EquipmentSlots } from '../types'
-import type { CellSnapshot } from './WorldState'
+import type { CellSnapshot, RelicSite, ClarinetLocation } from './WorldState'
 
 const SAVE_KEY = 'ragnarex_save'
 const SAVE_VERSION = 1
@@ -20,7 +20,9 @@ export interface GamePlayerSave {
   skills: string[]
   speed: number; energy: number
   allianceTurns: number; timestopTurns: number; drunkTurns: number; phasingTurns: number
-  blindTurns: number; translucenceTurns: number
+  blindTurns: number; translucenceTurns: number; invulnerableTurns: number
+  transformationMonsterId: string | null
+  transformationStrBonus: number; transformationHpBonus: number; preTransformSpriteKey: string
   itemVision: boolean
 }
 
@@ -33,6 +35,14 @@ export interface WorldStateSave {
   mamHasOrange: boolean; mamHasVase: boolean
   widgetFound?: boolean
   peterWarned?: boolean
+  horseDead?: boolean
+  extinctRaces?: string[]
+  clarinetCx?: number; clarinetCy?: number
+  relicSites?: Record<string, RelicSite>
+  questSites?: Record<string, RelicSite>
+  npcSites?: Record<string, RelicSite>
+  runSeed?: number
+  clarinetLocation?: ClarinetLocation | null
 }
 
 export interface GameSaveData {
@@ -42,6 +52,18 @@ export interface GameSaveData {
   worldState: WorldStateSave
   currentMapKey: string
   cellSnapshots: Record<string, CellSnapshot>
+}
+
+// Older saves used 'underground' / 'cellar' for the hall and tub enclosure:
+// area ids, snapshot keys ("underground_1_2") and tile ids inside snapshots.
+function migrateAreaIds(raw: string): string {
+  return raw
+    .replace(/"portal_underground"/g, '"portal_hall"')
+    .replace(/"underground_exit_up"/g, '"hall_exit_up"')
+    .replace(/"underground(_\d+_\d+)?"/g, '"hall$1"')
+    .replace(/"portal_cellar"/g, '"portal_tub_enclosure"')
+    .replace(/"cellar_exit"/g, '"tub_enclosure_exit"')
+    .replace(/"(area_)?cellar"/g, '"$1tub_enclosure"')
 }
 
 export class SaveSystem {
@@ -85,7 +107,7 @@ export class SaveSystem {
     try {
       const raw = localStorage.getItem(GAME_SAVE_KEY)
       if (!raw) return null
-      const data = JSON.parse(raw) as GameSaveData
+      const data = JSON.parse(migrateAreaIds(raw)) as GameSaveData
       if (data.version !== 2) return null
       return data
     } catch {

@@ -219,6 +219,7 @@ export class WorldMapView {
       lava:         0x903010,
       mud:          0x4a3010,
       carpet:       0x603060,
+      void:         0x000000,
       sand:         0x8a6a30,
       wall_down:    0x606060,
       exit_kitchen:   0x804020,

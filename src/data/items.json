@@ -31,6 +31,7 @@
     "type": "weapon",
     "slot": "weapon",
     "throwable": true,
+    "noWield": true,
     "damage": 8,
     "weight": 1,
     "value": 15,
@@ -239,7 +240,7 @@
     "slot": null,
     "weight": 1,
     "value": 110,
-    "description": "Your form shifts and changes in remarkable ways."
+    "description": "Your body warps into that of a powerful beast."
   },
   {
     "id": "mystery_potion",
@@ -263,18 +264,6 @@
     "weight": 0,
     "value": 60,
     "description": "Mystic script that tears a hole in space."
-  },
-  {
-    "id": "scroll_blank",
-    "name": "Blank Scroll",
-    "glyph": "S",
-    "color": "#c0c080",
-    "type": "scroll",
-    "slot": null,
-    "scrollText": "The words dissolve as you read them.",
-    "weight": 0,
-    "value": 10,
-    "description": "A rolled parchment with fading ink."
   },
   {
     "id": "relic_scroll_1",
@@ -326,7 +315,7 @@
     "healAmount": 10,
     "eatMessage": "You devour the Ericgrass (tm) like a real Brachiosaurus.",
     "weight": 100,
-    "value": 0,
+    "value": 100,
     "description": "A firm healthy and especially nutricious grass."
   },
   {
@@ -339,7 +328,7 @@
     "foodAmount": -15,
     "eatMessage": "Your health takes a big hit. Any other animal would have been killed.",
     "healAmount": -20,
-    "weight": -20,
+    "weight": 0,
     "value": 0,
     "description": "A fragile looking grass, definitely unhealthy to eat."
   },
@@ -350,7 +339,7 @@
     "color": "#c08000",
     "type": "weapon",
     "slot": "weapon",
-    "damage": 14,
+    "damage": 10,
     "weight": 7,
     "value": 180,
     "description": "A heavy axe that cleaves through armour."
@@ -374,6 +363,7 @@
     "color": "#c0a060",
     "type": "tool",
     "slot": "tool",
+    "throwable": true,
     "damage": 4,
     "weight": 3,
     "value": 5,
@@ -389,6 +379,8 @@
     "damage": 2,
     "weight": 0,
     "value": 1,
+    "throwable": true,
+    "noWield": true,
     "description": "Clamps onto noses and fingers alike."
   },
   {
@@ -401,6 +393,8 @@
     "damage": 30,
     "weight": 1,
     "value": 50,
+    "throwable": true,
+    "noWield": true,
     "description": "Careful!!."
   },
   {
@@ -460,7 +454,7 @@
     "glyph": "A",
     "color": "#ffd700",
     "type": "armor",
-    "slot": "neck",
+    "slot": "amulet",
     "defense": 3,
     "weight": 0,
     "value": 250,
@@ -594,7 +588,7 @@
     "scrollText": "Rex leaps across the ancient lands.",
     "weight": 0,
     "value": 0,
-    "description": "A collectible stamp featuring Rex."
+    "description": "A collectible stamp featuring Rex. He looks like you!"
   },
   {
     "id": "postzegelStego",
@@ -624,7 +618,7 @@
   },
   {
     "id": "gold_coin",
-    "name": "Gold Coin",
+    "name": "Coin",
     "glyph": "$",
     "color": "#ffcc00",
     "type": "gold",
@@ -632,7 +626,7 @@
     "goldValue": 1,
     "weight": 0,
     "value": 1,
-    "description": "A shiny gold coin."
+    "description": "A small coin worth a handful of cents."
   },
   {
     "id": "bracers",
@@ -645,18 +639,6 @@
     "weight": 2,
     "value": 30,
     "description": "Sturdy leather bracers protecting your forearms."
-  },
-  {
-    "id": "crossbow",
-    "name": "Crossbow",
-    "glyph": ")",
-    "color": "#c0a080",
-    "type": "weapon",
-    "slot": "weapon",
-    "damage": 8,
-    "weight": 4,
-    "value": 80,
-    "description": "A mechanical bow with impressive range."
   },
   {
     "id": "gorget",
@@ -689,7 +671,7 @@
     "color": "#e0e8ff",
     "type": "weapon",
     "slot": "weapon",
-    "damage": 14,
+    "damage": 15,
     "weight": 4,
     "value": 180,
     "description": "A graceful curved blade of exceptional quality."
@@ -716,7 +698,7 @@
     "damage": 7,
     "weight": 9,
     "value": 40,
-    "description": "A miner's tool."
+    "description": "A miner's tool for digging."
   },
   {
     "id": "redcape",
@@ -729,18 +711,7 @@
     "weight": 2,
     "value": 55,
     "heatResistance": true,
-    "description": "A flowing red cape that grants minor protection and wards off heat."
-  },
-  {
-    "id": "ring",
-    "name": "Ring",
-    "glyph": "=",
-    "color": "#ffd700",
-    "type": "ring",
-    "slot": "ring",
-    "weight": 0,
-    "value": 100,
-    "description": "A glittering magical ring."
+    "description": "A flowing red cape that grants minor protection but wards off heat."
   },
   {
     "id": "ring_hastening",
@@ -774,7 +745,7 @@
     "slot": "ring",
     "weight": 0,
     "value": 250,
-    "description": "A hazy ring that bends light. The world fades to black while worn — remove it to see again."
+    "description": "A hazy ring that bends light."
   },
   {
     "id": "ring_cold",
@@ -795,10 +766,10 @@
     "color": "#f0f0ff",
     "type": "weapon",
     "slot": "weapon",
-    "damage": 15,
+    "damage": 12,
     "weight": 5,
     "value": 220,
-    "description": "A finely crafted sword of pure silver."
+    "description": "A finely crafted sword of pure silver. Hated by werewolves."
   },
   {
     "id": "wand",
@@ -810,6 +781,66 @@
     "weight": 1,
     "value": 120,
     "description": "A slender magical wand crackling with energy."
+  },
+  {
+    "id": "wand_displacement",
+    "name": "Wand of Displacement",
+    "glyph": "/",
+    "color": "#c080ff",
+    "type": "wand",
+    "slot": null,
+    "wandEffect": "displacement",
+    "weight": 1,
+    "value": 120,
+    "description": "Whatever it is pointed at vanishes and reappears elsewhere on the map. Zap yourself with '.'."
+  },
+  {
+    "id": "wand_fire",
+    "name": "Wand of Fire",
+    "glyph": "/",
+    "color": "#ff6020",
+    "type": "wand",
+    "slot": null,
+    "wandEffect": "fire",
+    "weight": 1,
+    "value": 150,
+    "description": "A scorched wand that shoots a ray of fire."
+  },
+  {
+    "id": "wand_cold",
+    "name": "Wand of Cold",
+    "glyph": "/",
+    "color": "#80e0ff",
+    "type": "wand",
+    "slot": null,
+    "wandEffect": "cold",
+    "weight": 1,
+    "value": 150,
+    "description": "A frosty wand that shoots a ray of ice. Its victims freeze briefly."
+  },
+  {
+    "id": "wand_evocation",
+    "name": "Wand of Evocation",
+    "glyph": "/",
+    "color": "#ff4040",
+    "type": "wand",
+    "slot": null,
+    "wandEffect": "evocation",
+    "weight": 1,
+    "value": 60,
+    "description": "A wand that calls monsters out of thin air. Better not wave it around."
+  },
+  {
+    "id": "wand_tunneling",
+    "name": "Wand of Tunneling",
+    "glyph": "/",
+    "color": "#c0a060",
+    "type": "wand",
+    "slot": null,
+    "wandEffect": "tunneling",
+    "weight": 1,
+    "value": 130,
+    "description": "A sturdy wand that blasts a passage through walls and trees."
   },
   {
     "id": "vaas",
@@ -991,6 +1022,97 @@
     "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
   },
   {
+    "id": "scroll_ventriloquism",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "skillScroll": "ventriloquism",
+    "scrollText": "You learn to throw your voice.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_medlar",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Mespilus germanica, commonly known as the medlar, is a tree in the Rosaceae family and closely related to apples and pears. The fruit cannot be eaten fresh off the tree but must be exposed to frost or stored for weeks until it softens, turns brown, and begins to chemically decay.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_beavers",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Beavers slap their tail on top of water to warn others of danger.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_dinosaurs",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Dinosaurs went extinct at the end of the Cretaceous Period (about 66 million years ago) during a major global event called the Cretaceous–Paleogene extinction event.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_prokofiev",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Sergei Prokofiev wrote Peter and the Wolf in 1936 for a children's theater in Moscow to help young listeners easily learn the distinct sounds of an orchestra.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_cavalcanti",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "In the lyrics of Jan Engelsman's vocalise voor Cavalcanti, the phrase \"groen is de gong van de zee\" symbolizes the hypnotic, irresistible call of the ocean and an intense, romantic yearning for freedom and adventure.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_eric",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Eric spent many hours making this fantastic game specially for you!",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
     "id": "scroll_transport",
     "name": "Scroll of Transport",
     "glyph": "S",
@@ -1000,7 +1122,7 @@
     "scrollText": "The world lurches and you are elsewhere.",
     "weight": 0,
     "value": 70,
-    "description": "Purple-tinged parchment that hums faintly. Teleports you to a random location."
+    "description": "Purple-tinged parchment that hums faintly. Read once to mark a place, read again to return there."
   },
   {
     "id": "scroll_timestop",
@@ -1093,5 +1215,16 @@
     "weight": 1,
     "value": 10,
     "description": "An inflatable boat. It fits in your pocket!"
+  },
+  {
+    "id": "clarinet",
+    "name": "Clarinet",
+    "glyph": "!",
+    "color": "#402010",
+    "type": "tool",
+    "slot": null,
+    "weight": 2,
+    "value": 25,
+    "description": "A battered wooden clarinet. You could try playing it."
   }
 ]

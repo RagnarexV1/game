@@ -12,8 +12,8 @@ export class Player {
 
   name = 'Hero'
 
-  hp = 314
-  maxHp = 314
+  hp = 100
+  maxHp = 100
   str = 18
   mag = 17
   food = 100
@@ -21,7 +21,7 @@ export class Player {
   exp = 26
   con = 9
   luck = 31
-  gold = 624
+  gold = 10
   secondLife = false
   spriteKey = 'player'
   petrified = 0
@@ -33,6 +33,11 @@ export class Player {
   phasingTurns = 0
   blindTurns = 0
   translucenceTurns = 0
+  invulnerableTurns = 0
+  transformationMonsterId: string | null = null
+  transformationStrBonus = 0
+  transformationHpBonus = 0
+  preTransformSpriteKey = 'player'
   itemVision = false
   gender: 'male' | 'female' = 'male'
   extraFingers = 0
@@ -52,6 +57,7 @@ export class Player {
     feet:   null,
     leg:    null,
     neck:   null,
+    amulet: null,
     shield: null,
     cape:   null,
     ring1:  null,
@@ -80,7 +86,7 @@ export class Player {
   }
 
   getWeaponDamage(): number {
-    if (!this.equipSys) return 4
+    if (!this.equipSys) return 2
     return this.equipSys.getWeaponDamage(this.equipment, this.invSys)
   }
 

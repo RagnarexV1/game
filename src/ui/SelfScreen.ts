@@ -13,7 +13,8 @@ const FONT = 'monospace'
 const SKILL_META: Record<string, { label: string; cat: 'skill' | 'power' | 'ability' | 'resistance' | 'hidden' }> = {
   mixing:           { label: 'Alchemy',         cat: 'skill' },
   cartography:      { label: 'Cartography',     cat: 'skill' },
-  singing:          { label: 'Singing',         cat: 'skill' },
+  music:            { label: 'Music',           cat: 'skill' },
+  ventriloquism:    { label: 'Ventriloquism',   cat: 'skill' },
   swimming:         { label: 'Swimming',         cat: 'ability' },
   diving:           { label: 'Diving',           cat: 'ability' },
   heat_resistance:  { label: 'Heat',             cat: 'resistance' },
@@ -99,6 +100,8 @@ export class SelfScreen {
     )
     if (hasItemCold && !hasColdSkill) resistances.push(SKILL_META.cold_resistance.label)
 
+    if (player.clayProtection > 0) resistances.push('Stoning')
+
     // Section content — columns in original image: 12, 165, 320, 478
     const LH = Y(13)
     const SY = Y(132) + 2 * LH
@@ -106,7 +109,11 @@ export class SelfScreen {
     const addList = (origX: number, items: string[], xOffset = 0) =>
       items.forEach((item, i) => txt(X(origX) + xOffset, SY + i * LH, item))
 
-    addList(12,  player.diagnostics)
+    // Timed conditions are derived from player state, not stored in diagnostics
+    const diagnostics = [...player.diagnostics]
+    if (player.translucenceTurns > 0) diagnostics.push('Transparent')
+
+    addList(12,  diagnostics)
     addList(185, skills)
     addList(320, powers)
     addList(478, abilities, 33)

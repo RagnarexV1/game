@@ -112,7 +112,7 @@
     "transparent": true
   },
   {
-    "id": "underground_exit_up",
+    "id": "hall_exit_up",
     "name": "Exit Up",
     "glyph": "^",
     "color": "#806040",
@@ -328,8 +328,16 @@
     "transparent": true
   },
   {
-    "id": "portal_underground",
-    "name": "Underground Portal",
+    "id": "portal_driveway",
+    "name": "Driveway Portal",
+    "glyph": "O",
+    "color": "#707070",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_hall",
+    "name": "Hall Portal",
     "glyph": "O",
     "color": "#806040",
     "walkable": true,
@@ -337,7 +345,7 @@
   },
   {
     "id": "hall_wall",
-    "name": "Underground Wall",
+    "name": "Hall Wall",
     "glyph": "#",
     "color": "#505050",
     "walkable": false,
@@ -366,6 +374,14 @@
     "color": "#505050",
     "walkable": false,
     "transparent": false
+  },
+  {
+    "id": "tree_down",
+    "name": "Fallen Tree",
+    "glyph": "t",
+    "color": "#604020",
+    "walkable": true,
+    "transparent": true
   },
   {
     "id": "carpet",
@@ -696,16 +712,16 @@
     "transparent": false
   },
   {
-    "id": "portal_cellar",
-    "name": "Portal to Cellar",
+    "id": "portal_tub_enclosure",
+    "name": "Portal to Tub Enclosure",
     "glyph": "O",
     "color": "#5050a0",
     "walkable": true,
     "transparent": true
   },
   {
-    "id": "cellar_exit",
-    "name": "Cellar Exit",
+    "id": "tub_enclosure_exit",
+    "name": "Tub Enclosure Exit",
     "glyph": "<",
     "color": "#5050a0",
     "walkable": true,
@@ -748,6 +764,30 @@
     "name": "Loft Exit",
     "glyph": "<",
     "color": "#40c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_exit_stairs",
+    "name": "Stairs to Study",
+    "glyph": "^",
+    "color": "#40c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_stairs_exit_down",
+    "name": "Stairs Down to Study",
+    "glyph": "v",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft_stairs_exit_up",
+    "name": "Stairs Up to Loft",
+    "glyph": "^",
+    "color": "#9060a0",
     "walkable": true,
     "transparent": true
   },
@@ -811,6 +851,14 @@
     "id": "loft3_exit",
     "name": "Deep Loft Exit",
     "glyph": "<",
+    "color": "#80c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "loft3_exit_down",
+    "name": "Deep Loft Exit",
+    "glyph": "v",
     "color": "#80c040",
     "walkable": true,
     "transparent": true
@@ -988,6 +1036,86 @@
     "name": "Exit Down",
     "glyph": "v",
     "color": "#607080",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_upper_hall_left",
+    "name": "Portal to Upper Hall (West)",
+    "glyph": "O",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "portal_upper_hall_right",
+    "name": "Portal to Upper Hall (East)",
+    "glyph": "O",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "upper_hall_exit_chaos",
+    "name": "To Eric's Bedroom",
+    "glyph": "<",
+    "color": "#ff00ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "upper_hall_exit_bathroom",
+    "name": "To Bathroom",
+    "glyph": "v",
+    "color": "#4090d0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "upper_hall_exit_study",
+    "name": "To Study Room",
+    "glyph": ">",
+    "color": "#8060c0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "upper_hall_exit_mar",
+    "name": "To Mar's Bedroom",
+    "glyph": "^",
+    "color": "#ff80ff",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "bath_exit_upper_hall",
+    "name": "To Upper Hall",
+    "glyph": "^",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "chaos_exit_upper_hall",
+    "name": "To Upper Hall",
+    "glyph": ">",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_exit_upper_hall",
+    "name": "To Upper Hall",
+    "glyph": "<",
+    "color": "#9060a0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "mar_exit_upper_hall",
+    "name": "To Upper Hall",
+    "glyph": "v",
+    "color": "#9060a0",
     "walkable": true,
     "transparent": true
   }

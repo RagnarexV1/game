@@ -29,6 +29,12 @@ export class EquipmentSystem {
       return false
     }
 
+    // Some items are throw-only
+    if (def.noWield) {
+      this.log.add(`You can't wield that. You can only throw it.`, '#ff8080')
+      return false
+    }
+
     // Rings go into the first free ring slot (max 6)
     if (def.slot === 'ring') {
       const ringSlots = ['ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6'] as const
@@ -87,14 +93,14 @@ export class EquipmentSystem {
 
   getWeaponDamage(equipment: EquipmentSlots, inventory: InventorySystem): number {
     const weapon = equipment.weapon
-    if (!weapon) return 4 // bare hands
+    if (!weapon) return 2 // bare hands
     const def = inventory.getDef(weapon.defId) as ItemDef | undefined
     return def?.damage ?? 4
   }
 
   getArmorBonus(equipment: EquipmentSlots, inventory: InventorySystem): number {
     let bonus = 0
-    const slots: (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'leg', 'neck', 'shield', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
+    const slots: (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'leg', 'neck', 'amulet', 'shield', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
     for (const slot of slots) {
       const item = equipment[slot]
       if (!item) continue

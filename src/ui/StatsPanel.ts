@@ -44,7 +44,7 @@ export class StatsPanel {
     ]
     const labels: Record<string, string> = {
       turn: 'TURN', hp: 'HP', str: 'STR', mag: 'MAG', food: 'FOOD',
-      exp: 'EXP', con: 'CON', luck: 'LUCK', ac: 'AC', gold: 'GOLD',
+      exp: 'EXP', con: 'CON', luck: 'LUCK', ac: 'AC', gold: 'CENTS',
     }
 
     rows.forEach((key, i) => {
