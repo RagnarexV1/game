@@ -40,7 +40,7 @@ export interface ItemDef {
   glyph: string
   color: string
   type: 'weapon' | 'armor' | 'drink' | 'eat' | 'gold' | 'scroll' | 'ring' | 'wand' | 'tool'
-  slot: 'weapon' | 'body' | 'head' | 'hand' | 'feet' | 'leg' | 'neck' | 'amulet' | 'shield' | 'cape' | 'ring' | 'tool' | null
+  slot: 'weapon' | 'body' | 'head' | 'hand' | 'arms' | 'feet' | 'leg' | 'neck' | 'amulet' | 'shield' | 'cape' | 'ring' | 'tool' | null
   damage?: number
   defense?: number
   healAmount?: number
@@ -57,6 +57,7 @@ export interface ItemDef {
   heatResistance?: boolean
   coldResistance?: boolean
   speedBonus?: number
+  strBonus?: number
   wandEffect?: WandEffect
   weight: number
   value: number
@@ -74,6 +75,7 @@ export interface EquipmentSlots {
   body: ItemInstance | null
   head: ItemInstance | null
   hand: ItemInstance | null
+  arms: ItemInstance | null
   feet: ItemInstance | null
   leg:  ItemInstance | null
   neck: ItemInstance | null

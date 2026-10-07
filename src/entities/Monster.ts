@@ -25,6 +25,9 @@ export class Monster {
   hasSpoken = false
   stunTurns = 0
   confuseTurns = 0
+  // Wizards: turns until the next spell; Summoners: turns until the next summon
+  spellCooldown = 0
+  summonedBy?: string
   onSplit?: (monster: Monster) => void
   onAfterMove?: (fromX: number, fromY: number) => void
 
@@ -111,7 +114,7 @@ export class Monster {
     } else if (this.aiType === 'guard') {
       if (Math.max(Math.abs(dx), Math.abs(dy)) <= 1) this.chasePlayer(dx, dy)
     } else if (this.aiType === 'split') {
-      if (this.map.getTile(this.x, this.y)?.visible && Math.random() < 0.5) this.onSplit?.(this)
+      if (this.map.getTile(this.x, this.y)?.visible && Math.random() < 0.35) this.onSplit?.(this)
       this.chasePlayer(dx, dy)
     } else if (this.aiType === 'flee_on_touch') {
       // handled in GameScene.tryMove — idle otherwise
@@ -185,7 +188,7 @@ export class Monster {
     'portal_upper_hall_left', 'portal_upper_hall_right',
     'upper_hall_exit_chaos', 'upper_hall_exit_bathroom', 'upper_hall_exit_study', 'upper_hall_exit_mar',
     'bath_exit_upper_hall', 'chaos_exit_upper_hall', 'study_exit_upper_hall', 'mar_exit_upper_hall',
-    'loft_stairs_exit_down', 'loft_stairs_exit_up',
+    'loft_stairs_exit_down', 'loft_stairs_exit_up', 'hall_exit_driveway',
   ])
 
   private canMoveTo(nx: number, ny: number): boolean {

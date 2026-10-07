@@ -2,7 +2,7 @@ import Phaser from 'phaser'
 import { MapSystem } from '../engine/MapSystem'
 import { TurnManager } from '../engine/TurnManager'
 import { MessageLog } from '../engine/MessageLog'
-import { CombatSystem } from '../engine/CombatSystem'
+import { CombatSystem, playerHitChance } from '../engine/CombatSystem'
 import { InventorySystem, REMOTE_CHARGES } from '../engine/InventorySystem'
 import { EquipmentSystem } from '../engine/EquipmentSystem'
 import { SaveSystem } from '../engine/SaveSystem'
@@ -11,7 +11,7 @@ import { LeaderboardSystem } from '../engine/LeaderboardSystem'
 import type { LeaderboardEntry } from '../engine/LeaderboardSystem'
 import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateHallMap, generateChaosMap, mutateChaosMap, chaosPartyArea, chaosPartyRing, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateTubEnclosureMap, generateLoftMap, generateLoft3Map, generateStudyMap, generateLoftStairsMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map, generateDrivewayMap, generateUpperHallMap, type SpawnPoints } from '../engine/MapGenerator'
 import { WorldState, type ClarinetLocation } from '../engine/WorldState'
-import { placeSingleItemRandomly, isSpecialTile } from '../engine/ItemPlacement'
+import { placeSingleItemRandomly, isSpecialTile, pickAreaItem, EXCLUDE_IDS } from '../engine/ItemPlacement'
 import { AREA_MONSTERS, areaInfo } from '../engine/SpawnTables'
 import { Player } from '../entities/Player'
 import { Monster } from '../entities/Monster'
@@ -35,12 +35,18 @@ import {
   WORLD_MAP_X, WORLD_MAP_Y, WORLD_MAP_W, WORLD_MAP_H,
 } from '../ui/Layout'
 import monsterData from '../data/monsters.json'
+import itemData from '../data/items.json'
 import type { ItemInstance, ItemDef, MonsterDef } from '../types'
 
 import { MIX_RECIPES, SKILLED_POOL, MYSTERY_POOL, POWERFUL_MONSTER_IDS } from '../data/mixRecipes'
 
 const MAP_W = 80
 const MAP_H = 20
+
+// Each juicy fish given to Lex buys this many extra turns; a warning shows every interval.
+const LEX_FISH_BONUS_TURNS = 300
+const TIME_WARNING_INTERVAL = 5000
+const SUMMON_INTERVAL = 5
 
 // TESTING: player takes no damage and can't die. Set to false before release.
 const GOD_MODE = true
@@ -57,6 +63,13 @@ const UPPER_HALL_LINKS = [
   { hall: 'upper_hall_right', hallTile: 'upper_hall_exit_study',    room: 'study',         roomTile: 'study_exit_upper_hall' },
   { hall: 'upper_hall_right', hallTile: 'upper_hall_exit_mar',      room: 'bedroom_lower', roomTile: 'mar_exit_upper_hall' },
 ] as const
+
+// Dug map-edge arrow → the arrow placed on the next map's facing edge
+const DUG_EXIT_BACK: Record<string, string> = {
+  exit_right: 'exit_left', exit_left: 'exit_right', exit_down: 'exit_up', exit_up: 'exit_down',
+  pond_exit_right: 'pond_exit_left', pond_exit_left: 'pond_exit_right',
+  pond_exit_down: 'pond_exit_up', pond_exit_up: 'pond_exit_down',
+}
 
 export class GameScene extends Phaser.Scene {
   private mapSystem!: MapSystem
@@ -87,7 +100,10 @@ export class GameScene extends Phaser.Scene {
   private travellersLog!: TravellersLog
 
   private inputBlocked = false
+  private werewolfMoveScheduled = false
   private lookMode = false
+  private teleportPicking = false
+  private teleportPickReady = false
   private lastKilledBy: string | null = null
   private bathroomFlooded = false
   private bathroomDrained = false
@@ -104,6 +120,7 @@ export class GameScene extends Phaser.Scene {
     ericgras:       { npcId: 'paard', message: 'The horse eagerly chomps on the Ericgras.' },
     petergras:      { npcId: 'paard', message: 'The horse sniffs the Petergras and reluctantly eats it.' },
     widget2:        { npcId: 'eric',  message: 'Eric\'s eyes light up. "Where did you find him?! I\'ll teach you to swim as a thank you!"' },
+    lekkervisje:    { npcId: 'lex',   message: 'Lex grabs the juicy fish and gets thoroughly distracted by it.' },
   }
   private lookCursor: Phaser.GameObjects.Graphics | null = null
   private throwMode = false
@@ -117,6 +134,7 @@ export class GameScene extends Phaser.Scene {
   private digMode = false
   private trimMode = false
   private digProgress: { dx: number; dy: number; turnsLeft: number } | null = null
+  private pendingDugEntry: { side: 'left' | 'right' | 'up' | 'down'; coord: number; backTile: string } | null = null
 
   private ericChamberEntered = false
   private traderUnpaid = new Set<string>()
@@ -378,6 +396,7 @@ export class GameScene extends Phaser.Scene {
 
   private initSystems(): void {
     this.messageLog  = new MessageLog()
+    this.messageLog.transform = (text) => this.player?.blindTurns > 0 ? this.blindText(text) : text
     this.mapSystem   = new MapSystem(MAP_W, MAP_H)
     this.turnManager = new TurnManager()
     this.inventory   = new InventorySystem(this.messageLog)
@@ -568,7 +587,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Entry position: same x (up/down) or y (left/right), first walkable non-exit tile from border
-    const entry = this.firstEntryTile(fromDir, entryCoord)
+    const entry = this.applyDugEntry() ?? this.firstEntryTile(fromDir, entryCoord)
     this.player.x = entry.x
     this.player.y = entry.y
 
@@ -659,7 +678,7 @@ export class GameScene extends Phaser.Scene {
       this.spawnMapEntities(hallResult.monsters, hallResult.items)
     }
 
-    const entry = this.hallEntryTile(fromDir)
+    const entry = this.applyDugEntry() ?? this.hallEntryTile(fromDir)
     this.player.x = entry.x
     this.player.y = entry.y
 
@@ -755,8 +774,9 @@ export class GameScene extends Phaser.Scene {
       : link ? this.besideBorderTile(area === link.room ? link.roomTile : link.hallTile)
       : prevArea === 'stairs' && area === 'hall'             ? this.findTile('portal_stairs_up')
       : prevArea === 'stairs' && area === 'upper_hall_right' ? this.findTile('portal_stairs')
+      : prevArea === 'stairs' && area === 'loft'             ? this.findTile('portal_stairs')
       : undefined
-    const entry = exactEntry ?? upperHallEntry
+    const entry = this.applyDugEntry() ?? exactEntry ?? upperHallEntry
       ?? ((fromDir !== undefined && entryCoord !== undefined)
         ? this.firstEntryTile(fromDir, entryCoord)
         : result.player)
@@ -987,10 +1007,15 @@ export class GameScene extends Phaser.Scene {
         this.endPlayerTurn()
         return
       }
+      // Silently remember this spot, then whisk the reader off to the pantry
       item.transportMark = this.currentLocation()
       item.charges = 1
-      this.messageLog.add('The runes glow softly. The scroll will remember this place.', '#c040ff')
-      this.endPlayerTurn()
+      if (this.worldState.currentArea === 'pantry') {
+        this.endPlayerTurn()
+        return
+      }
+      this.messageLog.add('The world lurches and you are elsewhere.', '#c040ff')
+      this.transitionToArea('pantry')
       return
     }
     if (item.quantity > 1) {
@@ -1251,6 +1276,7 @@ export class GameScene extends Phaser.Scene {
     this.skillScreen = new SkillScreen(this, this.inventory)
     this.skillScreen.onActivate = (skillId) => {
       if (skillId === 'ventriloquism') this.useVentriloquism()
+      if (skillId === 'clothespin_trap') this.makeClothespinTrap()
     }
     this.questScreen = new QuestScreen(this)
     this.travellersLog = new TravellersLog(this)
@@ -1298,21 +1324,21 @@ export class GameScene extends Phaser.Scene {
         this.messageLog.add('The scroll crumbles to dust.', '#808060')
       }
       if (item.defId === 'scroll_teleport') {
-        const candidates: { x: number; y: number }[] = []
-        for (let ty = 0; ty < this.mapSystem.height; ty++) {
-          for (let tx = 0; tx < this.mapSystem.width; tx++) {
-            if (this.mapSystem.isWalkable(tx, ty) && this.getMonsterAt(tx, ty) === null
-                && !(tx === player.x && ty === player.y)) {
-              candidates.push({ x: tx, y: ty })
-            }
-          }
+        if (this.hasLocusRing()) {
+          // Turn ends once the destination is picked (see resolveTeleportPick).
+          this.teleportPicking = true
+          this.teleportPickReady = false
+          // Arm the mouse pick a moment later so the click on "Read" doesn't count.
+          this.time.delayedCall(50, () => { this.teleportPickReady = true })
+          this.messageLog.add('Click on the world map to choose where to teleport.  ESC for a random spot.', '#c080ff')
+          this.inventoryScreen.hide()
+          return
         }
-        if (candidates.length > 0) {
-          const pos = candidates[Math.floor(Math.random() * candidates.length)]
-          player.x = pos.x
-          player.y = pos.y
-          this.messageLog.add('You vanish in a flash of light and reappear elsewhere!', '#8080ff')
-        }
+        this.teleportRandomly()
+      }
+
+      if (item.defId === 'scroll_lavastrike') {
+        this.lavaStrike()
       }
 
       if (item.defId === 'scroll_cartography') {
@@ -1331,8 +1357,8 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (item.defId === 'scroll_timestop') {
-        player.timestopTurns = 5
-        this.messageLog.add('Time freezes around you. (5 turns)', '#c0c0ff')
+        player.timestopTurns = 10
+        this.messageLog.add('Time freezes around you. (10 turns)', '#c0c0ff')
       }
 
       if (item.defId === 'scroll_twelvegates') {
@@ -1433,8 +1459,12 @@ export class GameScene extends Phaser.Scene {
         player.spriteKey = `monster_${monsterId}`
         this.messageLog.add(`Your body warps and twists. You become a ${monsterDef.name}! (STR +${monsterDef.str}, Max HP +${monsterDef.hp})`, '#40ffff')
       } else if (item.defId === 'speed_potion') {
-        player.speed += 100
-        this.messageLog.add(`Your feet move like the wind! (Speed +100 → ${player.speed})`, '#ffff40')
+        // Doses stack (speed capped at 400) and reset the duration
+        const gain = Math.max(0, Math.min(100, 400 - player.speed))
+        player.speed += gain
+        player.speedPotionBonus += gain
+        player.speedTurns = 30
+        this.messageLog.add(`Your feet move like the wind! (Speed ${player.speed} for 30 turns)`, '#ffff40')
       } else if (item.defId === 'phasing_potion') {
         player.phasingTurns = 20
         this.messageLog.add('You feel briefly out of phase with reality.', '#8080ff')
@@ -1534,6 +1564,12 @@ export class GameScene extends Phaser.Scene {
       } else {
         this.messageLog.add(`You drink the ${def.name}.`, '#ff6060')
       }
+      if (item.defId === 'sinaasappel' && player.lycanthropy) {
+        player.lycanthropy = false
+        player.lycanthropyCountdown = 0
+        if (player.werewolfTurns > 0) this.endWerewolfForm()
+        this.messageLog.add('The vitamins burn through your blood. You feel cleansed.', '#ffa040')
+      }
       if (item.quantity > 1) {
         item.quantity--
       } else {
@@ -1551,6 +1587,12 @@ export class GameScene extends Phaser.Scene {
         this.inventoryScreen.hide()
         this.trimMode = true
         this.messageLog.add('Trim which tree? (arrow keys, Esc to cancel)', '#80ff80')
+        return
+      }
+
+      if (item.defId === 'pickaxe') {
+        this.inventoryScreen.hide()
+        this.startDig()
         return
       }
 
@@ -1637,6 +1679,14 @@ export class GameScene extends Phaser.Scene {
       this.inventoryScreen.hide()
 
       let questComplete = true
+
+      // Lex: a juicy fish keeps him busy, buying extra time
+      if (quest.npcId === 'lex') {
+        questComplete = false
+        target.stunTurns = 100
+        this.worldState.bonusTurns += LEX_FISH_BONUS_TURNS
+        this.messageLog.add(`Lex won't budge for a while. You gain ${LEX_FISH_BONUS_TURNS} extra turns! (${this.turnsLeft()} turns left)`, '#40ff80')
+      }
 
       // Dad rewards mixing skill after receiving all 3 stamps
       if (quest.npcId === 'pap2' && !player.hasSkill('mixing')) {
@@ -1781,7 +1831,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.turnManager.onTurn(() => {
+      this.checkTimeLimit()
       if (this.player.petrified > 0) this.player.petrified--
+      if (this.player.paralyzedTurns > 0) {
+        this.player.paralyzedTurns--
+        if (this.player.paralyzedTurns === 0) this.messageLog.add('You can move again.', '#c0e0ff')
+      }
       if (this.player.clayProtection > 0) this.player.clayProtection--
       if (this.player.allianceTurns > 0) {
         this.player.allianceTurns--
@@ -1816,7 +1871,9 @@ export class GameScene extends Phaser.Scene {
           this.messageLog.add("The Watcher's curse spreads through you. (50 turns left)", '#a0a0a0')
         }
       }
-      for (const m of this.monsters) {
+      for (const m of [...this.monsters]) {
+        if (m.defId === 'wizard' && m.isAlive()) this.wizardTurn(m)
+        if (m.defId === 'summoner' && m.isAlive()) this.summonerTurn(m)
         if (m.defId === 'watcher' && m.isAlive() && this.mapSystem.getTile(m.x, m.y)?.visible) {
           if (this.player.equipment.shield?.defId === 'mirrorshield') {
             this.messageLog.add("The Watcher's gaze reflects off your mirror shield!", '#c0e0ff')
@@ -1840,6 +1897,11 @@ export class GameScene extends Phaser.Scene {
             } else if (roll === 1 && this.player.extraFingers < 2) {
               this.player.extraFingers++
               this.messageLog.add(`The weird fumes mutate you. You grow an extra finger! (${6 + this.player.extraFingers} fingers total)`, '#80ff40')
+            } else if (roll === 2 && this.player.extraEyes < 1) {
+              this.player.extraEyes++
+              this.player.drunkTurns = Math.max(this.player.drunkTurns, 20)
+              this.messageLog.add(`The weird fumes mutate you. You grow an extra eye! (${2 + this.player.extraEyes} eyes total)`, '#80ff40')
+              this.messageLog.add('Your new eye makes the world swim. You feel confused!', '#c0a0ff')
             }
           }
         }
@@ -1890,6 +1952,14 @@ export class GameScene extends Phaser.Scene {
       if (this.locationOverlay) { this.hideLocationOverlay(); return }
 
       if (this.inputBlocked) return
+
+      // In werewolf form the beast moves on its own
+      if (this.player.werewolfTurns > 0) return
+
+      if (this.teleportPicking) {
+        if (event.key === 'Escape') this.resolveTeleportPick(null)
+        return
+      }
 
       if (event.key === 'Escape') {
         if (this.panicOverlay) { this.hidePanic(); return }
@@ -2079,6 +2149,11 @@ export class GameScene extends Phaser.Scene {
     })
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.teleportPicking) {
+        if (!this.teleportPickReady) return
+        this.resolveTeleportPick(this.worldMapView.getTileAt(pointer.x, pointer.y))
+        return
+      }
       if (!this.lookMode) return
       const pos = this.localMapView.getTileAt(pointer.x, pointer.y)
       if (pos) {
@@ -2091,12 +2166,17 @@ export class GameScene extends Phaser.Scene {
   // ─── Actions ────────────────────────────────────────────────────────────────
 
   private tryMove(dx: number, dy: number): void {
+    if (this.player.paralyzedTurns > 0) {
+      this.messageLog.add('You are paralyzed! You cannot move.', '#c0a0ff')
+      this.endPlayerTurn()
+      return
+    }
     if (this.player.petrified > 0) {
       this.messageLog.add('You are turned to stone! You cannot move.', '#a0a0a0')
       this.endPlayerTurn()
       return
     }
-    if (this.player.drunkTurns > 0) {
+    if (this.player.drunkTurns > 0 || this.player.werewolfTurns > 0) {
       const dirs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]]
       const r = dirs[Math.floor(Math.random() * dirs.length)]
       dx = r[0]
@@ -2180,6 +2260,8 @@ export class GameScene extends Phaser.Scene {
     // Map transitions
     const tile = this.mapSystem.getTile(nx, ny)
     const isHallArea = this.worldState.currentArea === 'hall'
+    this.pendingDugEntry = null
+    if (tile) this.queueDugEntry(nx, ny, tile.defId)
     // Upper hall: the two cells link via their side arrows; other arrows lead into rooms
     if (tile?.defId === 'exit_right' && this.worldState.currentArea === 'upper_hall_left')  { this.transitionToArea('upper_hall_right'); return }
     if (tile?.defId === 'exit_left'  && this.worldState.currentArea === 'upper_hall_right') { this.transitionToArea('upper_hall_left');  return }
@@ -2274,6 +2356,11 @@ export class GameScene extends Phaser.Scene {
       this.transitionToArea('driveway', undefined, undefined, { x: Math.max(1, Math.min(50, this.player.x)), y: 1 })
       return
     }
+    // Bottom-right hall cell's bottom arrows: into the driveway's hall room, same column
+    if (tile?.defId === 'hall_exit_driveway') {
+      this.transitionToArea('driveway', undefined, undefined, { x: Math.max(53, Math.min(78, this.player.x)), y: 2 })
+      return
+    }
     if (tile?.defId === 'hall_portal_driveway') {
       this.transitionToArea('driveway', undefined, undefined, { x: 65, y: 3 })
       return
@@ -2306,8 +2393,8 @@ export class GameScene extends Phaser.Scene {
       return
     }
     if (tile?.defId === 'stairs_exit_down' || tile?.defId === 'stairs_exit_up') {
-      if (this.stairsOrigin === 'study') {
-        // Climbing out the top leads on up into the first loft level
+      // Study ⇄ loft: bottom arrows land on the study's stairs, top arrows on the loft's trapdoor
+      if (this.stairsOrigin === 'study' || this.stairsOrigin === 'loft') {
         if (tile.defId === 'stairs_exit_up') this.transitionToArea('loft')
         else this.transitionToArea('study', undefined, undefined, { x: MAP_W - 2, y: MAP_H - 2 })
         return
@@ -2375,8 +2462,9 @@ export class GameScene extends Phaser.Scene {
       this.transitionToArea('loft', undefined, undefined, { x: this.player.x === MAP_W - 4 ? 44 : 45, y: 1 })
       return
     }
+    // Loft maze top arrows ⇄ Peter and the Wolf's bottom arrows
     if (tile?.defId === 'loft_exit_stairs') {
-      this.transitionToArea('loft_stairs', undefined, undefined, { x: this.player.x === 44 ? MAP_W - 4 : MAP_W - 3, y: 1 })
+      this.transitionToArea('loft3', undefined, undefined, { x: this.player.x, y: MAP_H - 2 })
       return
     }
     if (tile?.defId === 'portal_pond') {
@@ -2388,7 +2476,10 @@ export class GameScene extends Phaser.Scene {
     if (tile?.defId === 'pond_exit') { this.transitionFromArea(); return }
     if (tile?.defId === 'loft_exit') { this.transitionFromArea(); return }
     if (tile?.defId === 'loft3_exit') { this.transitionFromArea(); return }
-    if (tile?.defId === 'loft3_exit_down') { this.transitionFromArea(); return }
+    if (tile?.defId === 'loft3_exit_down') {
+      this.transitionToArea('loft', undefined, undefined, { x: this.player.x, y: 1 })
+      return
+    }
     if (tile?.defId === 'tub_enclosure_exit') { this.transitionToArea('bathroom_bottom'); return }
     if (tile?.defId === 'vortex_portal') {
       if (this.worldState.currentArea === 'tub_enclosure') { this.transitionToArea('bathroom_bottom', undefined, undefined, { x: 2, y: 9 }); return }
@@ -2453,6 +2544,8 @@ export class GameScene extends Phaser.Scene {
       if (lockedIn && this.player.phasingTurns > 0) {
         this.messageLog.add("You can't phase through the trader's walls while you owe cents.", '#808080')
       }
+      // The roaming werewolf bumps into the wall and loses its turn
+      if (this.player.werewolfTurns > 0) this.endPlayerTurn()
       return
     }
 
@@ -2665,11 +2758,14 @@ export class GameScene extends Phaser.Scene {
       this.messageLog.add('Your pack is empty.', '#808080')
       return
     }
-    const item = this.player.inventory[this.player.inventory.length - 1]
-    this.player.inventory.pop()
+    // Unpaid shop items go back first, otherwise the last thing picked up
+    const item = [...this.player.inventory].reverse().find(i => this.traderUnpaid.has(i.instanceId))
+      ?? this.player.inventory[this.player.inventory.length - 1]
+    this.inventory.removeFromInventory(this.player.inventory, item.instanceId)
     this.floorItems.push(new FloorItem(this.player.x, this.player.y, item))
     const name = this.inventory.getItemName(item)
     this.messageLog.add(`You drop the ${name}.`, '#c0c0c0')
+    if (this.traderUnpaid.delete(item.instanceId)) this.checkTraderDoor()
     this.endPlayerTurn()
   }
 
@@ -2723,7 +2819,8 @@ export class GameScene extends Phaser.Scene {
     const def = this.inventory.getDef(item.defId)
     if (!def?.wandEffect) return
     if ((item.charges ?? 0) <= 0) {
-      this.messageLog.add(`You wave the ${def.name}, but nothing happens. It is out of charges.`, '#808080')
+      this.messageLog.add(`You wave the ${def.name}, but it is out of charges. It disintegrates in your hand!`, '#808080')
+      this.removeUnpaidAware(item, this.player)
       this.endPlayerTurn()
       return
     }
@@ -2946,12 +3043,15 @@ export class GameScene extends Phaser.Scene {
           spared.add(monster)
           continue
         }
-        monster.hp = Math.max(0, monster.hp - dmg)
+        // Dragons are four times as vulnerable to the opposite element
+        const weak = (kind === 'cold' && monster.defId === 'firedragon') || (kind === 'fire' && monster.defId === 'icedragon')
+        const mDmg = weak ? dmg * 4 : dmg
+        monster.hp = Math.max(0, monster.hp - mDmg)
         if (kind === 'fire') {
-          this.messageLog.add(`The fire burns the ${monster.name}! (${dmg} dmg)`, color)
+          this.messageLog.add(`The fire burns the ${monster.name}!${weak ? ' It is super effective!' : ''} (${mDmg} dmg)`, color)
         } else {
           monster.stunTurns += 2
-          this.messageLog.add(`The ice freezes the ${monster.name}! (${dmg} dmg, frozen 2 turns)`, color)
+          this.messageLog.add(`The ice freezes the ${monster.name}!${weak ? ' It is super effective!' : ''} (${mDmg} dmg, frozen 2 turns)`, color)
         }
         if (!monster.isAlive()) {
           this.player.gainXP(monster.xpValue)
@@ -2988,6 +3088,59 @@ export class GameScene extends Phaser.Scene {
     this.endPlayerTurn()
   }
 
+  // Wizards near the player now and then cast a spell: paralysis, or a hostile copy of the player.
+  private wizardTurn(m: Monster): void {
+    if (m.spellCooldown > 0) { m.spellCooldown--; return }
+    if (m.stunTurns > 0 || this.player.allianceTurns > 0 || this.player.timestopTurns > 0) return
+    if (!this.mapSystem.getTile(m.x, m.y)?.visible) return
+    const dist = Math.max(Math.abs(m.x - this.player.x), Math.abs(m.y - this.player.y))
+    if (dist > 7 || Math.random() >= 0.15) return
+    m.spellCooldown = 20
+    if (Math.random() < 0.5) {
+      if (this.isInvulnerable()) {
+        this.messageLog.add('The Wizard casts a paralysis spell, but it washes over you harmlessly.', '#ffff80')
+        return
+      }
+      const turns = 11 + Math.floor(Math.random() * 7)  // 11-17
+      this.player.paralyzedTurns = Math.max(this.player.paralyzedTurns, turns)
+      this.messageLog.add(`The Wizard casts a spell. You are paralyzed! (${turns} turns)`, '#c0a0ff')
+      return
+    }
+    const spot = this.freeSpots((x, y) => Math.max(Math.abs(x - this.player.x), Math.abs(y - this.player.y)) <= 2)
+    const slot = this.randomSpot(spot)
+    if (!slot) return
+    this.spawnEntities([{ x: slot.x, y: slot.y, defId: 'doppelganger' }], [])
+    const copy = this.monsters[this.monsters.length - 1]
+    if (copy?.defId === 'doppelganger') {
+      copy.maxHp = copy.hp = Math.max(10, Math.round(this.player.maxHp / 2))
+      copy.str = Math.round(this.player.str)
+      copy.name = `Doppelganger ${this.player.name}`
+    }
+    this.messageLog.add('The Wizard waves his staff. A duplicate of you appears, and it fights for him!', '#ff8080')
+  }
+
+  // Summoners in sight of the player call in another monster from the local pool every 5 turns (at most 6 of their own at a time).
+  private summonerTurn(m: Monster): void {
+    if (m.stunTurns > 0 || this.player.timestopTurns > 0) return
+    // Only summons while it can see the player (its tile is in the player's view)
+    if (!this.mapSystem.getTile(m.x, m.y)?.visible) return
+    if (++m.spellCooldown < SUMMON_INTERVAL) return
+    m.spellCooldown = 0
+    const alive = this.monsters.filter(o => o.summonedBy === m.id && o.isAlive()).length
+    if (alive >= 6) return
+    const category = areaInfo(this.worldState.currentArea ?? '').category
+    const pool = AREA_MONSTERS[category] ?? ['spirit', 'ogre', 'wizard', 'magician', 'sorcerer']
+    const spots = this.freeSpots((x, y) => Math.max(Math.abs(x - m.x), Math.abs(y - m.y)) <= 2)
+    const slot = this.randomSpot(spots)
+    if (!slot) return
+    const defId = pool[Math.floor(Math.random() * pool.length)]
+    this.spawnEntities([{ x: slot.x, y: slot.y, defId }], [])
+    const summoned = this.monsters[this.monsters.length - 1]
+    if (summoned?.defId !== defId) return
+    summoned.summonedBy = m.id
+    this.messageLog.add(`The Summoner chants. A ${summoned.name} appears!`, '#ff40ff')
+  }
+
   // The most common plain walkable tile on this map (grass, floor, tiles, ...).
   private mapFloorTile(): string {
     const counts = new Map<string, number>()
@@ -3014,9 +3167,19 @@ export class GameScene extends Phaser.Scene {
     for (let i = 1; i <= 10; i++) {
       const nx = this.player.x + dx * i
       const ny = this.player.y + dy * i
-      if (nx <= 0 || ny <= 0 || nx >= this.mapSystem.width - 1 || ny >= this.mapSystem.height - 1) break
-      const tile = this.mapSystem.getTile(nx, ny)!
-      if (indestructible.includes(tile.defId)) break
+      const tile = this.mapSystem.getTile(nx, ny)
+      if (!tile || indestructible.includes(tile.defId)) break
+      if (nx <= 0 || ny <= 0 || nx >= this.mapSystem.width - 1 || ny >= this.mapSystem.height - 1) {
+        // The border only gives way where an adjacent map lies beyond it
+        const edgeExit = this.edgeExitFor(nx, ny)
+        if (edgeExit && !this.mapSystem.isWalkable(nx, ny)) {
+          this.placeDugExit(nx, ny, edgeExit)
+          endX = nx
+          endY = ny
+          dug++
+        }
+        break
+      }
       if (this.isTraderChamberWall(nx, ny)) break
       endX = nx
       endY = ny
@@ -3026,7 +3189,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.localMapView.animateBolt(this.player.x, this.player.y, endX, endY, '#c0a060', () => {
-      this.messageLog.add(dug > 0 ? 'The wand blasts a tunnel through the obstacles!' : 'The wand rumbles, but there is nothing to dig through.', '#c0a060')
+      this.messageLog.add(dug > 0 ? 'The wand blasts a tunnel through the obstacles!' : 'The wand has no effect on this material.', '#c0a060')
       this.refreshMapViews()
       this.endPlayerTurn()
     })
@@ -3128,8 +3291,11 @@ export class GameScene extends Phaser.Scene {
           this.messageLog.add(`The mispel splatters on the ${monster.name}!`, '#806040')
           landX = nx; landY = ny
           break
+        } else if (Math.random() * 100 >= playerHitChance(this.player, monster)) {
+          this.messageLog.add(`The ${def.name} misses the ${monster.name}.`, '#a0a0a0')
         } else {
-          const dmg = Math.max(1, def.damage ?? 1)
+          let dmg = Math.max(1, def.damage ?? 1)
+          if (item.defId === 'silversword' && monster.defId === 'werewolf') dmg = Math.max(dmg, monster.hp)
           monster.hp = Math.max(0, monster.hp - dmg)
           this.messageLog.add(`The ${def.name} hits the ${monster.name}! (${dmg} dmg)`, '#ff8040')
           if (!monster.isAlive()) {
@@ -3343,6 +3509,79 @@ export class GameScene extends Phaser.Scene {
     return Object.values(this.player.equipment).some(item => item?.defId === 'ring_famine')
   }
 
+  private hasLocusRing(): boolean {
+    return Object.values(this.player.equipment).some(item => item?.defId === 'ring_locus')
+  }
+
+  private teleportRandomly(): void {
+    const player = this.player
+    const candidates: { x: number; y: number }[] = []
+    for (let ty = 0; ty < this.mapSystem.height; ty++) {
+      for (let tx = 0; tx < this.mapSystem.width; tx++) {
+        if (this.mapSystem.isWalkable(tx, ty) && this.getMonsterAt(tx, ty) === null
+            && !(tx === player.x && ty === player.y)) {
+          candidates.push({ x: tx, y: ty })
+        }
+      }
+    }
+    if (candidates.length > 0) {
+      const pos = candidates[Math.floor(Math.random() * candidates.length)]
+      player.x = pos.x
+      player.y = pos.y
+      this.messageLog.add('You vanish in a flash of light and reappear elsewhere!', '#8080ff')
+    }
+  }
+
+  // Ring of Locus Mastery: teleport to the clicked world-map tile, or randomly
+  // when the spot is unsuitable (off-map, blocked, occupied or a transit tile).
+  private resolveTeleportPick(pos: { tx: number; ty: number } | null): void {
+    this.teleportPicking = false
+    const tile = pos ? this.mapSystem.getTile(pos.tx, pos.ty) : null
+    const suitable = pos !== null && tile !== null
+      && this.mapSystem.isWalkable(pos.tx, pos.ty)
+      && this.getMonsterAt(pos.tx, pos.ty) === null
+      && !isSpecialTile(tile.defId)
+      && !(pos.tx === this.player.x && pos.ty === this.player.y)
+    if (suitable) {
+      this.player.x = pos.tx
+      this.player.y = pos.ty
+      this.messageLog.add('You vanish in a flash of light and reappear exactly where you wanted!', '#c080ff')
+    } else {
+      if (pos) this.messageLog.add('That spot is not suitable. The magic takes over.', '#808080')
+      this.teleportRandomly()
+    }
+    this.endPlayerTurn()
+  }
+
+  // 5x5 around the player (never the player's own tile); each eligible tile
+  // turns to lava on a ~59% roll.
+  private lavaStrike(): void {
+    const { x: px, y: py } = this.player
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (dx === 0 && dy === 0) continue
+        const tile = this.mapSystem.getTile(px + dx, py + dy)
+        if (!tile || !this.mapSystem.isWalkable(px + dx, py + dy) || isSpecialTile(tile.defId)) continue
+        if (Math.random() < 0.59) this.mapSystem.setTile(px + dx, py + dy, 'lava')
+      }
+    }
+    this.messageLog.add('Lava comes streaming out of the heavens.', '#ff4000')
+  }
+
+  private makeClothespinTrap(): void {
+    const inv = this.player.inventory
+    const pin = inv.find(it => it.defId === 'wasknijper')
+    if (!pin) {
+      this.messageLog.add('You need a Clothespin to make a Clothespin Trap.', '#808080')
+      return
+    }
+    if (pin.quantity > 1) pin.quantity--
+    else this.removeUnpaidAware(pin, this.player)
+    this.inventory.addToInventory(inv, this.inventory.createInstance('wasknijperbom'))
+    this.messageLog.add('You carefully rig the Clothespin into a Clothespin Trap.', '#ffd080')
+    this.endPlayerTurn()
+  }
+
   // ─── Turn management ────────────────────────────────────────────────────────
 
   private useVentriloquism(): void {
@@ -3397,6 +3636,18 @@ export class GameScene extends Phaser.Scene {
       this.player.blindTurns--
       if (this.player.blindTurns === 0) this.messageLog.add('Your vision clears.', '#c0c0c0')
     }
+    if (this.player.werewolfTurns > 0) {
+      this.player.werewolfTurns--
+      if (this.player.werewolfTurns === 0) this.endWerewolfForm()
+    } else if (this.player.lycanthropy && this.player.lycanthropyCountdown > 0) {
+      this.player.lycanthropyCountdown--
+      if (this.player.lycanthropyCountdown === 0) {
+        this.player.werewolfTurns = 20
+        this.player.preWerewolfSpriteKey = this.player.spriteKey
+        this.player.spriteKey = 'monster_werewolf'
+        this.messageLog.add('Your bones crack and fur sprouts from your skin. You turn into a werewolf!', '#c06030')
+      }
+    }
     if (this.player.translucenceTurns > 0) {
       this.player.translucenceTurns--
       if (this.player.translucenceTurns === 0) this.messageLog.add('You fade back into full view.', '#c0c0ff')
@@ -3405,48 +3656,63 @@ export class GameScene extends Phaser.Scene {
       this.player.invulnerableTurns--
       if (this.player.invulnerableTurns === 0) this.messageLog.add('The invulnerability wears off.', '#ffff80')
     }
+    if (this.player.speedTurns > 0) {
+      this.player.speedTurns--
+      if (this.player.speedTurns === 0) {
+        this.player.speed -= this.player.speedPotionBonus
+        this.player.speedPotionBonus = 0
+        this.messageLog.add('You feel yourself slow down.', '#ffff40')
+      }
+    }
     this.player.energy -= 100
-    if (this.player.energy >= 100) {
-      // Player has leftover energy — extra turn before world ticks
-      this.localMapView.render(this.player, this.monsters, this.floorItems, this.corpses)
-      if (this.worldState.currentArea === 'stairs') this.localMapView.renderBombs(this.stairsBombs)
-      this.worldMapView.render(this.player, this.monsters, this.floorItems, this.worldState.currentArea === 'garage_top' || this.worldState.currentArea === 'garage_bottom', this.worldState.currentArea === 'stairs')
-      this.statsPanel.update(this.player, this.turnManager.getTurn())
-      if (this.inventoryScreen.isVisible()) this.inventoryScreen.refresh(this.player)
-      return
-    }
-    // World ticks until player accumulates enough energy to act again
-    while (this.player.energy < 100) {
-      this.turnManager.processTurn()
-    }
-    const horse = this.monsters.find(m => m.defId === 'paard' && m.aiType !== 'follow' && m.isAlive())
-    if (horse && horse.x === this.player.x && horse.y === this.player.y) {
-      this.player.y -= 1
-      this.updateFOV()
-    }
-    for (const m of [...this.monsters]) {
-      if (!m.isAlive()) this.removeMonster(m)
+    // Leftover energy means an extra player turn before the world ticks: the
+    // player's own per-step checks (items underfoot, lava, ...) still run.
+    const extraTurn = this.player.energy >= 100
+    if (extraTurn) {
+      // The blocking horse still shadows every step, so speed can't outrun it.
+      const blocker = this.monsters.find(m => m.defId === 'paard' && m.aiType !== 'follow' && m.isAlive())
+      if (blocker) {
+        blocker.takeTurn()
+        if (blocker.x === this.player.x && blocker.y === this.player.y) {
+          this.player.y -= 1
+          this.updateFOV()
+        }
+      }
+    } else {
+      // World ticks until player accumulates enough energy to act again
+      while (this.player.energy < 100) {
+        this.turnManager.processTurn()
+      }
+      const horse = this.monsters.find(m => m.defId === 'paard' && m.aiType !== 'follow' && m.isAlive())
+      if (horse && horse.x === this.player.x && horse.y === this.player.y) {
+        this.player.y -= 1
+        this.updateFOV()
+      }
+      for (const m of [...this.monsters]) {
+        if (!m.isAlive()) this.removeMonster(m)
+      }
+      const tick = this.turnManager.getTurn()
+      if (tick % 3 === 0 && this.player.hp < this.player.maxHp) {
+        this.player.hp = Math.min(this.player.hp + 1, this.player.maxHp)
+      }
+      if (tick % 15 === 0 && this.player.food > 0) {
+        this.player.food = Math.max(0, this.player.food - 1)
+        if (this.player.food === 0 && !this.isInvulnerable()) {
+          this.messageLog.add('You are starving to death!', '#ff4000')
+          this.player.hp = 0
+          this.lastKilledBy = 'starvation'
+        }
+      }
+      if (tick % 5 === 0 && this.player.food > 0 && this.hasFamineRing()) {
+        this.player.food = Math.max(0, this.player.food - 1)
+        if (this.player.food === 0 && !this.isInvulnerable()) {
+          this.messageLog.add('You are starving to death!', '#ff4000')
+          this.player.hp = 0
+          this.lastKilledBy = 'starvation'
+        }
+      }
     }
     const turn = this.turnManager.getTurn()
-    if (turn % 3 === 0 && this.player.hp < this.player.maxHp) {
-      this.player.hp = Math.min(this.player.hp + 1, this.player.maxHp)
-    }
-    if (turn % 15 === 0 && this.player.food > 0) {
-      this.player.food = Math.max(0, this.player.food - 1)
-      if (this.player.food === 0 && !this.isInvulnerable()) {
-        this.messageLog.add('You are starving to death!', '#ff4000')
-        this.player.hp = 0
-        this.lastKilledBy = 'starvation'
-      }
-    }
-    if (turn % 5 === 0 && this.player.food > 0 && this.hasFamineRing()) {
-      this.player.food = Math.max(0, this.player.food - 1)
-      if (this.player.food === 0 && !this.isInvulnerable()) {
-        this.messageLog.add('You are starving to death!', '#ff4000')
-        this.player.hp = 0
-        this.lastKilledBy = 'starvation'
-      }
-    }
     if (this.mapSystem.getTile(this.player.x, this.player.y)?.defId === 'flame' && !this.hasHeatResistance() && !this.isInvulnerable()) {
       this.messageLog.add('The pentagram flames scorch you! (-10 HP)', '#ff4000')
       this.player.hp -= 10
@@ -3467,7 +3733,7 @@ export class GameScene extends Phaser.Scene {
       this.messageLog.add(`You step on the ${legoDef?.name ?? 'lego brick'}! OUCH! (-1 HP)`, '#ffff40')
       if (!this.player.isAlive()) this.lastKilledBy = 'lego brick'
     }
-    if (this.worldState.currentArea === 'bathroom_bottom') this.floodBathroom()
+    if (!extraTurn && this.worldState.currentArea === 'bathroom_bottom') this.floodBathroom()
     if (this.worldState.currentArea === 'chaos') {
       mutateChaosMap(this.mapSystem, this.player.x, this.player.y)
       this.circleWidget()
@@ -3478,6 +3744,7 @@ export class GameScene extends Phaser.Scene {
     this.statsPanel.update(this.player, turn)
     if (this.inventoryScreen.isVisible()) this.inventoryScreen.refresh(this.player)
     this.checkDuckMessages()
+    this.scheduleWerewolfMove()
     this.notifyItemsUnderfoot()
     if (!this.ericChamberEntered &&
         ((this.worldState.cx === 1 && this.worldState.cy === 1 &&
@@ -3546,7 +3813,18 @@ export class GameScene extends Phaser.Scene {
       this.messageLog.add('These walls cannot be destroyed.', '#808080')
       return
     }
-    const diggable = ['wall', 'wall_up', 'wall_down', 'wall_left', 'wall_right', 'wall_corner_tl', 'wall_corner_tr', 'wall_corner_bl', 'wall_corner_br', 'tree', 'tree_dead', 'hall_wall', 'kraan']
+    const diggable = ['wall', 'wall_up', 'wall_down', 'wall_left', 'wall_right', 'wall_corner_tl', 'wall_corner_tr', 'wall_corner_bl', 'wall_corner_br', 'tree', 'tree_dead', 'hall_wall', 'void', 'kraan', 'waterbodem']
+    const inUpperHall = this.worldState.currentArea === 'upper_hall_left' || this.worldState.currentArea === 'upper_hall_right'
+    if ((tile?.defId === 'void' && !inUpperHall && !this.inPond()) ||
+        (tile?.defId === 'waterbodem' && !this.inPond())) {
+      this.messageLog.add('There is nothing to dig there.', '#808080')
+      return
+    }
+    // The map edge only gives way where an adjacent map lies beyond it
+    if ((tx <= 0 || ty <= 0 || tx >= MAP_W - 1 || ty >= MAP_H - 1) && !this.edgeExitFor(tx, ty)) {
+      this.messageLog.add('The outer wall is too solid to dig through.', '#808080')
+      return
+    }
     if (!tile || !diggable.includes(tile.defId)) {
       this.messageLog.add('There is nothing to dig there.', '#808080')
       return
@@ -3556,9 +3834,71 @@ export class GameScene extends Phaser.Scene {
     this.endPlayerTurn()
   }
 
+  // Arrow exit to place when digging out through the map edge at (x, y):
+  // a copy of an arrow already on that edge, so it leads to the same next map.
+  // Only the garden, hall (ground and upper) and pond maps qualify; corners never do.
+  private edgeExitFor(x: number, y: number): string | undefined {
+    const area = this.worldState.currentArea
+    if (area !== null && area !== 'hall' && area !== 'upper_hall_left' && area !== 'upper_hall_right' && !this.inPond()) return undefined
+    const onLeft = x === 0, onRight = x === MAP_W - 1
+    const onTop = y === 0, onBottom = y === MAP_H - 1
+    if ((onLeft || onRight) === (onTop || onBottom)) return undefined
+    const arrows = new Set(['exit_right', 'exit_left', 'exit_down', 'exit_up', 'hall_exit_up', 'hall_exit_driveway',
+      'upper_hall_exit_chaos', 'upper_hall_exit_bathroom', 'upper_hall_exit_study', 'upper_hall_exit_mar',
+      'pond_exit', 'pond_exit_left', 'pond_exit_right', 'pond_exit_down', 'pond_exit_up'])
+    const len = onLeft || onRight ? MAP_H : MAP_W
+    for (let i = 1; i < len - 1; i++) {
+      const id = this.mapSystem.getTile(onLeft || onRight ? x : i, onLeft || onRight ? i : y)?.defId
+      if (id && arrows.has(id)) return id
+    }
+    return undefined
+  }
+
+  private placeDugExit(x: number, y: number, defId: string): void {
+    this.mapSystem.setTile(x, y, defId)
+    this.worldState.dugExits.add(`${this.currentMapKey()}:${x},${y}`)
+  }
+
+  // Stepping onto a dug arrow: remember to arrive on the opposite edge at the
+  // same x/y, where a matching arrow back is placed.
+  private queueDugEntry(x: number, y: number, defId: string): void {
+    const back = DUG_EXIT_BACK[defId]
+    if (!back || !this.worldState.dugExits.has(`${this.currentMapKey()}:${x},${y}`)) return
+    const side = x === 0 ? 'right' : x === MAP_W - 1 ? 'left' : y === 0 ? 'down' : 'up'
+    this.pendingDugEntry = { side, coord: side === 'left' || side === 'right' ? y : x, backTile: back }
+  }
+
+  // Called once the new map is loaded: places the arrow back plus one walkable
+  // tile beside it, and returns that tile as the entry position.
+  private applyDugEntry(): { x: number; y: number } | null {
+    const p = this.pendingDugEntry
+    this.pendingDugEntry = null
+    if (!p) return null
+    const ex = p.side === 'left' ? 0 : p.side === 'right' ? MAP_W - 1 : p.coord
+    const ey = p.side === 'up' ? 0 : p.side === 'down' ? MAP_H - 1 : p.coord
+    const ix = p.side === 'left' ? 1 : p.side === 'right' ? MAP_W - 2 : ex
+    const iy = p.side === 'up' ? 1 : p.side === 'down' ? MAP_H - 2 : ey
+    this.placeDugExit(ex, ey, p.backTile)
+    const inner = this.mapSystem.getTile(ix, iy)!.defId
+    if (this.inPond() ? inner !== 'water' : !this.mapSystem.isWalkable(ix, iy) || isSpecialTile(inner))
+      this.mapSystem.setTile(ix, iy, this.inPond() ? 'water' : this.mapFloorTile())
+    this.player.x = ix
+    this.player.y = iy
+    const blocker = this.getMonsterAt(ix, iy)
+    if (blocker) {
+      const spot = this.findSpotNearPlayer()
+      blocker.x = spot.x
+      blocker.y = spot.y
+    }
+    return { x: ix, y: iy }
+  }
+
   private advanceDig(): void {
+    // Only a hostile closing in interrupts — busy maps like the hall would
+    // otherwise make digging impossible
     const hostileVisible = this.monsters.some(m => {
-      if (m.aiType === 'friendly' || m.aiType === 'follow') return false
+      if (m.aiType === 'friendly' || m.aiType === 'follow' || m.npc) return false
+      if (Math.max(Math.abs(m.x - this.player.x), Math.abs(m.y - this.player.y)) > 3) return false
       const tile = this.mapSystem.getTile(m.x, m.y)
       return tile?.visible ?? false
     })
@@ -3577,8 +3917,14 @@ export class GameScene extends Phaser.Scene {
       const isTree = tile?.defId === 'tree' || tile?.defId === 'tree_dead'
       const isHallWall = tile?.defId === 'hall_wall'
       const isKraan = tile?.defId === 'kraan'
-      this.mapSystem.setTile(tx, ty, isTree ? 'grass' : isHallWall ? 'tegel_wit' : isKraan ? 'tegel_bruin' : 'floor')
-      this.messageLog.add(isKraan ? 'You smash the tap! The water stops.' : 'You break through!', '#c0ff80')
+      const isVoid = tile?.defId === 'void'
+      const inPond = this.inPond()
+      const edgeExit = this.edgeExitFor(tx, ty)
+      if (edgeExit) this.placeDugExit(tx, ty, edgeExit)
+      else this.mapSystem.setTile(tx, ty, inPond ? 'water'
+        : isTree ? 'grass' : isHallWall ? 'tegel_wit' : isKraan ? 'tegel_bruin' : isVoid ? 'carpet' : 'floor')
+      this.messageLog.add(isKraan ? 'You smash the tap! The water stops.'
+        : edgeExit ? 'You break through to the next area!' : 'You break through!', '#c0ff80')
       this.digProgress = null
       this.updateFOV()
       this.localMapView.render(this.player, this.monsters, this.floorItems, this.corpses)
@@ -3761,8 +4107,18 @@ export class GameScene extends Phaser.Scene {
     this.companions = this.companions.filter(m => m.id !== monster.id)
     if (monster.xpValue > 0) {
       const def = (monsterData as MonsterDef[]).find(d => d.id === monster.defId)
-      if (def?.dropType && Math.random() < 0.5) {
-        const pool = this.inventory.getDefsByType(def.dropType)
+      // Human-like monsters ('random') sometimes drop something from the local loot table
+      if (def?.dropType === 'random') {
+        if (Math.random() < 0.4) {
+          const area = this.worldState.currentArea
+          const lootArea = area === null ? 'forest' : area.startsWith('upper_hall') ? area : this.areaType(area)
+          const drop = pickAreaItem(lootArea, Math.random)
+          if (drop) this.floorItems.push(new FloorItem(monster.x, monster.y, this.inventory.createInstance(drop.defId, drop.qty)))
+        }
+      } else if (monster.defId === 'summoner') {
+        this.floorItems.push(new FloorItem(monster.x, monster.y, this.inventory.createInstance('wand_evocation')))
+      } else if (def?.dropType && Math.random() < 0.5) {
+        const pool = this.inventory.getDefsByType(def.dropType).filter(d => !EXCLUDE_IDS.has(d.id))
         if (pool.length > 0) {
           const drop = pool[Math.floor(Math.random() * pool.length)]
           this.floorItems.push(new FloorItem(monster.x, monster.y, this.inventory.createInstance(drop.id)))
@@ -3773,7 +4129,33 @@ export class GameScene extends Phaser.Scene {
 
   // ─── Look mode ──────────────────────────────────────────────────────────────
 
+  // While blind, monster and item names in messages are replaced by vague
+  // stand-ins ("a monster", "some item"), along with any article before them.
+  private blindNameRegex: RegExp | null = null
+  private blindNameKind = new Map<string, 'monster' | 'item'>()
+  private blindText(text: string): string {
+    if (!this.blindNameRegex) {
+      for (const d of itemData as ItemDef[]) this.blindNameKind.set(d.name, 'item')
+      for (const d of monsterData as MonsterDef[]) this.blindNameKind.set(d.name, 'monster')
+      const names = [...this.blindNameKind.keys()]
+        .sort((a, b) => b.length - a.length)
+        .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      this.blindNameRegex = new RegExp(`(?:\\b(the|a|an|your|The|A|An|Your) )?\\b(${names.join('|')})(?!\\w|'s)`, 'g')
+    }
+    return text.replace(this.blindNameRegex, (_m, article: string | undefined, name: string, offset: number, whole: string) => {
+      const vague = this.blindNameKind.get(name) === 'monster' ? 'a monster' : 'some item'
+      const capitalize = article
+        ? /^[A-Z]/.test(article)
+        : offset === 0 || /[.!?"]\s*$/.test(whole.slice(0, offset))
+      return capitalize ? vague[0].toUpperCase() + vague.slice(1) : vague
+    })
+  }
+
   private enterLookMode(): void {
+    if (this.player.blindTurns > 0) {
+      this.messageLog.add('You are blind and cannot see.', '#808080')
+      return
+    }
     this.lookMode = true
     this.lookCursor = this.add.graphics().setDepth(50)
     this.messageLog.add('Look mode — click a tile.  L or ESC to cancel.', '#00c0ff')
@@ -3873,7 +4255,10 @@ export class GameScene extends Phaser.Scene {
         allianceTurns: this.player.allianceTurns, timestopTurns: this.player.timestopTurns,
         drunkTurns: this.player.drunkTurns, phasingTurns: this.player.phasingTurns,
         blindTurns: this.player.blindTurns, translucenceTurns: this.player.translucenceTurns,
-        invulnerableTurns: this.player.invulnerableTurns,
+        invulnerableTurns: this.player.invulnerableTurns, speedTurns: this.player.speedTurns, speedPotionBonus: this.player.speedPotionBonus,
+        paralyzedTurns: this.player.paralyzedTurns,
+        lycanthropy: this.player.lycanthropy, lycanthropyCountdown: this.player.lycanthropyCountdown,
+        werewolfTurns: this.player.werewolfTurns, preWerewolfSpriteKey: this.player.preWerewolfSpriteKey,
         transformationMonsterId: this.player.transformationMonsterId,
         transformationStrBonus: this.player.transformationStrBonus,
         transformationHpBonus: this.player.transformationHpBonus,
@@ -3889,13 +4274,16 @@ export class GameScene extends Phaser.Scene {
         mamHasOrange: this.worldState.mamHasOrange, mamHasVase: this.worldState.mamHasVase, widgetFound: this.worldState.widgetFound,
         peterWarned: this.worldState.peterWarned,
         horseDead: this.worldState.horseDead,
+        stairsOrigin: this.stairsOrigin,
         extinctRaces: [...this.worldState.extinctRaces],
+        dugExits: [...this.worldState.dugExits],
         clarinetCx: this.worldState.clarinetCx, clarinetCy: this.worldState.clarinetCy,
         relicSites: this.worldState.relicSites,
         questSites: this.worldState.questSites,
         npcSites: this.worldState.npcSites,
         runSeed: this.worldState.runSeed,
         clarinetLocation: this.worldState.clarinetLocation,
+        bonusTurns: this.worldState.bonusTurns,
       },
       currentMapKey: currentKey,
       cellSnapshots: snapshots as GameSaveData['cellSnapshots'],
@@ -3932,6 +4320,13 @@ export class GameScene extends Phaser.Scene {
     this.player.blindTurns = p.blindTurns ?? 0
     this.player.translucenceTurns = p.translucenceTurns ?? 0
     this.player.invulnerableTurns = p.invulnerableTurns ?? 0
+    this.player.speedTurns = p.speedTurns ?? 0
+    this.player.paralyzedTurns = p.paralyzedTurns ?? 0
+    this.player.lycanthropy = p.lycanthropy ?? false
+    this.player.lycanthropyCountdown = p.lycanthropyCountdown ?? 0
+    this.player.werewolfTurns = p.werewolfTurns ?? 0
+    this.player.preWerewolfSpriteKey = p.preWerewolfSpriteKey ?? 'player'
+    this.player.speedPotionBonus = p.speedPotionBonus ?? (this.player.speedTurns > 0 ? 100 : 0)
     this.player.transformationMonsterId = p.transformationMonsterId ?? null
     this.player.transformationStrBonus = p.transformationStrBonus ?? 0
     this.player.transformationHpBonus = p.transformationHpBonus ?? 0
@@ -3949,7 +4344,9 @@ export class GameScene extends Phaser.Scene {
     this.worldState.mamHasOrange = ws.mamHasOrange; this.worldState.mamHasVase = ws.mamHasVase; this.worldState.widgetFound = ws.widgetFound ?? false
     this.worldState.peterWarned = ws.peterWarned ?? false
     this.worldState.horseDead = ws.horseDead ?? false
+    this.stairsOrigin = ws.stairsOrigin ?? null
     this.worldState.extinctRaces = new Set(ws.extinctRaces ?? [])
+    this.worldState.dugExits = new Set(ws.dugExits ?? [])
     if (ws.clarinetCx !== undefined) this.worldState.clarinetCx = ws.clarinetCx
     if (ws.clarinetCy !== undefined) this.worldState.clarinetCy = ws.clarinetCy
     if (ws.relicSites) this.worldState.relicSites = ws.relicSites
@@ -3957,6 +4354,7 @@ export class GameScene extends Phaser.Scene {
     if (ws.npcSites) this.worldState.npcSites = ws.npcSites
     if (ws.runSeed !== undefined) this.worldState.runSeed = ws.runSeed
     this.worldState.clarinetLocation = ws.clarinetLocation ?? null
+    this.worldState.bonusTurns = ws.bonusTurns ?? 0
 
     this.worldState.cellSnapshots.clear()
     for (const [k, v] of Object.entries(data.cellSnapshots)) this.worldState.cellSnapshots.set(k, v)
@@ -3990,6 +4388,7 @@ export class GameScene extends Phaser.Scene {
     this.updateMusic(ws.currentArea)
     this.messageLog.add('Game restored. Welcome back, ' + p.name + '!', '#50c0ff')
     this.inputBlocked = false
+    this.scheduleWerewolfMove()
   }
 
   private showContinueDialog(): void {
@@ -4160,6 +4559,48 @@ export class GameScene extends Phaser.Scene {
   private triggerVictory(): void {
     this.inputBlocked = true
     this.scene.start('VictoryScene')
+  }
+
+  // Turns left before time runs out (20000 + bonus turns from distracting Lex).
+  private turnsLeft(): number {
+    return this.worldState.turnLimit - this.turnManager.getTurn()
+  }
+
+  private timeUp = false
+  private checkTimeLimit(): void {
+    if (this.timeUp) return
+    const turn = this.turnManager.getTurn()
+    const left = this.turnsLeft()
+    if (left <= 0) {
+      this.timeUp = true
+      this.lastKilledBy = 'time'
+      this.messageLog.add('Time has run out! You did not finish in time.', '#ff4040')
+      this.gameOver('Ran out of time')
+      return
+    }
+    if (turn > 0 && turn % TIME_WARNING_INTERVAL === 0)
+      this.messageLog.add(`Time is running out! ${left} turns left.`, '#ff8040')
+  }
+
+  // While in werewolf form the player has no control: the beast roams randomly.
+  private scheduleWerewolfMove(): void {
+    if (this.player.werewolfTurns <= 0 || this.werewolfMoveScheduled) return
+    this.werewolfMoveScheduled = true
+    this.time.delayedCall(250, () => {
+      this.werewolfMoveScheduled = false
+      if (this.player.werewolfTurns <= 0 || this.inputBlocked || !this.player.isAlive()) return
+      if (this.inventoryScreen.isVisible()) this.inventoryScreen.hide()
+      this.tryMove(0, 0)
+      // Moves that don't end a turn (e.g. a map transition) still keep the beast roaming
+      this.scheduleWerewolfMove()
+    })
+  }
+
+  private endWerewolfForm(): void {
+    this.player.werewolfTurns = 0
+    this.player.spriteKey = this.player.preWerewolfSpriteKey
+    if (this.player.lycanthropy) this.player.lycanthropyCountdown = 100
+    this.messageLog.add('The fur recedes and you return to your normal form.', '#c0a080')
   }
 
   private gameOver(cause?: string): void {

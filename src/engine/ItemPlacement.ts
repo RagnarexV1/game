@@ -6,7 +6,13 @@ import { areaInfo, itemPower, itemTier, itemAffinity, itemTierFactor, pickWeight
 const ITEMS = itemData as ItemDef[]
 
 // Unique/quest items — kept only at their hand-placed spot, never duplicated by random scatter.
-const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek'])
+// The Scroll of Transport is placed once or twice per game via WorldState.questSites.
+export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport'])
+
+// Items that only ever turn up in random loot on areas of at least this tier.
+const MIN_TIER: Record<string, Tier> = {
+  amulet: 3,
+}
 
 // Items clearly tied to one kind of location — never scattered onto an unrelated map type.
 const RESTRICTED: Record<string, string[]> = {
@@ -62,6 +68,7 @@ function buildPool(category: string, tier: Tier): Array<{ value: string; weight:
   return ITEMS
     .filter(it => !it.relic && !EXCLUDE_IDS.has(it.id))
     .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes(category))
+    .filter(it => tier >= (MIN_TIER[it.id] ?? 1))
     .map(it => {
       const affinity = itemAffinity(it).includes(category) ? AFFINITY_BOOST : 1
       return { value: it.id, weight: rarityWeight(it) * itemTierFactor(tier, itemTier(it)) * affinity }
@@ -143,5 +150,42 @@ export function scatterRandomItems(
       ? { x, y, defId, qty: rollCentValue(rng, tier) }
       : { x, y, defId, qty: 1 })
   }
+
+  // On top of the regular loot, every map gets some extra food
+  const foodPool = buildFoodPool(category)
+  const foodCount = Math.ceil(count / 2)
+  let placedFood = 0
+  attempts = 0
+  while (foodPool.length > 0 && placedFood < foodCount && attempts < foodCount * 50) {
+    attempts++
+    const x = Math.floor(rng() * W)
+    const y = Math.floor(rng() * H)
+    const key = `${x},${y}`
+    if (taken.has(key) || avoidSet.has(key)) continue
+    if (!map.isWalkable(x, y)) continue
+    const tile = map.getTile(x, y)
+    if (tile && isSpecialTile(tile.defId)) continue
+    taken.add(key)
+    results.push({ x, y, defId: pickWeighted(foodPool, rng), qty: 1 })
+    placedFood++
+  }
   return results
+}
+
+// Edible, non-harmful food for the extra food scatter; oranges a bit more likely.
+const NON_FOOD_EAT = new Set(['clay', 'speculaas_bad', 'mispel', 'petergras', 'ericgras', 'madelief'])
+function buildFoodPool(category: string): Array<{ value: string; weight: number }> {
+  return ITEMS
+    .filter(it => it.type === 'eat' && !it.relic && !EXCLUDE_IDS.has(it.id) && !NON_FOOD_EAT.has(it.id))
+    .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes(category))
+    .map(it => ({ value: it.id, weight: it.id === 'sinaasappel' ? 2 : 1 }))
+}
+
+/** One random item from `area`'s loot table, e.g. for a monster's death drop. */
+export function pickAreaItem(area: string, rng: () => number): { defId: string; qty: number } | null {
+  const { category, tier } = areaInfo(area)
+  const pool = buildPool(category, tier)
+  if (pool.length === 0) return null
+  const defId = pickWeighted(pool, rng)
+  return { defId, qty: defId === 'gold_coin' ? rollCentValue(rng, tier) : 1 }
 }

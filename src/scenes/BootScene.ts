@@ -30,6 +30,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('terrain_door_right',  'assets/terrain/muur_door_right_t.png')
     this.load.image('terrain_door', 'assets/terrain/muur_door_up.png')
     this.load.image('terrain_stairs_up', 'assets/terrain/trapUp.png')
+    this.load.image('terrain_stairs_down', 'assets/terrain/trapDown.png')
     this.load.image('terrain_tree', 'assets/terrain/tree.png')
     this.load.image('terrain_tree_dead', 'assets/terrain/tree_dead.png')
     this.load.image('terrain_tree_down', 'assets/terrain/tree_down.png')

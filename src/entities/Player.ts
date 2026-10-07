@@ -30,10 +30,17 @@ export class Player {
   allianceTurns = 0
   timestopTurns = 0
   drunkTurns = 0
+  paralyzedTurns = 0
   phasingTurns = 0
   blindTurns = 0
   translucenceTurns = 0
+  lycanthropy = false
+  lycanthropyCountdown = 0
+  werewolfTurns = 0
+  preWerewolfSpriteKey = 'player'
   invulnerableTurns = 0
+  speedTurns = 0
+  speedPotionBonus = 0
   transformationMonsterId: string | null = null
   transformationStrBonus = 0
   transformationHpBonus = 0
@@ -54,6 +61,7 @@ export class Player {
     body:   null,
     head:   null,
     hand:   null,
+    arms:   null,
     feet:   null,
     leg:    null,
     neck:   null,
@@ -92,7 +100,13 @@ export class Player {
 
   getAC(): number {
     const base = this.equipSys ? 10 - this.equipSys.getArmorBonus(this.equipment, this.invSys) : 10
-    return this.translucenceTurns > 0 ? base - 20 : base
+    return this.isTranslucent() ? base - 20 : base
+  }
+
+  // Potion of translucence, or permanently while wearing the ring of invisibility
+  isTranslucent(): boolean {
+    return this.translucenceTurns > 0 ||
+      Object.values(this.equipment).some(item => item?.defId === 'ring_invisibility')
   }
 
   gainXP(amount: number): void {

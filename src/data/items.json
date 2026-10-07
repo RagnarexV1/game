@@ -385,7 +385,7 @@
   },
   {
     "id": "wasknijperbom",
-    "name": "Clothespin Bomb",
+    "name": "Clothespin Trap",
     "glyph": "*",
     "color": "#ff8000",
     "type": "weapon",
@@ -420,7 +420,7 @@
     "relic": true,
     "defense": 4,
     "weight": 6,
-    "value": 200,
+    "value": 800,
     "description": "Reflects spells and excessive pride."
   },
   {
@@ -433,7 +433,7 @@
     "relic": true,
     "defense": 20,
     "weight": 2,
-    "value": 60,
+    "value": 600,
     "description": "Extremely stealthy legwear."
   },
   {
@@ -445,20 +445,21 @@
     "slot": "hand",
     "defense": 1,
     "weight": 1,
-    "value": 8,
+    "value": 40,
     "description": "Protects against thorns and minor slashing."
   },
   {
     "id": "amulet",
-    "name": "Amulet",
+    "name": "Amulet of Might",
     "glyph": "A",
     "color": "#ffd700",
     "type": "armor",
     "slot": "amulet",
     "defense": 3,
+    "strBonus": 5,
     "weight": 0,
-    "value": 250,
-    "description": "A glowing pendant of unknown origin."
+    "value": 1000,
+    "description": "A glowing pendant humming with raw power. Grants +5 strength while worn."
   },
   {
     "id": "banaan",
@@ -472,7 +473,7 @@
     "healAmount": 2,
     "damage": 10,
     "weight": 1,
-    "value": 4,
+    "value": 80,
     "description": "A ripe banana. Explosive when thrown."
   },
   {
@@ -673,7 +674,7 @@
     "slot": "weapon",
     "damage": 15,
     "weight": 4,
-    "value": 180,
+    "value": 800,
     "description": "A graceful curved blade of exceptional quality."
   },
   {
@@ -685,7 +686,7 @@
     "slot": "weapon",
     "damage": 8,
     "weight": 8,
-    "value": 65,
+    "value": 355,
     "description": "A heavy flanged club effective against armored foes."
   },
   {
@@ -709,7 +710,7 @@
     "slot": "cape",
     "defense": 1,
     "weight": 2,
-    "value": 55,
+    "value": 450,
     "heatResistance": true,
     "description": "A flowing red cape that grants minor protection but wards off heat."
   },
@@ -721,7 +722,7 @@
     "type": "ring",
     "slot": "ring",
     "weight": 0,
-    "value": 200,
+    "value": 600,
     "speedBonus": 100,
     "description": "A vibrating golden ring. Increases movement speed when worn."
   },
@@ -733,7 +734,7 @@
     "type": "ring",
     "slot": "ring",
     "weight": 0,
-    "value": 50,
+    "value": 100,
     "description": "A cursed ring that gnaws at your hunger. Greatly increases the rate of hunger."
   },
   {
@@ -744,7 +745,7 @@
     "type": "ring",
     "slot": "ring",
     "weight": 0,
-    "value": 250,
+    "value": 800,
     "description": "A hazy ring that bends light."
   },
   {
@@ -755,9 +756,20 @@
     "type": "ring",
     "slot": "ring",
     "weight": 0,
-    "value": 180,
+    "value": 280,
     "coldResistance": true,
     "description": "An icy blue ring. Provides resistance against cold."
+  },
+  {
+    "id": "ring_locus",
+    "name": "Ring of Locus Mastery",
+    "glyph": "=",
+    "color": "#c080ff",
+    "type": "ring",
+    "slot": "ring",
+    "weight": 0,
+    "value": 620,
+    "description": "A ring set with a swirling violet stone. Lets you choose where you teleport to."
   },
   {
     "id": "silversword",
@@ -768,7 +780,7 @@
     "slot": "weapon",
     "damage": 12,
     "weight": 5,
-    "value": 220,
+    "value": 600,
     "description": "A finely crafted sword of pure silver. Hated by werewolves."
   },
   {
@@ -1016,7 +1028,8 @@
     "color": "#40ffff",
     "type": "scroll",
     "slot": null,
-    "scrollText": "You feel wiser.",
+    "skillScroll": "clothespin_trap",
+    "scrollText": "You learn how to make a Clothespin Trap.",
     "weight": 0,
     "value": 100,
     "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
@@ -1170,6 +1183,18 @@
     "weight": 0,
     "value": 200,
     "description": "Ancient parchment etched with twelve arched portals. Opens a gateway for monsters."
+  },
+  {
+    "id": "scroll_lavastrike",
+    "name": "Scroll of Lava Strike",
+    "glyph": "S",
+    "color": "#ff4000",
+    "type": "scroll",
+    "slot": null,
+    "scrollText": "Ignis de caelo!",
+    "weight": 0,
+    "value": 150,
+    "description": "Scorched parchment, still warm to the touch. Rains lava on the ground around you."
   },
   {
     "id": "rubberboots",

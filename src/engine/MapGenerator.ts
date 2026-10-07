@@ -246,7 +246,18 @@ export function generateForestMap(
   const scattered = scatterRandomItems(map, srng, 'forest', cellData?.randomItems ?? 10,
     [player, ...monsters, ...fixedItems, ...chamberTiles], tier)
 
-  return { player, monsters, items: [...fixedItems, ...scattered] }
+  // Bottom-centre garden is overgrown with Ericgrass and Petergras.
+  const grass: typeof scattered = []
+  if (cx === 1 && cy === 2) {
+    const grassIds = [...Array(30).fill('ericgras'), ...Array(20).fill('petergras')]
+    for (const defId of grassIds) {
+      const it = placeSingleItemRandomly(map, srng, defId,
+        [player, ...monsters, ...fixedItems, ...scattered, ...grass])
+      if (it) grass.push(it)
+    }
+  }
+
+  return { player, monsters, items: [...fixedItems, ...scattered, ...grass] }
 }
 
 function addBorderRocks(
@@ -367,8 +378,6 @@ export function generateBathroomTopMap(map: MapSystem): SpawnPoints {
   for (let x = 1; x < W - 1; x++) { map.setTile(x, 1, 'tegel_bruin'); map.setTile(x, H - 2, 'tegel_bruin') }
   for (let y = 2; y < H - 2; y++) { map.setTile(1, y, 'tegel_bruin'); map.setTile(W - 2, y, 'tegel_bruin') }
 
-  // Left door: exit back to overworld
-  map.setTile(0, 9, 'bath_exit_left')
   // Top door: back to the upper hall
   map.setTile(Math.floor(W / 2), 0, 'bath_exit_upper_hall')
 
@@ -377,7 +386,8 @@ export function generateBathroomTopMap(map: MapSystem): SpawnPoints {
   map.setTile(30, 3, 'toilet'); map.setTile(31, 3, 'wcrol')
   map.setTile(50, 3, 'toilet'); map.setTile(51, 3, 'wcrol')
 
-  const player = { x: 2, y: 9 }
+  // Arrivals without a specific entry (e.g. the garden test portal) land by the top door
+  const player = { x: Math.floor(W / 2), y: 1 }
   const fixedMonsters = [
     { x: 25, y: 6,  defId: 'klopper' },
   ]
@@ -705,8 +715,9 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
       map.setTile(x, 18, 'loft_floor')
   }
 
-  // Player starts bottom-right corner
+  // Player starts bottom-right corner, on the trapdoor down the rainbow stairs to the study
   const playerPos = {x: 77, y: 17}
+  map.setTile(77, 17, 'portal_stairs')
 
   // Testing return portal: right border tile adjacent to player start
   map.setTile(78, 17, 'loft_exit')
@@ -740,7 +751,7 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
   const mjollnirPos = pickFloor(playerPos.x, playerPos.y, 8)
   if (mjollnirPos) legoItems.push({x: mjollnirPos.x, y: mjollnirPos.y, defId: 'mjollnir', qty: 1})
 
-  const SPECIAL_TILES = new Set(['loft_wall', 'loft_exit', 'loft_exit_stairs', 'loft_water', 'loft_tree'])
+  const SPECIAL_TILES = new Set(['loft_wall', 'loft_exit', 'loft_exit_stairs', 'portal_stairs', 'loft_water', 'loft_tree'])
   const monsters: Array<{x: number; y: number; defId: string}> = []
   // Fixed friendlies; hostiles are rolled from the loft pool per game.
   const srng = spawnRng(70)
@@ -980,13 +991,36 @@ export function generateHallMap(
     }
   }
 
+  // Bottom-left cell: rainbow staircase up to the upper hall, in the leftmost
+  // room's bottom-left corner; room[0]'s dead-end stub there is walled up.
+  const leftRoom = rooms.reduce((a, b) => (b.x < a.x ? b : a), r0)
+  const stairsPos = { x: leftRoom.x, y: leftRoom.y + leftRoom.h - 1 }
+  if (ucx === 0 && ucy === ugrid - 1) {
+    map.setTile(stairsPos.x, stairsPos.y, 'portal_stairs_up')
+    sealDeadEndDoors(map, r0, 'tegel_wit', 'hall_wall')
+  }
+  // Bottom-right cell: the bottom-row corridor moves up a row, and its right
+  // stretch gets arrows down to the driveway along the map edge
+  if (ucx === ugrid - 1 && ucy === ugrid - 1) {
+    for (let x = 0; x < W; x++) {
+      if (map.getTile(x, H - 1)?.defId !== 'tegel_wit') continue
+      map.setTile(x, H - 1, 'hall_wall')
+      map.setTile(x, H - 2, 'tegel_wit')
+    }
+    let runEnd = -1
+    for (let x = W - 2; x >= 1 && runEnd < 0; x--)
+      if (map.getTile(x, H - 2)?.defId === 'tegel_wit') runEnd = x
+    for (let x = runEnd; x >= 1 && map.getTile(x, H - 2)?.defId === 'tegel_wit'; x--)
+      map.setTile(x, H - 1, 'hall_exit_driveway')
+  }
+
   // Spawn crypt monsters in rooms 1+ (rolled per game from the hall pool)
   const srng = spawnRng(seed)
   const monsters: Array<{ x: number; y: number; defId: string }> = []
   const items: Array<{ x: number; y: number; defId: string }> = []
   for (let ri = 1; ri < rooms.length; ri++) {
     const room = rooms[ri]
-    const count = 1 + Math.floor(srng() * 2)
+    const count = 1 + Math.floor(srng() * 3)
     for (let i = 0; i < count; i++) {
       const mx = room.x + 1 + Math.floor(srng() * Math.max(1, room.w - 2))
       const my = room.y + 1 + Math.floor(srng() * Math.max(1, room.h - 2))
@@ -994,9 +1028,19 @@ export function generateHallMap(
       monsters.push({ x: mx, y: my, defId })
     }
   }
+  // A few more stragglers roaming the corridors
+  const corridor = [...connected].map(k => k.split(',').map(Number))
+    .filter(([x, y]) => map.getTile(x, y)?.defId === 'tegel_wit' &&
+      Math.abs(x - entryPos.x) + Math.abs(y - entryPos.y) > 6)
+  for (let i = 0; i < 3 && corridor.length > 0; i++) {
+    const [mx, my] = corridor[Math.floor(srng() * corridor.length)]
+    monsters.push({ x: mx, y: my, defId: pickAreaMonster('hall', srng) })
+  }
   if (rooms.length > 1) {
     const wr = rooms[Math.min(1, rooms.length - 1)]
-    monsters.push({ x: wr.x + Math.floor(wr.w / 2), y: wr.y + Math.floor(wr.h / 2), defId: 'watcher' })
+    // Watchers only haunt a third of the hall cells
+    if ((ucx + 2 * ucy) % 3 === 1)
+      monsters.push({ x: wr.x + Math.floor(wr.w / 2), y: wr.y + Math.floor(wr.h / 2), defId: 'watcher' })
     items.push({ x: wr.x + 1, y: wr.y + 1, defId: 'clay' })
   }
   if (ucx === 0 && ucy === 0) {
@@ -1005,9 +1049,6 @@ export function generateHallMap(
   if (clarinetCell && ucx === clarinetCell.cx && ucy === clarinetCell.cy) {
     items.push({ x: sx + 1, y: sy + 1, defId: 'clarinet' })
   }
-  // Bottom-left cell: rainbow staircase up to the upper hall, in room[0]'s far corner
-  const stairsPos = { x: r0.x + r0.w - 1, y: r0.y + r0.h - 1 }
-  if (ucx === 0 && ucy === ugrid - 1) map.setTile(stairsPos.x, stairsPos.y, 'portal_stairs_up')
   if (relicItem) {
     const relic = placeSingleItemRandomly(map, rng, relicItem, [entryPos, stairsPos, ...items, ...monsters])
     if (relic) items.push(relic)
@@ -1080,8 +1121,8 @@ export function generateUpperHallMap(map: MapSystem, side: 'left' | 'right'): Sp
 }
 
 // Doors whose corridor stub leads nowhere (e.g. two short paths running into the
-// map's top border) get walled up, and the stub turns back into void.
-function sealDeadEndDoors(map: MapSystem, room: Room): void {
+// map's top border) get walled up, and the stub turns back into solid ground.
+function sealDeadEndDoors(map: MapSystem, room: Room, path = 'carpet', solid = 'void'): void {
   // Room x/y/w/h describe the interior; its walls sit one tile outside
   const x0 = room.x - 1, y0 = room.y - 1, x1 = room.x + room.w, y1 = room.y + room.h
   for (let y = y0; y <= y1; y++)
@@ -1092,7 +1133,7 @@ function sealDeadEndDoors(map: MapSystem, room: Room): void {
         : x === x0 ? [x - 1, y, 'wall_left']
         : [x + 1, y, 'wall_right']
       const start = map.getTile(ox, oy)?.defId
-      if (start !== 'carpet') continue
+      if (start !== path) continue
       // Flood the corridor beyond the door; any other door, exit or portal means it leads somewhere
       const seen = new Set<string>([`${ox},${oy}`])
       const queue: Array<[number, number]> = [[ox, oy]]
@@ -1104,7 +1145,7 @@ function sealDeadEndDoors(map: MapSystem, room: Room): void {
           const id = map.getTile(nx, ny)?.defId
           if (!id || seen.has(`${nx},${ny}`)) continue
           if (id === 'door_closed' || id.includes('exit') || id.includes('portal')) { leadsSomewhere = true; break }
-          if (id !== 'carpet') continue
+          if (id !== path) continue
           seen.add(`${nx},${ny}`)
           queue.push([nx, ny])
         }
@@ -1112,7 +1153,7 @@ function sealDeadEndDoors(map: MapSystem, room: Room): void {
       if (leadsSomewhere) continue
       for (const key of seen) {
         const [sx, sy] = key.split(',').map(Number)
-        map.setTile(sx, sy, 'void')
+        map.setTile(sx, sy, solid)
       }
       map.setTile(x, y, wall as string)
     }
@@ -1521,7 +1562,8 @@ export function generateChaosMap(map: MapSystem, relicItem?: string | null): Spa
   ]
   const relic = relicItem ? placeSingleItemRandomly(map, Math.random, relicItem, [player, ...partyTiles, ...specialItems]) : null
   if (relic) specialItems.push(relic)
-  const scattered = scatterRandomItems(map, Math.random, 'chaos', 3, [player, ...partyTiles, ...specialItems])
+  // At most 3 items: the ninja trousers, maybe a relic, and one common item
+  const scattered = scatterRandomItems(map, Math.random, 'chaos', 1, [player, ...partyTiles, ...specialItems], 1)
 
   return {
     player,
@@ -1639,7 +1681,7 @@ export function generateBedroomMap(map: MapSystem, relicItem?: string | null): S
   // Scrolls above every horizontal wall segment
   const scrollIds = [
     'scroll_teleport', 'scroll_alliance', 'scroll_cartography',
-    'scroll_transport', 'scroll_timestop', 'scroll_twelvegates',
+    'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike',
   ]
   const scrollItems: SpawnPoints['items'] = []
   let scrollIdx = 0
@@ -1658,7 +1700,6 @@ export function generateBedroomMap(map: MapSystem, relicItem?: string | null): S
     { x: 20,        y: 8,        defId: 'guineapig' },
     { x: 35,        y: 12,       defId: 'guineapig' },
     { x: 55,        y: 8,        defId: 'guineapig' },
-    { x: 14,        y: 14,       defId: 'watcher' },
     { x: 65,        y: 14,       defId: 'watcher' },
   ]
 
@@ -1814,7 +1855,6 @@ export function generateKitchenMap(map: MapSystem, relicItem?: string | null): S
     { x: 40, y: 14, defId: 'kruk' },
     { x: 60, y: 12, defId: 'kruk' },
     { x: 72, y: 16, defId: 'kruk' },
-    { x: 20, y: 12, defId: 'theedoek' },
     { x: 35, y: 5,  defId: 'remote' },
     { x: 40, y: 17, defId: 'lekkervisje' },
   ]
@@ -1822,6 +1862,9 @@ export function generateKitchenMap(map: MapSystem, relicItem?: string | null): S
   const monsters = [...fixedMonsters, ...spawnRandomMonsters(map, srng, 'kitchen', 6, {
     player, avoid: [...fixedMonsters, ...specialItems],
   })]
+  // The wet tea towel lies somewhere different each game
+  const towel = placeSingleItemRandomly(map, srng, 'theedoek', [player, ...specialItems, ...monsters])
+  if (towel) specialItems.push(towel)
   const relic = relicItem ? placeSingleItemRandomly(map, rng, relicItem, [player, ...specialItems, ...monsters]) : null
   if (relic) specialItems.push(relic)
   const scattered = scatterRandomItems(map, srng, 'kitchen', 5, [player, ...specialItems, ...monsters])
@@ -1853,10 +1896,9 @@ export function generateStudyMap(map: MapSystem, relicItem?: string | null): Spa
   }
 
   const midX = Math.floor(W / 2)
-  map.setTile(midX, H - 1, 'study_exit')
-  // West door: back to the upper hall
-  const hallDoorY = Math.floor(H / 2)
-  map.setTile(0, hallDoorY, 'study_exit_upper_hall')
+  // Bottom-left corner: down arrow back to the upper hall
+  map.setTile(1, H - 1, 'study_exit_upper_hall')
+  // Bottom-right corner: rainbow staircase up to the loft
   map.setTile(W - 2, H - 2, 'portal_stairs_up')
 
   // Organic pools grown via BFS blob expansion from seed points
@@ -2044,9 +2086,9 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
   const categoryPool: string[][] = [
     ['banaan', 'sinaasappel', 'pannenkoeken', 'boterham', 'stroopwafels', 'speculaas', 'sprits', 'dropje', 'mispel'],
     ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'katana', 'mace', 'silversword', 'wasknijper'],
-    ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_transport', 'scroll_timestop', 'scroll_twelvegates'],
+    ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike'],
     ['leather_armor', 'chain_mail', 'mirrorshield', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
-    ['ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility'],
+    ['ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility', 'ring_locus'],
     ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'remote'],
     ['ericgras'],
     ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion'],

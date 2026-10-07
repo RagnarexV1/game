@@ -12,7 +12,7 @@ export class EquipmentSystem {
     inv: ItemInstance[],
     equipment: EquipmentSlots,
     instanceId: string,
-    player?: { speed: number },
+    player?: { speed: number; str: number },
   ): boolean {
     const item = inv.find(i => i.instanceId === instanceId)
     if (!item) return false
@@ -46,7 +46,7 @@ export class EquipmentSystem {
       const idx = inv.findIndex(i => i.instanceId === instanceId)
       if (idx !== -1) inv.splice(idx, 1)
       equipment[freeSlot] = item
-      if (player && def.speedBonus) player.speed += def.speedBonus
+      if (player) this.applyBonuses(def, player, 1)
       this.log.add(`You put on the ${def.name}.`, '#00ff80')
       return true
     }
@@ -58,7 +58,7 @@ export class EquipmentSystem {
       // Unequip current item back to inventory — remove its speed bonus first
       if (player) {
         const currentDef = this.inventory.getDef(current.defId) as ItemDef | undefined
-        if (currentDef?.speedBonus) player.speed -= currentDef.speedBonus
+        if (currentDef) this.applyBonuses(currentDef, player, -1)
       }
       inv.push(current)
       this.log.add(`You remove the ${this.inventory.getItemName(current)}.`, '#c0c0c0')
@@ -68,7 +68,7 @@ export class EquipmentSystem {
     const idx = inv.findIndex(i => i.instanceId === instanceId)
     if (idx !== -1) inv.splice(idx, 1)
     equipment[slot] = item
-    if (player && def.speedBonus) player.speed += def.speedBonus
+    if (player) this.applyBonuses(def, player, 1)
     this.log.add(`You equip the ${def.name}.`, '#00ff80')
     return true
   }
@@ -77,18 +77,24 @@ export class EquipmentSystem {
     inv: ItemInstance[],
     equipment: EquipmentSlots,
     slot: keyof EquipmentSlots,
-    player?: { speed: number },
+    player?: { speed: number; str: number },
   ): boolean {
     const item = equipment[slot]
     if (!item) return false
     if (player) {
       const def = this.inventory.getDef(item.defId) as ItemDef | undefined
-      if (def?.speedBonus) player.speed -= def.speedBonus
+      if (def) this.applyBonuses(def, player, -1)
     }
     equipment[slot] = null
     inv.push(item)
     this.log.add(`You remove the ${this.inventory.getItemName(item)}.`, '#c0c0c0')
     return true
+  }
+
+  // Stat bonuses an item grants while worn; sign -1 takes them off again.
+  private applyBonuses(def: ItemDef, player: { speed: number; str: number }, sign: 1 | -1): void {
+    if (def.speedBonus) player.speed += sign * def.speedBonus
+    if (def.strBonus) player.str += sign * def.strBonus
   }
 
   getWeaponDamage(equipment: EquipmentSlots, inventory: InventorySystem): number {
@@ -100,7 +106,7 @@ export class EquipmentSystem {
 
   getArmorBonus(equipment: EquipmentSlots, inventory: InventorySystem): number {
     let bonus = 0
-    const slots: (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'leg', 'neck', 'amulet', 'shield', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
+    const slots: (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
     for (const slot of slots) {
       const item = equipment[slot]
       if (!item) continue

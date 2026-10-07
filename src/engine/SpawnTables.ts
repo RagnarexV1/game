@@ -101,15 +101,19 @@ export function itemPower(item: ItemDef): number {
 // Base-weight overrides for staples that should stay common despite their value.
 export const ITEM_WEIGHT_OVERRIDE: Record<string, number> = {
   health_potion: 15,
+  sinaasappel: 5,
+  amulet: 1,
 }
 
 // Hand overrides where the power formula misjudges an item.
 const ITEM_TIER_OVERRIDE: Record<string, Tier> = {
   gold_coin: 1,
+  sinaasappel: 1,
   health_potion: 1,
   scroll_teleport: 1,
   ring_invisibility: 3,
   ring_cold: 3,
+  ring_locus: 3,
   amulet: 3,
   wand: 2,
   wand_displacement: 2,
@@ -181,7 +185,8 @@ export const AREA_MONSTERS: Record<string, string[]> = {
   garage:      ['bat', 'pissebed', 'dwarf', 'lowerdwarf'],
   kitchen:     ['rat', 'secitt', 'hamster', 'swordsman'],
   loft:        ['bat', 'stinkdier', 'hamster', 'werewolf'],
-  hall: ['bat', 'pissebed', 'dwarf', 'lowerdwarf', 'muddman', 'spirit', 'wizard', 'magician', 'sorcerer', 'ogre'],
+  hall: ['bat', 'pissebed', 'dwarf', 'lowerdwarf', 'muddman', 'spirit', 'wizard', 'magician', 'sorcerer', 'ogre',
+         'rat', 'swordsman', 'nymph', 'stinkdier', 'werewolf', 'troll'],
   bedroom:     ['spirit', 'nymph', 'ogre', 'wizard', 'magician', 'sorcerer', 'troll', 'werewolf'],
 }
 

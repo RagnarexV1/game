@@ -53,6 +53,7 @@
     "speed": 1,
     "xpValue": 50,
     "aiType": "chase",
+    "dropType": "random",
     "description": "A hulking brute that regenerates health."
   },
     {
@@ -433,6 +434,20 @@
     "description": "A scholar of arcane arts, always clutching dusty scrolls."
   },
   {
+    "id": "doppelganger",
+    "name": "Doppelganger",
+    "glyph": "@",
+    "color": "#ff8080",
+    "hp": 50,
+    "maxHp": 50,
+    "str": 18,
+    "ac": 3,
+    "speed": 1,
+    "xpValue": 30,
+    "aiType": "chase",
+    "description": "A magical copy of yourself, conjured by a wizard. It looks rather unfriendly."
+  },
+  {
     "id": "sorcerer",
     "name": "Sorcerer",
     "glyph": "Z",
@@ -501,6 +516,7 @@
     "speed": 1,
     "xpValue": 15,
     "aiType": "chase",
+    "dropType": "random",
     "description": "A stocky, grim-faced dwarf."
   },
   {
@@ -515,6 +531,7 @@
     "speed": 1,
     "xpValue": 25,
     "aiType": "chase",
+    "dropType": "random",
     "description": "A smaller, weaker kin of the crypt dwarf lurking in the deepest passages."
   },
   {
@@ -612,9 +629,9 @@
     "maxHp": 75,
     "str": 12,
     "ac": 4,
-    "speed": 0,
+    "speed": 1,
     "xpValue": 40,
-    "aiType": "static",
+    "aiType": "wander",
     "description": "An unblinking eye that turns those it sees to stone."
   },
   {
@@ -624,7 +641,7 @@
     "color": "#ff40ff",
     "hp": 3,
     "maxHp": 3,
-    "str": 4,
+    "str": 6,
     "ac": 4,
     "speed": 1,
     "xpValue": 6,
@@ -699,6 +716,7 @@
     "speed": 1,
     "xpValue": 35,
     "aiType": "chase",
+    "dropType": "random",
     "description": "A hulking brute with a taste for destruction."
   },
   {
@@ -727,6 +745,7 @@
     "speed": 1,
     "xpValue": 22,
     "aiType": "chase",
+    "dropType": "random",
     "description": "A shimmering forest spirit drawn to sacred places."
   },
   {
@@ -783,6 +802,7 @@
     "speed": 2,
     "xpValue": 50,
     "aiType": "chase",
+    "dropType": "random",
     "description": "A cursed man-beast, more wolf than man under the full moon."
   },
   {

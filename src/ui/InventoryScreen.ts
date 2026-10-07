@@ -299,9 +299,9 @@ export class InventoryScreen {
     const equip = player.equipment
 
     const ringSlots:   (keyof EquipmentSlots)[] = ['ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
-    const armorSlots:  (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
+    const armorSlots:  (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
     const weaponSlots: (keyof EquipmentSlots)[] = ['weapon']
-    const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'body', 'head', 'feet', 'hand', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
+    const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
 
     // Which equipment slots contribute to the display
     const equippedSlots: (keyof EquipmentSlots)[] =
@@ -351,12 +351,17 @@ export class InventoryScreen {
       }
     }
 
-    // Sort: by category, then equipped first within category, then by name
+    const isUnpaid = (di: DisplayItem) => this.mode === 'pay' || !!this.unpaidItems?.has(di.item.instanceId)
+
+    // Sort: by category, then equipped first within category, then by name,
+    // with unpaid copies listed before the paid stack of the same item
     allItems.sort((a, b) => {
       const catDiff = (CATEGORY_ORDER[a.category] ?? 9) - (CATEGORY_ORDER[b.category] ?? 9)
       if (catDiff !== 0) return catDiff
       if (a.equipped !== b.equipped) return a.equipped ? -1 : 1
-      return a.def.name.localeCompare(b.def.name)
+      const nameDiff = a.def.name.localeCompare(b.def.name)
+      if (nameDiff !== 0) return nameDiff
+      return Number(isUnpaid(b)) - Number(isUnpaid(a))
     })
 
     // Group same-defId unequipped items for display
@@ -364,8 +369,10 @@ export class InventoryScreen {
     for (const di of allItems) {
       if (!di.equipped) {
         const prev = groupedItems[groupedItems.length - 1]
-        // Wands each carry their own charges, so they're never merged
-        if (prev && !prev.equipped && prev.item.defId === di.item.defId && !di.def.wandEffect && di.def.id !== 'remote') {
+        // Wands each carry their own charges, and unpaid shop items each get
+        // their own line, so neither is ever merged
+        if (prev && !prev.equipped && prev.item.defId === di.item.defId && !di.def.wandEffect && di.def.id !== 'remote'
+            && !isUnpaid(di) && !isUnpaid(prev)) {
           prev.count++
           continue
         }

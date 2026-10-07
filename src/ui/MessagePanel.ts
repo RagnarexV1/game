@@ -50,14 +50,29 @@ export class MessagePanel {
   }
 
   private render(): void {
+    // Walk back from the newest entry, giving long messages as many rows as
+    // they wrap to, until the panel is full
     const end = this.allEntries.length - this.scrollOffset
-    const start = Math.max(0, end - this.maxLines)
-    const visible = this.allEntries.slice(start, end)
+    const visible: Array<{ entry: LogEntry; rows: number }> = []
+    let usedRows = 0
+    for (let i = end - 1; i >= 0; i--) {
+      const entry = this.allEntries[i]
+      const rows = Math.max(1, this.lines[0].getWrappedText(entry.text).length)
+      if (usedRows + rows > this.maxLines) {
+        if (visible.length === 0) visible.unshift({ entry, rows: this.maxLines })
+        break
+      }
+      visible.unshift({ entry, rows })
+      usedRows += rows
+    }
+    let row = 0
     for (let i = 0; i < this.maxLines; i++) {
-      const entry = visible[i]
-      if (entry) {
-        this.lines[i].setText(entry.text)
-        this.lines[i].setColor(this.scrollOffset > 0 ? '#909090' : entry.color)
+      const item = visible[i]
+      if (item) {
+        this.lines[i].setY(this.y + PAD + row * LINE_H)
+        this.lines[i].setText(item.entry.text)
+        this.lines[i].setColor(this.scrollOffset > 0 ? '#909090' : item.entry.color)
+        row += item.rows
       } else {
         this.lines[i].setText('')
       }

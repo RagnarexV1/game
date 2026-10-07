@@ -75,6 +75,14 @@ export class WorldMapView {
     this.offsetY = y + Math.floor((h - map.height * this.tileSize) / 2)
   }
 
+  /** Map tile under a screen position, or null when outside the drawn map. */
+  getTileAt(px: number, py: number): { tx: number; ty: number } | null {
+    const tx = Math.floor((px - this.offsetX) / this.tileSize)
+    const ty = Math.floor((py - this.offsetY) / this.tileSize)
+    if (tx < 0 || ty < 0 || tx >= this.map.width || ty >= this.map.height) return null
+    return { tx, ty }
+  }
+
   render(player: Player, monsters: Monster[], floorItems: FloorItem[], torchlightOnly = false, isStairs = false): void {
     const g = this.graphics
     g.clear()

@@ -104,7 +104,7 @@ export const TILE_SPRITES: Record<string, string> = {
   flame:                'terrain_flame',
   bedroom_exit:         'terrain_portal',
   portal_bedroom:       'terrain_portal',
-  portal_stairs:        'terrain_stairs_up',
+  portal_stairs:        'terrain_stairs_down',
   portal_stairs_up:     'terrain_stairs_up',
   stairs_exit_down:     'terrain_next_down',
   stairs_exit_up:       'terrain_next_up',
@@ -150,6 +150,7 @@ export const TILE_SPRITES: Record<string, string> = {
   driveway_exit_hall:       'terrain_next_up',
   driveway_exit_balcony:    'terrain_next_up',
   garage_exit_driveway:     'terrain_next_down',
+  hall_exit_driveway:       'terrain_next_down',
   portal_upper_hall_left:   'terrain_portal',
   portal_upper_hall_right:  'terrain_portal',
   upper_hall_exit_chaos:    'terrain_next_left',
@@ -158,7 +159,7 @@ export const TILE_SPRITES: Record<string, string> = {
   upper_hall_exit_mar:      'terrain_next_up',
   bath_exit_upper_hall:     'terrain_next_up',
   chaos_exit_upper_hall:    'terrain_next_right',
-  study_exit_upper_hall:    'terrain_next_left',
+  study_exit_upper_hall:    'terrain_next_down',
   mar_exit_upper_hall:      'terrain_next_down',
 }
 
@@ -171,6 +172,7 @@ const ITEM_SPRITES: Record<string, string> = {
   scroll_transport:   'item_scroll',
   scroll_timestop:    'item_scroll',
   scroll_twelvegates: 'item_scroll',
+  scroll_lavastrike:  'item_scroll',
   scroll_extinction:  'item_scroll',
   scroll_knowledge:   'item_scroll',
   scroll_ventriloquism:   'item_scroll',
@@ -243,6 +245,7 @@ const ITEM_SPRITES: Record<string, string> = {
   ring_famine:        'item_ring',
   ring_invisibility:  'item_ring',
   ring_cold:          'item_ring',
+  ring_locus:         'item_ring',
   silversword:      'item_silversword',
   wand:             'item_wand',
   wand_displacement: 'item_wand',
@@ -635,17 +638,22 @@ export class LocalMapView {
         if (!def) continue
 
         const spriteKey = this.wallSprite(tile.defId, tx, ty)
+        const inLoft = tile.defId === 'portal_stairs' && [
+          this.map.getTile(tx - 1, ty)?.defId, this.map.getTile(tx + 1, ty)?.defId,
+          this.map.getTile(tx, ty - 1)?.defId, this.map.getTile(tx, ty + 1)?.defId,
+        ].some(d => d === 'loft_floor')
         const visible = tile.visible
         const needsGrassBase = tile.defId === 'tree' || tile.defId === 'tree_dead' || tile.defId === 'tree_down' || tile.defId === 'berg' ||
           tile.defId === 'exit_right' || tile.defId === 'exit_left' ||
           tile.defId === 'exit_down'  || tile.defId === 'exit_up'   ||
+          tile.defId === 'hall_exit_driveway' ||
           tile.defId === 'wall_up'    || tile.defId === 'wall_down' ||
           tile.defId === 'wall_left'  || tile.defId === 'wall_right' ||
           tile.defId === 'wall_corner_tl' || tile.defId === 'wall_corner_tr' ||
           tile.defId === 'wall_corner_bl' || tile.defId === 'wall_corner_br' ||
           tile.defId === 'door_closed' || tile.defId === 'exit_bathroom' || tile.defId === 'portal' ||
           tile.defId === 'portal_garage' || tile.defId === 'portal_driveway' || tile.defId === 'portal_hall' ||
-          tile.defId === 'portal_bedroom' || tile.defId === 'portal_stairs' ||
+          tile.defId === 'portal_bedroom' ||
           (tile.defId === 'portal_stairs_up' && !isHallMap) ||
           tile.defId === 'portal_tub_enclosure' || tile.defId === 'portal_loft' || tile.defId === 'portal_loft3' ||
           tile.defId === 'portal_study' || tile.defId === 'portal_pantry' ||
@@ -661,6 +669,7 @@ export class LocalMapView {
           tile.defId === 'driveway_exit_garage' || tile.defId === 'driveway_exit_hall' ||
           tile.defId === 'garage_exit_driveway' ||
           (tile.defId === 'portal_stairs_up' && isHallMap) ||
+          (tile.defId === 'portal_stairs' && !inLoft) ||
           (isDrivewayMap && (tile.defId === 'muur_down_t' || tile.defId === 'muur_left_t' ||
             tile.defId === 'muur_corner_bl_t' || tile.defId === 'muur_corner_br_t' ||
             tile.defId === 'muur_corner_tr_t' || tile.defId === 'muur_corner_tl_t' ||
@@ -672,7 +681,7 @@ export class LocalMapView {
           || tile.defId === 'bedroom_stairs_down' || tile.defId === 'bedroom_stairs_up'
           || tile.defId === 'bedroom_portal_driveway' || tile.defId === 'driveway_exit_balcony'
           || tile.defId === 'mar_exit_upper_hall'
-        const needsLoftBase = tile.defId === 'loft_exit' || tile.defId === 'loft_exit_stairs' || tile.defId === 'loft_tree' || tile.defId === 'loft3_exit' || tile.defId === 'loft3_exit_down'
+        const needsLoftBase = (tile.defId === 'portal_stairs' && inLoft) || tile.defId === 'loft_exit' || tile.defId === 'loft_exit_stairs' || tile.defId === 'loft_tree' || tile.defId === 'loft3_exit' || tile.defId === 'loft3_exit_down'
         const needsCarpetBase = tile.defId === 'study_exit' || tile.defId === 'study_exit_upper_hall' || tile.defId === 'loft_stairs_exit_down' || tile.defId === 'loft_stairs_exit_up'
 
         if (needsGrassBase) {
@@ -806,6 +815,7 @@ export class LocalMapView {
       const isOnWater = tileUnder === 'water_bath' || tileUnder === 'water'
       const spriteKey = (m.defId === 'eric' && isOnWater) ? 'monster_eric_water'
         : (m.defId === 'klopper' && isOnWater) ? 'monster_klopper_water'
+        : m.defId === 'doppelganger' ? player.spriteKey
         : baseSpriteKey
       if (spriteKey && this.scene.textures.exists(spriteKey)) {
         const img = this.scene.add.image(sx, sy, spriteKey).setOrigin(0, 0).setDepth(3)
@@ -822,7 +832,7 @@ export class LocalMapView {
     // Player
     const px = x + camOffX + player.x * TILE
     const py = y + camOffY + player.y * TILE
-    const playerAlpha = player.translucenceTurns > 0 ? 0.5 : 1
+    const playerAlpha = player.isTranslucent() ? 0.5 : 1
     if (this.scene.textures.exists(player.spriteKey)) {
       const img = this.scene.add.image(px, py, player.spriteKey).setOrigin(0, 0).setDepth(4).setAlpha(playerAlpha)
       img.setMask(this._mask)
@@ -872,6 +882,7 @@ export class LocalMapView {
       scroll_transport:    { glyph: '?', color: '#c0c080' },
       scroll_timestop:     { glyph: '?', color: '#c0c080' },
       scroll_twelvegates:  { glyph: '?', color: '#c0c080' },
+      scroll_lavastrike:   { glyph: '?', color: '#c0c080' },
       scroll_extinction:   { glyph: '?', color: '#c0c080' },
       scroll_knowledge:    { glyph: '?', color: '#c0c080' },
       scroll_ventriloquism:   { glyph: '?', color: '#40ffff' },

@@ -20,7 +20,9 @@ export interface GamePlayerSave {
   skills: string[]
   speed: number; energy: number
   allianceTurns: number; timestopTurns: number; drunkTurns: number; phasingTurns: number
-  blindTurns: number; translucenceTurns: number; invulnerableTurns: number
+  blindTurns: number; translucenceTurns: number; invulnerableTurns: number; speedTurns?: number; speedPotionBonus?: number
+  paralyzedTurns?: number
+  lycanthropy?: boolean; lycanthropyCountdown?: number; werewolfTurns?: number; preWerewolfSpriteKey?: string
   transformationMonsterId: string | null
   transformationStrBonus: number; transformationHpBonus: number; preTransformSpriteKey: string
   itemVision: boolean
@@ -36,13 +38,16 @@ export interface WorldStateSave {
   widgetFound?: boolean
   peterWarned?: boolean
   horseDead?: boolean
+  stairsOrigin?: string | null
   extinctRaces?: string[]
+  dugExits?: string[]
   clarinetCx?: number; clarinetCy?: number
   relicSites?: Record<string, RelicSite>
   questSites?: Record<string, RelicSite>
   npcSites?: Record<string, RelicSite>
   runSeed?: number
   clarinetLocation?: ClarinetLocation | null
+  bonusTurns?: number
 }
 
 export interface GameSaveData {

@@ -20,6 +20,7 @@ interface SkillEntry {
 const SKILL_LIST: SkillEntry[] = [
   { id: 'mixing', label: 'Alchemy', icon: '⚗' },
   { id: 'ventriloquism', label: 'Ventriloquism', icon: '♪', active: true },
+  { id: 'clothespin_trap', label: 'Clothespin Trap', icon: '*', active: true },
 ]
 
 export class SkillScreen {
@@ -84,28 +85,32 @@ export class SkillScreen {
     c.add(header)
 
     const startY = 140
-    SKILL_LIST.forEach((skill, i) => {
-      const known = player.hasSkill(skill.id)
+    const learned = SKILL_LIST.filter(skill => player.hasSkill(skill.id))
+    if (learned.length === 0) {
+      c.add(scene.add.text(GAME_W / 2, startY, 'none', {
+        fontSize: '20px', color: LOCKED_COLOR, fontFamily: FONT,
+      }).setOrigin(0.5, 0))
+    }
+    learned.forEach((skill, i) => {
       const y = startY + i * (LINE_H + 12)
-      const color = known ? TEXT_COLOR : LOCKED_COLOR
+      const color = TEXT_COLOR
 
       const row = scene.add.container(GAME_W / 2 - 220, y)
 
       const icon = scene.add.text(0, 0, skill.icon, {
         fontSize: '22px', color, fontFamily: FONT,
       })
-      const label = scene.add.text(40, 0, skill.label + (known ? '' : '  (not learned)'), {
+      const label = scene.add.text(40, 0, skill.label, {
         fontSize: '20px', color, fontFamily: FONT,
       })
       row.add([icon, label])
 
       const hit = scene.add.zone(0, 0, 440, LINE_H)
         .setOrigin(0, 0).setInteractive()
-      hit.on('pointerover', () => { if (known) label.setColor('#ffff40') })
+      hit.on('pointerover', () => label.setColor('#ffff40'))
       hit.on('pointerout',  () => label.setColor(color))
       hit.on('pointerdown', (pointer: Phaser.Input.Pointer, lx: number, ly: number, event: { stopPropagation: () => void }) => {
         event.stopPropagation()
-        if (!known) return
         if (skill.active) {
           this.hide()
           this.onActivate?.(skill.id)

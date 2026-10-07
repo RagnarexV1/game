@@ -36,7 +36,15 @@ const RELIC_AREAS = [
 const VASE_AREAS = ['garage', 'forest', 'kitchen', 'hall']
 const STAMP_AREAS = [
   'bathroom_top', 'bathroom_bottom', 'garage_top', 'garage_bottom',
-  'hall', 'chaos', 'bedroom', 'bedroom_lower', 'kitchen', 'study',
+  'hall', 'bedroom', 'bedroom_lower', 'kitchen', 'study',
+]
+
+export const TURN_LIMIT = 20000
+
+// Tier 2+ maps that can host a Scroll of Transport ('forest' = a tier-3 garden cell).
+const TRANSPORT_AREAS = [
+  'forest', 'hall', 'study', 'loft', 'tub_enclosure',
+  'bedroom', 'bedroom_lower', 'loft3',
 ]
 
 export class WorldState {
@@ -96,6 +104,13 @@ export class WorldState {
     // Keys may carry an '@suffix' so one item can have several sites.
     this.questSites['toiletBrush'] = this.rollSite(['bathroom'])
     if (Math.random() < 0.5) this.questSites['toiletBrush@hall'] = this.rollSite(['hall'])
+    // Scroll of Transport: rare — once per game, sometimes twice, never on a tier-1 map.
+    const transportAreas = [...TRANSPORT_AREAS]
+    const transportCount = Math.random() < 0.3 ? 2 : 1
+    for (let i = 0; i < transportCount; i++) {
+      const area = transportAreas.splice(Math.floor(Math.random() * transportAreas.length), 1)[0]
+      this.questSites[`scroll_transport@${i}`] = this.rollSite([area])
+    }
 
     this.npcSites = {}
     this.npcSites['pap2'] = { area: 'forest', cx: Math.floor(Math.random() * this.GRID), cy: 1 }
@@ -145,6 +160,8 @@ export class WorldState {
   hallExplored = new Map<string, boolean[]>()
   cellSnapshots = new Map<string, CellSnapshot>()
   extinctRaces = new Set<string>()
+  // Map-edge arrows the player dug/tunnelled out, keyed "<mapKey>:<x>,<y>"
+  dugExits = new Set<string>()
 
   currentArea: string | null = null
   savedCx = 0
@@ -160,6 +177,10 @@ export class WorldState {
   widgetFound  = false
   peterWarned  = false
   horseDead    = false
+
+  // The game should be finished within TURN_LIMIT turns; distracting Lex adds bonus turns.
+  bonusTurns = 0
+  get turnLimit(): number { return TURN_LIMIT + this.bonusTurns }
 
   hasRight() { return this.cx < this.GRID - 1 }
   hasLeft()  { return this.cx > 0 }

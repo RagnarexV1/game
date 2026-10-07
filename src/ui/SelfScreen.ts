@@ -15,6 +15,7 @@ const SKILL_META: Record<string, { label: string; cat: 'skill' | 'power' | 'abil
   cartography:      { label: 'Cartography',     cat: 'skill' },
   music:            { label: 'Music',           cat: 'skill' },
   ventriloquism:    { label: 'Ventriloquism',   cat: 'skill' },
+  clothespin_trap:  { label: 'Clothespin Trap', cat: 'skill' },
   swimming:         { label: 'Swimming',         cat: 'ability' },
   diving:           { label: 'Diving',           cat: 'ability' },
   heat_resistance:  { label: 'Heat',             cat: 'resistance' },
@@ -111,7 +112,8 @@ export class SelfScreen {
 
     // Timed conditions are derived from player state, not stored in diagnostics
     const diagnostics = [...player.diagnostics]
-    if (player.translucenceTurns > 0) diagnostics.push('Transparent')
+    if (player.isTranslucent()) diagnostics.push('Transparent')
+    if (player.lycanthropy) diagnostics.push('Lycanthropy')
 
     addList(12,  diagnostics)
     addList(185, skills)

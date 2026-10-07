@@ -16,12 +16,17 @@ function clampPct(pct: number): number {
   return Math.min(95, Math.max(5, pct))
 }
 
+// Chance (0-100) for the player to hit a monster, melee or thrown.
+// monster.ac is ascending (higher = tougher to hit)
+export function playerHitChance(player: Player, monster: Monster): number {
+  return clampPct(45 + player.str / 10 + player.luck / 10 + player.level * 2 - 3 * monster.ac)
+}
+
 export class CombatSystem {
   constructor(private log: MessageLog) {}
 
   playerAttacks(player: Player, monster: Monster): CombatResult {
-    // monster.ac is ascending (higher = tougher to hit)
-    const hitChance = clampPct(45 + player.str / 10 + player.luck / 10 + player.level * 2 - 3 * monster.ac)
+    const hitChance = playerHitChance(player, monster)
 
     if (Math.random() * 100 >= hitChance) {
       this.log.add(`You miss the ${monster.name}.`, '#a0a0a0')
@@ -31,7 +36,11 @@ export class CombatSystem {
     // combat prowess from stats scales in with level — a level 1 hero can't lean on raw stats yet
     const levelFactor = 0.5 + player.level * 0.1
     const weaponDamage = player.getWeaponDamage()
-    const damage = Math.max(1, Math.round((player.str / 10 + player.luck / 30) * levelFactor + roll(weaponDamage)))
+    let damage = Math.max(1, Math.round((player.str / 10 + player.luck / 30) * levelFactor + roll(weaponDamage)))
+    if (monster.defId === 'werewolf' && player.equipment.weapon?.defId === 'silversword') {
+      damage = Math.max(damage, monster.hp)
+      this.log.add(`The silver blade sears the ${monster.name}!`, '#e0e0ff')
+    }
     monster.hp -= damage
     this.log.add(`You hit the ${monster.name} for ${damage} damage.`, '#ffff00')
 
@@ -63,6 +72,11 @@ export class CombatSystem {
     const damage = Math.max(1, Math.round(damageBase - (10 - player.getAC()) * factor))
     player.hp -= damage
     this.log.add(`The ${monster.name} hits you for ${damage} damage.`, '#ff4040')
+    // Werewolf bites carry the curse silently — only the self screen reveals it
+    if (monster.defId === 'werewolf' && !player.lycanthropy && Math.random() < 0.2) {
+      player.lycanthropy = true
+      player.lycanthropyCountdown = 100
+    }
 
     if (player.hp <= 0) {
       this.log.add('You have been slain!', '#ff0000')

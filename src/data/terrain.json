@@ -769,7 +769,7 @@
   },
   {
     "id": "loft_exit_stairs",
-    "name": "Stairs to Study",
+    "name": "To Peter and the Wolf",
     "glyph": "^",
     "color": "#40c040",
     "walkable": true,
@@ -992,6 +992,14 @@
     "transparent": true
   },
   {
+    "id": "hall_exit_driveway",
+    "name": "To Driveway",
+    "glyph": "v",
+    "color": "#505050",
+    "walkable": true,
+    "transparent": true
+  },
+  {
     "id": "hall_portal_driveway",
     "name": "Portal to Driveway",
     "glyph": "O",
@@ -1106,7 +1114,7 @@
   {
     "id": "study_exit_upper_hall",
     "name": "To Upper Hall",
-    "glyph": "<",
+    "glyph": "v",
     "color": "#9060a0",
     "walkable": true,
     "transparent": true
