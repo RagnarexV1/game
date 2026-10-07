@@ -190,6 +190,16 @@ export const AREA_MONSTERS: Record<string, string[]> = {
   bedroom:     ['spirit', 'nymph', 'ogre', 'wizard', 'magician', 'sorcerer', 'troll', 'werewolf'],
 }
 
+// Every map holds this many times its base number of generic hostiles.
+export const MONSTER_DENSITY = 1.5
+
+/** Scales a base hostile count by MONSTER_DENSITY, rounding the fraction randomly. */
+export function scaleMonsterCount(count: number, rng: () => number): number {
+  const scaled = count * MONSTER_DENSITY
+  const whole = Math.floor(scaled)
+  return whole + (rng() < scaled - whole ? 1 : 0)
+}
+
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
 export function pickWeighted<T>(pool: Array<{ value: T; weight: number }>, rng: () => number): T {

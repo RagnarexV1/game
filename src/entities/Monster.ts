@@ -30,6 +30,8 @@ export class Monster {
   summonedBy?: string
   onSplit?: (monster: Monster) => void
   onAfterMove?: (fromX: number, fromY: number) => void
+  // Closed loop of tiles the monster runs around instead of following its AI (Peter)
+  patrolPath?: Array<{ x: number; y: number }>
 
   private map!: MapSystem
   private player!: Player
@@ -71,6 +73,8 @@ export class Monster {
     if (!this.isAlive()) return
     if (this.stunTurns > 0) { this.stunTurns--; return }
 
+    if (this.patrolPath) { this.patrol(this.patrolPath); return }
+
     if (this.confuseTurns > 0) {
       this.confuseTurns--
       if (this.aiType === 'water_chase') this.wanderOnWater()
@@ -84,7 +88,9 @@ export class Monster {
 
     if (this.defId === 'paard' && this.aiType !== 'follow') {
       const tx = this.player.x
-      if (tx !== this.x && this.map.isWalkable(tx, this.y) && this.getMonsterAt(tx, this.y) === null) {
+      const target = this.map.getTile(tx, this.y)?.defId
+      if (tx !== this.x && this.map.isWalkable(tx, this.y) && this.getMonsterAt(tx, this.y) === null &&
+          !(target && Monster.isTransitionTile(target))) {
         this.moveTo(tx, this.y)
       }
       return
@@ -191,12 +197,19 @@ export class Monster {
     'loft_stairs_exit_down', 'loft_stairs_exit_up', 'hall_exit_driveway',
   ])
 
+  // Arrows, portals and stairs: monsters never step onto them, so they can't
+  // stand in the way of the player using one.
+  static isTransitionTile(defId: string): boolean {
+    return Monster.TRANSITION_TILES.has(defId) || /exit|portal/.test(defId) ||
+      defId === 'stairs_up' || defId === 'stairs_down'
+  }
+
   private canMoveTo(nx: number, ny: number): boolean {
     const defId = this.map.getTile(nx, ny)?.defId
     const klopperPassable = this.defId === 'klopper' && (defId === 'tree' || defId === 'water' || defId === 'water_bath')
     if (!klopperPassable && !this.map.isWalkable(nx, ny)) return false
     if (defId === 'flame') return false
-    if (defId && Monster.TRANSITION_TILES.has(defId)) return false
+    if (defId && Monster.isTransitionTile(defId)) return false
     if (this.getMonsterAt(nx, ny) !== null) return false
     if (nx === this.player.x && ny === this.player.y) return false
     return true
@@ -267,6 +280,19 @@ export class Monster {
         return
       }
     }
+  }
+
+  // One step along the loop; waits when the next tile is taken. Off the loop
+  // (e.g. displaced by a wand) it heads back to the nearest loop tile first.
+  private patrol(path: Array<{ x: number; y: number }>): void {
+    const idx = path.findIndex(p => p.x === this.x && p.y === this.y)
+    const target = idx !== -1 ? path[(idx + 1) % path.length]
+      : path.reduce((a, b) =>
+          Math.max(Math.abs(b.x - this.x), Math.abs(b.y - this.y)) <
+          Math.max(Math.abs(a.x - this.x), Math.abs(a.y - this.y)) ? b : a)
+    const nx = this.x + Math.sign(target.x - this.x)
+    const ny = this.y + Math.sign(target.y - this.y)
+    if (this.canMoveTo(nx, ny)) this.moveTo(nx, ny)
   }
 
   private kamikazeAttack(dx: number, dy: number): void {

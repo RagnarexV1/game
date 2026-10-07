@@ -1,6 +1,6 @@
 import type { MapSystem } from './MapSystem'
 import { isSpecialTile } from './ItemPlacement'
-import { AREA_MONSTERS, MONSTER_TIER, areaInfo, monsterTierFactor, pickWeighted, type Tier } from './SpawnTables'
+import { AREA_MONSTERS, MONSTER_TIER, areaInfo, monsterTierFactor, pickWeighted, scaleMonsterCount, type Tier } from './SpawnTables'
 
 export interface PlacedMonster {
   x: number
@@ -31,17 +31,18 @@ export interface SpawnOptions {
 }
 
 /**
- * Places `count` generic hostiles from `area`'s pool on random walkable,
- * non-special tiles. Use only for the "filler" monsters of a map — NPCs,
- * bosses and set-pieces stay hand-placed.
+ * Places `count` (× MONSTER_DENSITY) generic hostiles from `area`'s pool on
+ * random walkable, non-special tiles. Use only for the "filler" monsters of a
+ * map — NPCs, bosses and set-pieces stay hand-placed.
  */
 export function spawnRandomMonsters(
   map: MapSystem,
   rng: () => number,
   area: string,
-  count: number,
+  baseCount: number,
   opts: SpawnOptions = {},
 ): PlacedMonster[] {
+  const count = scaleMonsterCount(baseCount, rng)
   const b = opts.bounds ?? { x1: 1, y1: 1, x2: map.width - 2, y2: map.height - 2 }
   const taken = new Set((opts.avoid ?? []).map(p => `${p.x},${p.y}`))
   const results: PlacedMonster[] = []

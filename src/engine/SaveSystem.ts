@@ -26,6 +26,7 @@ export interface GamePlayerSave {
   transformationMonsterId: string | null
   transformationStrBonus: number; transformationHpBonus: number; preTransformSpriteKey: string
   itemVision: boolean
+  knownFacts?: string[]
 }
 
 export interface WorldStateSave {
@@ -48,6 +49,9 @@ export interface WorldStateSave {
   runSeed?: number
   clarinetLocation?: ClarinetLocation | null
   bonusTurns?: number
+  stampsGiven?: number
+  fragmentsGiven?: number
+  secondLifeMixed?: boolean
 }
 
 export interface GameSaveData {

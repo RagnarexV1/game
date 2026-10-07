@@ -1,9 +1,9 @@
 ﻿import type { MapSystem } from './MapSystem'
 import type { WorldState } from './WorldState'
 import mapSpawnsData from '../data/mapSpawns.json'
-import { scatterRandomItems, placeSingleItemRandomly } from './ItemPlacement'
+import { scatterRandomItems, placeSingleItemRandomly, scatterBasicGear } from './ItemPlacement'
 import { spawnRandomMonsters, pickAreaMonster } from './MonsterPlacement'
-import { spawnRng, forestCellTier } from './SpawnTables'
+import { spawnRng, forestCellTier, scaleMonsterCount } from './SpawnTables'
 
 interface Room {
   x: number; y: number; w: number; h: number
@@ -243,8 +243,12 @@ export function generateForestMap(
   if (cx === 1 && cy === 1)
     for (let y = 5; y <= 12; y++) for (let x = 49; x <= 59; x++) chamberTiles.push({ x, y })
 
-  const scattered = scatterRandomItems(map, srng, 'forest', cellData?.randomItems ?? 10,
+  const loot = scatterRandomItems(map, srng, 'forest', cellData?.randomItems ?? 10,
     [player, ...monsters, ...fixedItems, ...chamberTiles], tier)
+  // Every garden cell also has a few simple weapons and pieces of armour lying around
+  const gear = scatterBasicGear(map, srng, 2 + Math.floor(srng() * 2),
+    [player, ...monsters, ...fixedItems, ...chamberTiles, ...loot])
+  const scattered = [...loot, ...gear]
 
   // Bottom-centre garden is overgrown with Ericgrass and Petergras.
   const grass: typeof scattered = []
@@ -758,7 +762,8 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
   const loftMonsters: Array<{defId: string; count: number}> = [
     {defId: 'eendGroen', count: 3},
     {defId: 'cat',       count: 1},
-    ...Array.from({length: 8}, () => ({defId: pickAreaMonster('loft', srng), count: 1})),
+    {defId: 'duif',      count: 4},
+    ...Array.from({length: scaleMonsterCount(8, srng)}, () => ({defId: pickAreaMonster('loft', srng), count: 1})),
   ]
   for (const {defId, count} of loftMonsters) {
     let spawned = 0, attempts = 0
@@ -904,6 +909,10 @@ export function generateLoft3Map(map: MapSystem): SpawnPoints {
     if (pos) map.setTile(pos.x, pos.y, 'loft_tree')
   }
 
+  // Peter's running track around the lego hexagon stays clear
+  const loop = peterPatrolLoop()
+  for (const p of loop) map.setTile(p.x, p.y, 'loft_floor')
+
   // Fill hexagon grey interior with lego items (cycle lego1/2/3)
   const legoItems: Array<{x: number; y: number; defId: string; qty: number}> = []
   const legoDefs = ['lego1', 'lego2', 'lego3']
@@ -920,14 +929,14 @@ export function generateLoft3Map(map: MapSystem): SpawnPoints {
       legoItems.push({x, y, defId: legoDefs[legoIdx++ % 3], qty: 1})
 
   const SPECIAL_TILES3 = new Set(['loft_wall', 'loft3_exit', 'loft3_exit_down', 'loft_water', 'loft_tree'])
-  const monsters: Array<{x: number; y: number; defId: string}> = []
+  // Peter starts on his track around the hexagon (GameScene makes him run it)
+  const monsters: Array<{x: number; y: number; defId: string}> = [{...loop[0], defId: 'peter'}]
   // Fixed NPC/friendlies; hostiles are rolled from the loft pool at loft3's (deeper) tier.
   const srng = spawnRng(72)
   const loft3Monsters: Array<{defId: string; count: number}> = [
-    {defId: 'peter',     count: 1},
     {defId: 'eendGroen', count: 2},
     {defId: 'cat',       count: 2},
-    ...Array.from({length: 8}, () => ({defId: pickAreaMonster('loft3', srng), count: 1})),
+    ...Array.from({length: scaleMonsterCount(8, srng)}, () => ({defId: pickAreaMonster('loft3', srng), count: 1})),
   ]
   for (const {defId, count} of loft3Monsters) {
     let spawned = 0, attempts = 0
@@ -938,6 +947,7 @@ export function generateLoft3Map(map: MapSystem): SpawnPoints {
       const tile = map.getTile(tx, ty)
       if (!tile || !map.isWalkable(tx, ty) || SPECIAL_TILES3.has(tile.defId)) continue
       if (Math.abs(tx - playerPos.x) < 5 && Math.abs(ty - playerPos.y) < 3) continue
+      if (monsters.some(m => m.x === tx && m.y === ty)) continue
       monsters.push({x: tx, y: ty, defId})
       spawned++
     }
@@ -946,6 +956,17 @@ export function generateLoft3Map(map: MapSystem): SpawnPoints {
   const scattered = scatterRandomItems(map, srng, 'loft3', 5, [playerPos, ...legoItems, ...monsters])
 
   return {player: playerPos, monsters, items: [...legoItems, ...scattered]}
+}
+
+// Clockwise rectangular loop one tile outside the lego hexagon on "Peter and the Wolf"
+export function peterPatrolLoop(): Array<{ x: number; y: number }> {
+  const x1 = 33, x2 = 41, y1 = 5, y2 = 13
+  const loop: Array<{ x: number; y: number }> = []
+  for (let x = x1; x < x2; x++) loop.push({ x, y: y1 })
+  for (let y = y1; y < y2; y++) loop.push({ x: x2, y })
+  for (let x = x2; x > x1; x--) loop.push({ x, y: y2 })
+  for (let y = y2; y > y1; y--) loop.push({ x: x1, y })
+  return loop
 }
 
 interface DoorInfo {
@@ -1020,7 +1041,7 @@ export function generateHallMap(
   const items: Array<{ x: number; y: number; defId: string }> = []
   for (let ri = 1; ri < rooms.length; ri++) {
     const room = rooms[ri]
-    const count = 1 + Math.floor(srng() * 3)
+    const count = scaleMonsterCount(1 + Math.floor(srng() * 3), srng)
     for (let i = 0; i < count; i++) {
       const mx = room.x + 1 + Math.floor(srng() * Math.max(1, room.w - 2))
       const my = room.y + 1 + Math.floor(srng() * Math.max(1, room.h - 2))
@@ -1032,7 +1053,8 @@ export function generateHallMap(
   const corridor = [...connected].map(k => k.split(',').map(Number))
     .filter(([x, y]) => map.getTile(x, y)?.defId === 'tegel_wit' &&
       Math.abs(x - entryPos.x) + Math.abs(y - entryPos.y) > 6)
-  for (let i = 0; i < 3 && corridor.length > 0; i++) {
+  const stragglers = scaleMonsterCount(3, srng)
+  for (let i = 0; i < stragglers && corridor.length > 0; i++) {
     const [mx, my] = corridor[Math.floor(srng() * corridor.length)]
     monsters.push({ x: mx, y: my, defId: pickAreaMonster('hall', srng) })
   }
@@ -1108,7 +1130,7 @@ export function generateUpperHallMap(map: MapSystem, side: 'left' | 'right'): Sp
   const monsters: Array<{ x: number; y: number; defId: string }> = []
   for (let ri = 1; ri < rooms.length; ri++) {
     const room = rooms[ri]
-    const count = 1 + Math.floor(srng() * 2)
+    const count = scaleMonsterCount(1 + Math.floor(srng() * 2), srng)
     for (let i = 0; i < count; i++) {
       const mx = room.x + 1 + Math.floor(srng() * Math.max(1, room.w - 2))
       const my = room.y + 1 + Math.floor(srng() * Math.max(1, room.h - 2))
@@ -1855,16 +1877,17 @@ export function generateKitchenMap(map: MapSystem, relicItem?: string | null): S
     { x: 40, y: 14, defId: 'kruk' },
     { x: 60, y: 12, defId: 'kruk' },
     { x: 72, y: 16, defId: 'kruk' },
-    { x: 35, y: 5,  defId: 'remote' },
     { x: 40, y: 17, defId: 'lekkervisje' },
   ]
   const srng = spawnRng(99)
   const monsters = [...fixedMonsters, ...spawnRandomMonsters(map, srng, 'kitchen', 6, {
     player, avoid: [...fixedMonsters, ...specialItems],
   })]
-  // The wet tea towel lies somewhere different each game
-  const towel = placeSingleItemRandomly(map, srng, 'theedoek', [player, ...specialItems, ...monsters])
-  if (towel) specialItems.push(towel)
+  // The wet tea towel, the remote and a handful of empty vials lie somewhere different each game
+  for (const defId of ['theedoek', 'remote', ...Array(5).fill('empty_vial')]) {
+    const it = placeSingleItemRandomly(map, srng, defId, [player, ...specialItems, ...monsters])
+    if (it) specialItems.push(it)
+  }
   const relic = relicItem ? placeSingleItemRandomly(map, rng, relicItem, [player, ...specialItems, ...monsters]) : null
   if (relic) specialItems.push(relic)
   const scattered = scatterRandomItems(map, srng, 'kitchen', 5, [player, ...specialItems, ...monsters])
@@ -2033,8 +2056,9 @@ export function generateLoftStairsMap(map: MapSystem): SpawnPoints {
 
   const srng = spawnRng(74)
   const monsters: SpawnPoints['monsters'] = []
+  const hostiles = scaleMonsterCount(4, srng)
   let attempts = 0
-  while (monsters.length < 4 && attempts < 500) {
+  while (monsters.length < hostiles && attempts < 500) {
     attempts++
     const tx = 1 + Math.floor(srng() * (W - 2))
     const ty = 1 + Math.floor(srng() * (H - 2))
@@ -2085,11 +2109,11 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
 
   const categoryPool: string[][] = [
     ['banaan', 'sinaasappel', 'pannenkoeken', 'boterham', 'stroopwafels', 'speculaas', 'sprits', 'dropje', 'mispel'],
-    ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'katana', 'mace', 'silversword', 'wasknijper'],
+    ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'katana', 'mace', 'silversword', 'wasknijper', 'shuriken'],
     ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike'],
     ['leather_armor', 'chain_mail', 'mirrorshield', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
     ['ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility', 'ring_locus'],
-    ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'remote'],
+    ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'remote', 'gompie'],
     ['ericgras'],
     ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion'],
   ]

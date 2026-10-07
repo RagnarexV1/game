@@ -6,8 +6,9 @@ import { areaInfo, itemPower, itemTier, itemAffinity, itemTierFactor, pickWeight
 const ITEMS = itemData as ItemDef[]
 
 // Unique/quest items — kept only at their hand-placed spot, never duplicated by random scatter.
-// The Scroll of Transport is placed once or twice per game via WorldState.questSites.
-export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport'])
+// The Scroll of Transport and the empty vials are placed per game via WorldState.questSites;
+// the Gompie only lies in the garage (and is sold in the pantry).
+export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport', 'gompie', 'empty_vial'])
 
 // Items that only ever turn up in random loot on areas of at least this tier.
 const MIN_TIER: Record<string, Tier> = {
@@ -17,11 +18,9 @@ const MIN_TIER: Record<string, Tier> = {
 // Items clearly tied to one kind of location — never scattered onto an unrelated map type.
 const RESTRICTED: Record<string, string[]> = {
   stop:           ['bathroom'],
-  gompie:         ['garage'],
   lego1:          ['loft'],
   lego2:          ['loft'],
   lego3:          ['loft'],
-  empty_vial:     ['study'],
   theedoek:       ['kitchen'],
   remote:         ['kitchen'],
   tuinschaar:     ['forest'],
@@ -151,23 +150,53 @@ export function scatterRandomItems(
       : { x, y, defId, qty: 1 })
   }
 
-  // On top of the regular loot, every map gets some extra food
-  const foodPool = buildFoodPool(category)
-  const foodCount = Math.ceil(count / 2)
-  let placedFood = 0
-  attempts = 0
-  while (foodPool.length > 0 && placedFood < foodCount && attempts < foodCount * 50) {
-    attempts++
-    const x = Math.floor(rng() * W)
-    const y = Math.floor(rng() * H)
-    const key = `${x},${y}`
-    if (taken.has(key) || avoidSet.has(key)) continue
-    if (!map.isWalkable(x, y)) continue
-    const tile = map.getTile(x, y)
-    if (tile && isSpecialTile(tile.defId)) continue
-    taken.add(key)
-    results.push({ x, y, defId: pickWeighted(foodPool, rng), qty: 1 })
-    placedFood++
+  // On top of the regular loot, every map gets some extra food and potions
+  const extras: Array<[Array<{ value: string; weight: number }>, number]> = [
+    [buildFoodPool(category), Math.ceil(count / 2)],
+    [buildPotionPool(), Math.ceil(count / 3)],
+  ]
+  for (const [pool, extraCount] of extras) {
+    let placed = 0
+    attempts = 0
+    while (pool.length > 0 && placed < extraCount && attempts < extraCount * 50) {
+      attempts++
+      const x = Math.floor(rng() * W)
+      const y = Math.floor(rng() * H)
+      const key = `${x},${y}`
+      if (taken.has(key) || avoidSet.has(key)) continue
+      if (!map.isWalkable(x, y)) continue
+      const tile = map.getTile(x, y)
+      if (tile && isSpecialTile(tile.defId)) continue
+      taken.add(key)
+      results.push({ x, y, defId: pickWeighted(pool, rng), qty: 1 })
+      placed++
+    }
+  }
+  return results
+}
+
+// Plain potions (the mixed/unique ones stay out); health potions a bit more likely.
+function buildPotionPool(): Array<{ value: string; weight: number }> {
+  return ITEMS
+    .filter(it => it.type === 'drink' && !it.relic && !EXCLUDE_IDS.has(it.id))
+    .map(it => ({ value: it.id, weight: it.id === 'health_potion' ? 2 : 1 }))
+}
+
+// Simple starter weapons and armour that turn up extra in the garden cells.
+const BASIC_GEAR = ['branch', 'tuinschaar', 'wasknijper', 'leather_armor', 'helmet', 'bracers', 'gorget', 'tuinhandschoen', 'rubberboots']
+
+/** Places `count` basic weapons/armour on random walkable, non-special tiles. */
+export function scatterBasicGear(
+  map: MapSystem,
+  rng: () => number,
+  count: number,
+  avoid: Array<{ x: number; y: number }> = [],
+): ScatteredItem[] {
+  const results: ScatteredItem[] = []
+  for (let i = 0; i < count; i++) {
+    const defId = BASIC_GEAR[Math.floor(rng() * BASIC_GEAR.length)]
+    const placed = placeSingleItemRandomly(map, rng, defId, [...avoid, ...results])
+    if (placed) results.push(placed)
   }
   return results
 }

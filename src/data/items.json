@@ -145,7 +145,7 @@
   },
   {
     "id": "depredation_potion",
-    "name": "Potion of Depredation",
+    "name": "Depredation",
     "glyph": "!",
     "color": "#404040",
     "type": "drink",
@@ -178,7 +178,7 @@
   },
   {
     "id": "blindness_potion",
-    "name": "Potion of Blindness",
+    "name": "Blindness",
     "glyph": "!",
     "color": "#200020",
     "type": "drink",
@@ -189,7 +189,7 @@
   },
   {
     "id": "translucence_potion",
-    "name": "Potion of Translucence",
+    "name": "Translucence",
     "glyph": "!",
     "color": "#c0c0ff",
     "type": "drink",
@@ -211,7 +211,7 @@
   },
   {
     "id": "invulnerability_potion",
-    "name": "Potion of Invulnerability",
+    "name": "Invulnerability",
     "glyph": "!",
     "color": "#ffff80",
     "type": "drink",
@@ -222,7 +222,7 @@
   },
   {
     "id": "music_potion",
-    "name": "Potion of Music",
+    "name": "Music",
     "glyph": "!",
     "color": "#ff40ff",
     "type": "drink",
@@ -233,7 +233,7 @@
   },
   {
     "id": "transformation_potion",
-    "name": "Potion of Transformation",
+    "name": "Transformation",
     "glyph": "!",
     "color": "#40ffff",
     "type": "drink",
@@ -382,6 +382,20 @@
     "throwable": true,
     "noWield": true,
     "description": "Clamps onto noses and fingers alike."
+  },
+  {
+    "id": "shuriken",
+    "name": "Shuriken",
+    "glyph": "*",
+    "color": "#c0c0d0",
+    "type": "weapon",
+    "slot": "weapon",
+    "damage": 12,
+    "weight": 0,
+    "value": 60,
+    "throwable": true,
+    "noWield": true,
+    "description": "A razor-sharp throwing star. Deadly in skilled hands."
   },
   {
     "id": "wasknijperbom",
@@ -664,6 +678,19 @@
     "weight": 5,
     "value": 70,
     "description": "A sturdy iron helmet."
+  },
+  {
+    "id": "helm_knowledge",
+    "name": "Helm of Knowledge",
+    "glyph": "[",
+    "color": "#40ffff",
+    "type": "armor",
+    "slot": "head",
+    "relic": true,
+    "defense": 2,
+    "weight": 3,
+    "value": 700,
+    "description": "A gleaming helm etched with runes. Scrolls of Knowledge reveal their most useful secrets to its wearer."
   },
   {
     "id": "katana",

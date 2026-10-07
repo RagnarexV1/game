@@ -29,6 +29,8 @@ export class SkillScreen {
   private player: Player | null = null
 
   onActivate: ((skillId: string) => void) | null = null
+  // Recipes that can no longer be mixed (e.g. Second Life once made) are left off the list
+  isRecipeUsedUp: (resultId: string) => boolean = () => false
 
   constructor(private scene: Phaser.Scene, private invSys: InventorySystem) {}
 
@@ -145,17 +147,18 @@ export class SkillScreen {
 
     const startY = 160
     const colAX   = GAME_W / 2 - 420
-    const colOpX  = GAME_W / 2 - 40
-    const colBX   = GAME_W / 2 + 20
+    const colOpX  = GAME_W / 2 - 120
+    const colBX   = GAME_W / 2 - 80
     const colResX = GAME_W / 2 + 200
 
-    if (MIX_RECIPES.length === 0) {
+    const recipes = MIX_RECIPES.filter(r => !this.isRecipeUsedUp(r.result))
+    if (recipes.length === 0) {
       c.add(scene.add.text(GAME_W / 2, startY, '(no known combinations yet)', {
         fontSize: '16px', color: LOCKED_COLOR, fontFamily: FONT,
       }).setOrigin(0.5, 0))
     }
 
-    MIX_RECIPES.forEach((recipe, i) => {
+    recipes.forEach((recipe, i) => {
       const y = startY + i * (LINE_H + 14)
       const nameA = this.invSys.getDef(recipe.a)?.name ?? recipe.a
       const nameB = this.invSys.getDef(recipe.b)?.name ?? recipe.b

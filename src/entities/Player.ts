@@ -76,6 +76,8 @@ export class Player {
     ring6:  null,
   }
   skills: Set<string> = new Set(['swimming', 'diving'])
+  // Fact Scrolls of Knowledge already read (by item id)
+  knownFacts: Set<string> = new Set()
 
   private equipSys!: EquipmentSystem
   private invSys!: InventorySystem

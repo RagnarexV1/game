@@ -262,6 +262,8 @@ const ITEM_SPRITES: Record<string, string> = {
   lego2:            'item_lego2',
   lego3:            'item_lego3',
   propje:           'item_propje',
+  shuriken:         'item_shuriken',
+  helm_knowledge:   'item_helmet',
   gong:             'item_gong',
   gompie:           'item_gompie',
   mjollnir:         'item_mjollnir',
@@ -567,7 +569,8 @@ export class LocalMapView {
       for (let tx = 0; tx < mapW && !isStudyMap; tx++) {
         if (this.map.getTile(tx, ty)?.defId === 'carpet') isStudyMap = true
       }
-    const isHallMap = this.map.getTile(0, 0)?.defId === 'hall_wall' && !isBathroomMap
+    // Hall corridors are tegel_wit too, so the hall also counts as a bathroom map above
+    const isHallMap = this.map.getTile(0, 0)?.defId === 'hall_wall'
     const bgBase = this.map.getTile(0, 0)?.defId === 'hall_wall' ? 'terrain_hall_wall'
       : isBathroomMap ? 'terrain_hall_wall'
       : isBedroomMap ? 'terrain_tapijt3'
@@ -832,7 +835,7 @@ export class LocalMapView {
     // Player
     const px = x + camOffX + player.x * TILE
     const py = y + camOffY + player.y * TILE
-    const playerAlpha = player.isTranslucent() ? 0.5 : 1
+    const playerAlpha = player.isTranslucent() ? 0.65 : 1
     if (this.scene.textures.exists(player.spriteKey)) {
       const img = this.scene.add.image(px, py, player.spriteKey).setOrigin(0, 0).setDepth(4).setAlpha(playerAlpha)
       img.setMask(this._mask)

@@ -39,6 +39,13 @@ const STAMP_AREAS = [
   'hall', 'bedroom', 'bedroom_lower', 'kitchen', 'study',
 ]
 
+// Empty vials spread over these maps, on top of the study's and kitchen's own (~15 in total).
+const VIAL_AREAS = [
+  'forest', 'garage', 'bathroom', 'hall', 'bedroom', 'bedroom_lower',
+  'loft', 'loft3', 'chaos', 'upper_hall_left', 'upper_hall_right', 'driveway',
+]
+const VIAL_SITES = 8
+
 export const TURN_LIMIT = 20000
 
 // Tier 2+ maps that can host a Scroll of Transport ('forest' = a tier-3 garden cell).
@@ -104,6 +111,11 @@ export class WorldState {
     // Keys may carry an '@suffix' so one item can have several sites.
     this.questSites['toiletBrush'] = this.rollSite(['bathroom'])
     if (Math.random() < 0.5) this.questSites['toiletBrush@hall'] = this.rollSite(['hall'])
+    this.questSites['helm_knowledge'] = this.rollSite(['chaos', 'bathroom', 'bedroom', 'study'])
+    // The Gompie always lies in the lower garage; now and then a second one upstairs.
+    if (Math.random() < 0.2) this.questSites['gompie@garage'] = { area: 'garage_top' }
+    // Empty vials: the study and kitchen hold their own (7), the rest are spread around.
+    for (let i = 0; i < VIAL_SITES; i++) this.questSites[`empty_vial@${i}`] = this.rollSite(VIAL_AREAS)
     // Scroll of Transport: rare — once per game, sometimes twice, never on a tier-1 map.
     const transportAreas = [...TRANSPORT_AREAS]
     const transportCount = Math.random() < 0.3 ? 2 : 1
@@ -177,6 +189,11 @@ export class WorldState {
   widgetFound  = false
   peterWarned  = false
   horseDead    = false
+  // Quest items handed over so far (Dad wants all 3 stamps, Mar all 3 fragments)
+  stampsGiven    = 0
+  fragmentsGiven = 0
+  // The Second Life potion can be mixed only once per game
+  secondLifeMixed = false
 
   // The game should be finished within TURN_LIMIT turns; distracting Lex adds bonus turns.
   bonusTurns = 0
