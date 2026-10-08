@@ -28,6 +28,7 @@ const RESTRICTED: Record<string, string[]> = {
   madelief:       ['forest'],
   ericgras:       ['forest'],
   petergras:      ['forest'],
+  clover:         ['forest'],
   mispel:         ['forest'],
   lekkervisje:    ['kitchen'],
   pannenkoeken:   ['kitchen'],
@@ -37,6 +38,18 @@ const RESTRICTED: Record<string, string[]> = {
   scroll_fact_cavalcanti: ['study'],
   scroll_fact_eric:       ['study'],
   scroll_fact_medlar:     ['study'],
+  scroll_fact_widget:     ['study'],
+}
+
+// Items that never turn up in random loot on these area categories.
+const FORBIDDEN: Record<string, string[]> = {
+  ring_invisibility: ['forest'],
+}
+
+// Plants that only ever grow on grass tiles (never on floor, mud, …).
+const GRASS_ONLY = new Set(['clover', 'ericgras', 'petergras'])
+function fitsTile(defId: string, tileDefId: string | undefined): boolean {
+  return !GRASS_ONLY.has(defId) || tileDefId === 'grass'
 }
 
 // Tile ids that shouldn't get an item (or a random monster) on them (transit/interactive tiles).
@@ -67,6 +80,7 @@ function buildPool(category: string, tier: Tier): Array<{ value: string; weight:
   return ITEMS
     .filter(it => !it.relic && !EXCLUDE_IDS.has(it.id))
     .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes(category))
+    .filter(it => !FORBIDDEN[it.id]?.includes(category))
     .filter(it => tier >= (MIN_TIER[it.id] ?? 1))
     .map(it => {
       const affinity = itemAffinity(it).includes(category) ? AFFINITY_BOOST : 1
@@ -103,6 +117,7 @@ export function placeSingleItemRandomly(
     if (!map.isWalkable(x, y)) continue
     const tile = map.getTile(x, y)
     if (tile && isSpecialTile(tile.defId)) continue
+    if (!fitsTile(defId, tile?.defId)) continue
     return { x, y, defId, qty: 1 }
   }
   return null
@@ -143,8 +158,9 @@ export function scatterRandomItems(
     const tile = map.getTile(x, y)
     if (tile && isSpecialTile(tile.defId)) continue
 
-    taken.add(key)
     const defId = pickWeighted(pool, rng)
+    if (!fitsTile(defId, tile?.defId)) continue
+    taken.add(key)
     results.push(defId === 'gold_coin'
       ? { x, y, defId, qty: rollCentValue(rng, tier) }
       : { x, y, defId, qty: 1 })
@@ -167,8 +183,10 @@ export function scatterRandomItems(
       if (!map.isWalkable(x, y)) continue
       const tile = map.getTile(x, y)
       if (tile && isSpecialTile(tile.defId)) continue
+      const defId = pickWeighted(pool, rng)
+      if (!fitsTile(defId, tile?.defId)) continue
       taken.add(key)
-      results.push({ x, y, defId: pickWeighted(pool, rng), qty: 1 })
+      results.push({ x, y, defId, qty: 1 })
       placed++
     }
   }

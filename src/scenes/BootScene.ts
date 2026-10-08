@@ -113,8 +113,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_mam',       'assets/monsters/mam.png')
     this.load.image('monster_mar',       'assets/monsters/mar.png')
     this.load.image('monster_mier',      'assets/monsters/mier.png')
+    this.load.image('monster_migdnart',  'assets/monsters/migdnart.png')
     this.load.image('monster_mol',       'assets/monsters/mol.png')
     this.load.image('monster_paard',     'assets/monsters/paard.png')
+    this.load.image('monster_paard_dead', 'assets/monsters/paard_dead.png')
     this.load.image('monster_pap2',      'assets/monsters/pap2.png')
     this.load.image('monster_peter',     'assets/monsters/peter.png')
     this.load.image('monster_sas',       'assets/monsters/sas.png')
@@ -172,6 +174,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_ninjabroek',      'assets/items/ninjabroek.png')
     this.load.image('item_pannenkoeken',    'assets/items/pannenkoeken.png')
     this.load.image('item_petergras',       'assets/items/petergras.png')
+    this.load.image('item_clover',          'assets/items/clover.png')
     this.load.image('item_postzegelRex',    'assets/items/postzegelRex.png')
     this.load.image('item_postzegelStego',  'assets/items/postzegelStego.png')
     this.load.image('item_postzegelStoom',  'assets/items/postzegelStoom.png')
@@ -333,6 +336,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('music_defeat',   'assets/sound/funeral_march.mp3')
     this.load.audio('sfx_clarinet_worse', 'assets/sound/clarinet_worse.mp3')
     this.load.audio('sfx_clarinet_bad',   'assets/sound/clarinet_bad.mp3')
+    this.load.audio('sfx_smurf',          'assets/sound/smurf_short.mp3')
   }
 
   create(): void {

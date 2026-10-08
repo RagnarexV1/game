@@ -70,6 +70,7 @@ export class SelfScreen {
     stat('Fingers',  fingers,       30)
     stat('Speed',    player.speed,  45)
     stat('Morality', player.morality, 60)
+    stat('Morale',   player.moraleLevel(), 75)
 
     // Categorise skills
     const skills: string[]      = []

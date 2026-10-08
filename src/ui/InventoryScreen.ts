@@ -27,6 +27,11 @@ function getItemCategory(defId: string, type: string): string {
   return type
 }
 
+/** What Eric the trader pays for an item: half of what he asks for it. */
+export function sellPrice(value: number | undefined): number {
+  return Math.floor((value ?? 0) / 2)
+}
+
 const CATEGORY_ORDER: Record<string, number> = {
   amulet: 0, weapon: 1, armor: 2, food: 3,
   potion: 4, scroll: 5, wand: 6, ring: 7, tool: 8,
@@ -44,7 +49,7 @@ const CATEGORY_COLOR: Record<string, string> = {
   tool:   '#AAAAAA',
 }
 
-type ScreenMode = 'all' | 'wear' | 'wield' | 'remove' | 'eat' | 'drink' | 'read' | 'throw' | 'use' | 'drop' | 'examine' | 'mix' | 'pay' | 'zap'
+type ScreenMode = 'all' | 'wear' | 'wield' | 'remove' | 'eat' | 'drink' | 'read' | 'throw' | 'use' | 'drop' | 'examine' | 'mix' | 'pay' | 'zap' | 'sell'
 
 interface LineEntry {
   item: ItemInstance
@@ -87,6 +92,7 @@ export class InventoryScreen {
   onDrop:    ((item: ItemInstance, player: Player) => void) | null = null
   onMix:     ((item1: ItemInstance, item2: ItemInstance, player: Player) => void) | null = null
   onPay: ((item: ItemInstance, player: Player) => void) | null = null
+  onSell: ((item: ItemInstance, player: Player) => void) | null = null
   private payFilter: Set<string> | null = null
   // Live map (not a snapshot) so items paid off or newly consumed show up without a re-show().
   private payGhosts: Map<string, ItemInstance> | null = null
@@ -241,6 +247,10 @@ export class InventoryScreen {
       if (this.onPay) this.onPay(data.item, this.currentPlayer)
       return
     }
+    if (this.mode === 'sell') {
+      if (this.onSell) this.onSell(data.item, this.currentPlayer)
+      return
+    }
 
     if (data.equipped && data.slot) {
       this.eqSys.unequip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.slot, this.currentPlayer)
@@ -337,6 +347,8 @@ export class InventoryScreen {
         if (this.mode === 'mix'   && def.type !== 'drink')   continue
         if (this.mode === 'zap'   && def.type !== 'wand')    continue
         if (this.mode === 'pay' && !this.payFilter?.has(item.instanceId)) continue
+        // Unpaid shop goods aren't yours to sell
+        if (this.mode === 'sell' && this.unpaidItems?.has(item.instanceId)) continue
         allItems.push({ item, def, equipped: false, category: getItemCategory(def.id, def.type) })
       }
     }
@@ -411,6 +423,7 @@ export class InventoryScreen {
       if (def.damage)  desc += ` (+${def.damage} dmg)`
       if (def.defense) desc += ` (-${def.defense} AC)`
       if (this.mode === 'pay') desc += `  [${def.value ?? 0}g]`
+      if (this.mode === 'sell') desc += `  [${sellPrice(def.value)}c]`
       if (this.mode === 'pay' && this.payGhosts?.has(item.instanceId)) desc += ' (used)'
       if (this.mode !== 'pay' && this.unpaidItems?.has(item.instanceId)) desc += ' (unpaid)'
 
@@ -448,6 +461,7 @@ export class InventoryScreen {
         this.mode === 'examine' ? '  (nothing to examine)'       :
         this.mode === 'mix'     ? '  (need at least 2 potions)'  :
         this.mode === 'pay'     ? '  (nothing to pay)'          :
+        this.mode === 'sell'    ? '  (nothing to sell)'         :
         '  (empty)'
       displayLines.push({ text: msg, color: '#606060', data: null })
     }
@@ -498,6 +512,7 @@ export class InventoryScreen {
       this.header.setText(`MIX POTIONS  ${selHint}` + pageHint)
     }
     else if (this.mode === 'pay') this.header.setText(`PAY FOR ITEMS  (Cents: ${player.gold})` + pageHint)
+    else if (this.mode === 'sell') this.header.setText(`SELL ITEMS  (Cents: ${player.gold})` + pageHint)
     else this.header.setText(`INVENTORY  (Cents: ${player.gold})` + pageHint)
 
     // ── Footer ────────────────────────────────────────────────────────────
@@ -524,6 +539,8 @@ export class InventoryScreen {
       this.footer.setText('Click or letter to examine   ESC to close' + pageKeys)
     else if (this.mode === 'pay')
       this.footer.setText('Click item to pay   Y or ESC to close' + pageKeys)
+    else if (this.mode === 'sell')
+      this.footer.setText('Click or letter to sell for half its price   ESC to close' + pageKeys)
     else
       this.footer.setText('I=close  P=drop  W=wear  V=remove  H=wield  T=throw  R=read  E=eat  D=drink  U=use' + pageKeys)
   }
@@ -557,7 +574,7 @@ export class InventoryScreen {
       this.changePage(-1); return true
     }
 
-    if (this.mode !== 'all' && this.mode !== 'throw' && this.mode !== 'zap' && this.mode !== 'use' && this.mode !== 'remove' && this.mode !== 'drop' && this.mode !== 'examine' && this.mode !== 'mix' && this.mode !== 'pay'
+    if (this.mode !== 'all' && this.mode !== 'throw' && this.mode !== 'zap' && this.mode !== 'use' && this.mode !== 'remove' && this.mode !== 'drop' && this.mode !== 'examine' && this.mode !== 'mix' && this.mode !== 'pay' && this.mode !== 'sell'
       && this.mode !== 'eat' && this.mode !== 'drink' && this.mode !== 'read') return true
 
     const letterLineIdx = this.letterToLine.get(event.key)
@@ -567,6 +584,7 @@ export class InventoryScreen {
         if ((this.mode === 'eat' || this.mode === 'drink') && this.onConsume) { this.onConsume(data.item, this.currentPlayer); return true }
         if (this.mode === 'read' && this.onRead)     { this.onRead(data.item, this.currentPlayer);  return true }
         if (this.mode === 'pay'   && this.onPay)      { this.onPay(data.item, this.currentPlayer!); return true }
+        if (this.mode === 'sell'  && this.onSell)     { this.onSell(data.item, this.currentPlayer);  return true }
         if (this.mode === 'throw' && this.onThrow)   { this.onThrow(data.item, this.currentPlayer); return true }
         if (this.mode === 'zap'   && this.onZap)     { this.onZap(data.item, this.currentPlayer);   return true }
         if (this.mode === 'use'   && this.onUse)     { this.onUse(data.item, this.currentPlayer);   return true }

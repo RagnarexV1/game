@@ -3,6 +3,8 @@ import type { EquipmentSystem } from '../engine/EquipmentSystem'
 import type { InventorySystem } from '../engine/InventorySystem'
 
 export class Player {
+  static readonly MAX_MORALE = 10
+
   readonly id = 'player'
   speed = 100
   energy = 100
@@ -53,6 +55,8 @@ export class Player {
   playerClass = 'adventurer'
   level = 1
   morality = 'high'
+  // Spirits; drops when the player wipes out a species with a Scroll of Extinction
+  morale = Player.MAX_MORALE
   diagnostics: string[] = []
 
   inventory: ItemInstance[] = []
@@ -111,8 +115,34 @@ export class Player {
       Object.values(this.equipment).some(item => item?.defId === 'ring_invisibility')
   }
 
+  // Morale bands from best to worst, shown on the self screen
+  private static readonly MORALE_LEVELS: Array<[number, string]> = [
+    [10, 'Cheerful'],
+    [8,  'Content'],
+    [6,  'Uneasy'],
+    [4,  'Gloomy'],
+    [2,  'Guilt-ridden'],
+    [-Infinity, 'Despairing'],
+  ]
+
+  moraleLevel(): string {
+    return Player.MORALE_LEVELS.find(([min]) => this.morale >= min)![1]
+  }
+
+  // Called once per level gained, so the scene can announce it
+  onLevelUp: ((level: number) => void) | null = null
+
+  // Total XP needed to reach a level: 100 · L(L-1)/2 → L2 100, L3 300, L4 600, L5 1000, ...
+  static xpForLevel(level: number): number {
+    return 100 * level * (level - 1) / 2
+  }
+
   gainXP(amount: number): void {
     this.exp += amount
+    while (this.exp >= Player.xpForLevel(this.level + 1)) {
+      this.level++
+      this.onLevelUp?.(this.level)
+    }
   }
 
   isAlive(): boolean {

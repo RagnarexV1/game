@@ -45,7 +45,8 @@
       { "x": 68, "y": 18, "defId": "eendGroen", "message": "Quaack! Sharing food can be appreciated." },
       { "x": 68, "y":  7, "defId": "eendRood",  "message": "QUACK! Juicy fish are nutritious!" },
       { "x": 72, "y": 15, "defId": "eendRood",  "message": "Quack quack! You should visit the driveway." },
-      { "x": 60, "y": 17, "defId": "eendRood",  "message": "Quack! You can keep presents meant for others also for yourself!" }
+      { "x": 60, "y": 17, "defId": "eendRood",  "message": "Quack! You can keep presents meant for others also for yourself!" },
+      { "x": 71, "y": 13, "defId": "garden_cat" }
     ],
     "items": [
     ]

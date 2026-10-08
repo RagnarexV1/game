@@ -32,6 +32,10 @@ export class Monster {
   onAfterMove?: (fromX: number, fromY: number) => void
   // Closed loop of tiles the monster runs around instead of following its AI (Peter)
   patrolPath?: Array<{ x: number; y: number }>
+  // Runs before the regular AI; returning true means the turn has been used (Lex going for a fish)
+  turnOverride?: () => boolean
+  // Lex: busy with the juicy fish on his tile, which he finishes once his distraction wears off
+  eatingFish = false
 
   private map!: MapSystem
   private player!: Player
@@ -74,6 +78,7 @@ export class Monster {
     if (this.stunTurns > 0) { this.stunTurns--; return }
 
     if (this.patrolPath) { this.patrol(this.patrolPath); return }
+    if (this.turnOverride?.()) return
 
     if (this.confuseTurns > 0) {
       this.confuseTurns--
@@ -293,6 +298,15 @@ export class Monster {
     const nx = this.x + Math.sign(target.x - this.x)
     const ny = this.y + Math.sign(target.y - this.y)
     if (this.canMoveTo(nx, ny)) this.moveTo(nx, ny)
+  }
+
+  /** One step toward (tx, ty), sidestepping along an axis when the direct step is blocked. */
+  stepToward(tx: number, ty: number): void {
+    const sx = Math.sign(tx - this.x), sy = Math.sign(ty - this.y)
+    const moves: Array<[number, number]> = [[this.x + sx, this.y + sy], [this.x + sx, this.y], [this.x, this.y + sy]]
+    for (const [nx, ny] of moves) {
+      if ((nx !== this.x || ny !== this.y) && this.canMoveTo(nx, ny)) { this.moveTo(nx, ny); return }
+    }
   }
 
   private kamikazeAttack(dx: number, dy: number): void {

@@ -46,6 +46,13 @@ const grid = (prefix: string, name: string, x0: number, y0: number): Slot[] => {
   return out
 }
 
+// Brick walls of the house, left gable to right section
+const HOUSE_L = 440, HOUSE_R = 980
+// Carport shed's left edge: far enough right for its roof to reach the house's front corner (the downpipe)
+const CARPORT_X = 382
+// Front door, left of its frame
+const DOOR_X = 590
+
 const GARDEN = { x: 1020, y: 288 }
 const HALL   = { x: 1020, y: 568 }
 const POND   = { x: 1220, y: 144 }
@@ -60,18 +67,21 @@ const SLOTS: Slot[] = [
   slot('area_study',           'Study Room',            602, 374, true, 66),
   slot('area_bedroom',         "Mar's bedroom",         700, 368, true),
   slot('area_bedroom_lower',   "Mar's bedroom (lower)", 840, 368, true),
-  // House: ground floor
-  slot('area_pantry',          'Pantry',                696, 500, true),
-  slot('area_kitchen',         'Kitchen',               836, 500, true),
+  // House: ground floor, the pantry across the full width (4:1 like the map)
+  slot('area_pantry',          'Pantry',                696, 488, true, 268, 67),
   // Carport shed and driveway
-  slot('area_garage_top',      'Garage',                262, 504, true),
-  slot('area_garage_bottom',   'Garage (back)',         262, 550, true),
-  slot('area_driveway',        'Driveway',              420, 668),
+  slot('area_garage_top',      'Garage',                CARPORT_X + 18, 504, true),
+  slot('area_garage_bottom',   'Garage (back)',         CARPORT_X + 18, 550, true),
+  // Spans the width of the house below it, at the map's 4:1 aspect ratio
+  slot('area_driveway',        'Driveway',              HOUSE_L, 656, false, HOUSE_R - HOUSE_L, (HOUSE_R - HOUSE_L) / 4),
   // Special levels (dark-brown patches)
   slot('area_chaos',           "Eric's bedroom",        110, 370),
   slot('area_upper_hall_left', 'Upper Hall (left)',     110, 424),
   slot('area_upper_hall_right','Upper Hall (right)',    246, 424),
-  slot('area_tub_enclosure',   'Tub Enclosure',         420, 748),
+  // Kitchen: between the garden and the halls
+  slot('area_kitchen',         'Kitchen',               GARDEN.x + (3 * GW + 16 - 128) / 2, GARDEN.y + 3 * (GH + 8) + 51),
+  // On the grey paving left of the driveway
+  slot('area_tub_enclosure',   'Tub Enclosure',         260, 712),
   slot('area_stairs',          'Stairs',                HALL.x + GW + 8 + (GW - 128) / 2, HALL.y + 3 * (GH + 8) + 28),
   slot('area_loft_stairs',     'Loft Stairs',           110, 190),
   slot('area_pond1',           'Pond',                  POND.x,       POND.y),
@@ -85,9 +95,8 @@ const SLOTS: Slot[] = [
 // [fromX, fromY, toX, toY] — yellow arrows between the house, garden and what lies beyond
 const ARROWS: Array<[number, number, number, number]> = [
   [448, 386, 252, 386],    // Eric's door → Eric's bedroom
-  [1220, 406, 970, 508],   // garden → kitchen
-  [954, 528, 1040, 572],   // kitchen → halls
-  [1410, 300, 1300, 182],  // garden pond → underwater
+  [995, 592, 1080, 434],   // bush beside the house → garden, from below
+  [640, 600, 1012, 630],   // front door → halls
 ]
 
 const TERRAIN_COLORS: Record<string, string> = Object.fromEntries(
@@ -297,7 +306,7 @@ export class TravellersLog {
     const uh = SLOTS.find(sl => sl.key === 'area_upper_hall_left')!
     this.patch(g, uh.x - pad, uh.y - 10, 2 * uh.w + 8 + 2 * pad, uh.h + 20)
     // Single special levels
-    for (const key of ['area_chaos', 'area_tub_enclosure', 'area_stairs', 'area_loft_stairs']) {
+    for (const key of ['area_chaos', 'area_kitchen', 'area_stairs', 'area_loft_stairs']) {
       const s = SLOTS.find(sl => sl.key === key)!
       this.patch(g, s.x - pad, s.y - 10, s.w + 2 * pad, s.h + 20)
     }
@@ -305,14 +314,16 @@ export class TravellersLog {
 
   private drawHouse(g: Phaser.GameObjects.Graphics): void {
     const eaves = 330, ground = 640
+    // Paving runs on under the driveway miniature
+    const PAVE_H = 176
     const peak = { x: 560, y: 170 }
 
     // Driveway paving in front of house and carport
     g.fillStyle(PAVING)
-    g.fillRect(200, ground, 800, 80)
+    g.fillRect(200, ground, 800, PAVE_H)
     g.lineStyle(1, 0x6e6a66, 0.7)
-    for (let y = ground + 16; y < ground + 80; y += 16) g.lineBetween(200, y, 1000, y)
-    for (let y = ground; y < ground + 80; y += 16)
+    for (let y = ground + 16; y < ground + PAVE_H; y += 16) g.lineBetween(200, y, 1000, y)
+    for (let y = ground; y < ground + PAVE_H; y += 16)
       for (let x = 200 + ((y - ground) / 16 % 2) * 20; x < 1000; x += 40) g.lineBetween(x, y, x, y + 16)
 
     // Right-hand roof face, running back from the gable to the right
@@ -376,11 +387,11 @@ export class TravellersLog {
 
     // Front door
     g.fillStyle(FRAME)
-    g.fillRect(560, 540, 46, ground - 540)
+    g.fillRect(DOOR_X, 540, 46, ground - 540)
     g.fillStyle(GLASS)
-    g.fillRect(568, 548, 12, 50)
+    g.fillRect(DOOR_X + 8, 548, 12, 50)
     g.fillStyle(0xc0c0c0)
-    g.fillCircle(598, 594, 3)
+    g.fillCircle(DOOR_X + 38, 594, 3)
 
     // Bush by the front window
     g.fillStyle(0x3e6a2e)
@@ -389,15 +400,16 @@ export class TravellersLog {
 
     // Carport: shed with a flat roof extending to posts at the front
     g.fillStyle(0xb8b4ae)
-    g.fillRect(244, 480, 172, ground - 480)
+    const cx = CARPORT_X
+    g.fillRect(cx, 480, 172, ground - 480)
     g.fillStyle(0x8a8680)
-    for (let x = 252; x < 410; x += 22) g.fillRect(x, 590, 10, ground - 590)
+    for (let x = cx + 8; x < cx + 166; x += 22) g.fillRect(x, 590, 10, ground - 590)
     g.fillStyle(0xb0aca6)
-    g.fillRect(424, 480, 10, ground - 480)
-    g.fillRect(520, 480, 10, ground - 480)
+    g.fillRect(cx + 180, 480, 10, ground - 480)
+    g.fillRect(cx + 276, 480, 10, ground - 480)
     g.fillStyle(TRIM)
-    g.fillRect(230, 466, 312, 16)
+    g.fillRect(cx - 14, 466, 312, 16)
     g.lineStyle(2, 0x6e6a66)
-    g.strokeRect(230, 466, 312, 16)
+    g.strokeRect(cx - 14, 466, 312, 16)
   }
 }

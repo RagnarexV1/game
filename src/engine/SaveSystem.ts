@@ -13,7 +13,7 @@ export interface GamePlayerSave {
   secondLife: boolean; spriteKey: string
   petrified: number; petrifyCountdown: number; clayProtection: number
   extraFingers: number; extraEyes: number
-  race: string; playerClass: string; morality: string
+  race: string; playerClass: string; morality: string; morale?: number
   diagnostics: string[]
   inventory: ItemInstance[]
   equipment: EquipmentSlots
@@ -39,6 +39,8 @@ export interface WorldStateSave {
   widgetFound?: boolean
   peterWarned?: boolean
   horseDead?: boolean
+  deadHorseSite?: { key: string; x: number; y: number } | null
+  horseFed?: boolean
   stairsOrigin?: string | null
   extinctRaces?: string[]
   dugExits?: string[]

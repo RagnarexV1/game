@@ -45,6 +45,7 @@ export interface ItemDef {
   defense?: number
   healAmount?: number
   foodAmount?: number
+  luckAmount?: number
   eatMessage?: string
   goldValue?: number
   scrollText?: string

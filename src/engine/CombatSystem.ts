@@ -19,7 +19,7 @@ function clampPct(pct: number): number {
 // Chance (0-100) for the player to hit a monster, melee or thrown.
 // monster.ac is ascending (higher = tougher to hit)
 export function playerHitChance(player: Player, monster: Monster): number {
-  return clampPct(45 + player.str / 10 + player.luck / 10 + player.level * 2 - 3 * monster.ac)
+  return clampPct(45 + player.str / 10 + player.luck / 10 + player.level * 2 - 2 * monster.ac)
 }
 
 export class CombatSystem {

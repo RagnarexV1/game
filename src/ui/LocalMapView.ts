@@ -166,6 +166,7 @@ export const TILE_SPRITES: Record<string, string> = {
 const ITEM_SPRITES: Record<string, string> = {
   ericgras:         'item_ericgras',
   petergras:        'item_petergras',
+  clover:           'item_clover',
   scroll_teleport:    'item_scroll',
   scroll_alliance:    'item_scroll',
   scroll_cartography: 'item_scroll',
@@ -182,6 +183,7 @@ const ITEM_SPRITES: Record<string, string> = {
   scroll_fact_cavalcanti: 'item_scroll',
   scroll_fact_eric:       'item_scroll',
   scroll_fact_medlar:     'item_scroll',
+  scroll_fact_widget:     'item_scroll',
   relic_scroll_1:     'item_scroll',
   relic_scroll_2:     'item_scroll',
   relic_scroll_3:     'item_scroll',
@@ -193,6 +195,7 @@ const ITEM_SPRITES: Record<string, string> = {
   experience_potion:      'item_potion',
   blindness_potion:       'item_potion',
   translucence_potion:    'item_potion',
+  lycanthropy_potion:     'item_potion',
   second_life_potion:     'item_potion',
   invulnerability_potion: 'item_potion',
   music_potion:           'item_potion',
@@ -300,6 +303,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   hela:      'monster_hela',
   paard:     'monster_paard',
   mier:      'monster_mier',
+  migdnart:  'monster_migdnart',
   mol:       'monster_mol',
   worm:      'monster_worm',
   schaap:    'monster_schaap',
@@ -330,6 +334,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   muddman:     'monster_muddman',
   nymph:       'monster_nymph',
   cat:         'monster_cat',
+  garden_cat:  'monster_cat',
   werewolf:    'monster_werewolf',
   stinkdier:   'monster_stinkdier',
   troll:       'monster_troll',
@@ -382,6 +387,8 @@ export class LocalMapView {
   }
 
   groundDecorations: Array<{ tx: number; ty: number; key: string }> = []
+  // Decorations that outlive map transitions (e.g. the dead horse); set by GameScene per map
+  persistentDecorations: Array<{ tx: number; ty: number; key: string }> = []
 
   private _mask: Phaser.Display.Masks.GeometryMask
   private lastCamOffX = 0
@@ -753,7 +760,7 @@ export class LocalMapView {
     }
 
     // Ground decorations — above floor, below entities
-    for (const dec of this.groundDecorations) {
+    for (const dec of [...this.groundDecorations, ...this.persistentDecorations]) {
       const sx = x + camOffX + dec.tx * TILE
       const sy = y + camOffY + dec.ty * TILE
       if (sx + TILE < x || sy + TILE < y || sx > x + w || sy > y + h) continue
@@ -793,7 +800,15 @@ export class LocalMapView {
       const itemDepth = isOnWater ? 0.5 : 2.5
 
       const spriteKey = ITEM_SPRITES[fi.item.defId] ?? INV_SPRITES[fi.item.defId]
-      if (spriteKey && this.scene.textures.exists(spriteKey)) {
+      // A fish being eaten shows in front of the eater, smaller, at its feet
+      const beingEaten = fi.item.defId === 'lekkervisje' && monsters.some(m => m.x === fi.x && m.y === fi.y)
+      if (beingEaten && spriteKey && this.scene.textures.exists(spriteKey)) {
+        const size = TILE * 0.6
+        const img = this.scene.add.image(sx + TILE - size, sy + TILE - size, spriteKey).setOrigin(0, 0)
+          .setDisplaySize(size, size).setDepth(3.5)
+        img.setMask(this._mask)
+        this.pool.push(img)
+      } else if (spriteKey && this.scene.textures.exists(spriteKey)) {
         const img = this.scene.add.image(sx, sy, spriteKey).setOrigin(0, 0).setDepth(itemDepth)
         img.setMask(this._mask)
         this.pool.push(img)
@@ -871,6 +886,7 @@ export class LocalMapView {
       second_life_potion: { glyph: '!', color: '#ff80c0' },
       ericgras:          { glyph: '%', color: '#60c040' },
       petergras:         { glyph: '%', color: '#40a060' },
+      clover:            { glyph: '%', color: '#40e040' },
       banaan:            { glyph: '%', color: '#ffee00' },
       sinaasappel:       { glyph: '%', color: '#ff8800' },
       pannenkoeken:      { glyph: '%', color: '#e0a060' },
@@ -895,6 +911,7 @@ export class LocalMapView {
       scroll_fact_cavalcanti: { glyph: '?', color: '#40ffff' },
       scroll_fact_eric:       { glyph: '?', color: '#40ffff' },
       scroll_fact_medlar:     { glyph: '?', color: '#40ffff' },
+      scroll_fact_widget:     { glyph: '?', color: '#40ffff' },
       relic_scroll_1:      { glyph: '?', color: '#ffd080' },
       relic_scroll_2:      { glyph: '?', color: '#ffd080' },
       relic_scroll_3:      { glyph: '?', color: '#ffd080' },

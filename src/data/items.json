@@ -199,6 +199,17 @@
     "description": "You can see through your own hands."
   },
   {
+    "id": "lycanthropy_potion",
+    "name": "Lycanthropy",
+    "glyph": "!",
+    "color": "#a06030",
+    "type": "drink",
+    "slot": null,
+    "weight": 1,
+    "value": 40,
+    "description": "A murky brown brew with tufts of fur floating in it. Smells like wet dog."
+  },
+  {
     "id": "second_life_potion",
     "name": "Second Life",
     "glyph": "!",
@@ -320,7 +331,7 @@
   },
   {
     "id": "petergras",
-    "name": "Petergras",
+    "name": "Petergrass",
     "glyph": "p",
     "color": "#40a060",
     "type": "eat",
@@ -331,6 +342,20 @@
     "weight": 0,
     "value": 0,
     "description": "A fragile looking grass, definitely unhealthy to eat."
+  },
+  {
+    "id": "clover",
+    "name": "Four-leaf Clover",
+    "glyph": "%",
+    "color": "#40e040",
+    "type": "eat",
+    "slot": null,
+    "foodAmount": 5,
+    "luckAmount": 4,
+    "eatMessage": "You eat the four-leaf clover. You feel lucky!",
+    "weight": 0,
+    "value": 20,
+    "description": "A rare clover with four leaves. Said to bring good luck."
   },
   {
     "id": "bijl",
@@ -687,7 +712,7 @@
     "type": "armor",
     "slot": "head",
     "relic": true,
-    "defense": 2,
+    "defense": 5,
     "weight": 3,
     "value": 700,
     "description": "A gleaming helm etched with runes. Scrolls of Knowledge reveal their most useful secrets to its wearer."
@@ -1095,7 +1120,7 @@
     "type": "scroll",
     "slot": null,
     "factScroll": true,
-    "scrollText": "Beavers slap their tail on top of water to warn others of danger.",
+    "scrollText": "Beavers (Castor fiber) slap their tail on top of water to warn others of danger.",
     "weight": 0,
     "value": 300,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
@@ -1148,6 +1173,19 @@
     "slot": null,
     "factScroll": true,
     "scrollText": "Eric spent many hours making this fantastic game specially for you!",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_widget",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Widget (also known as Widget the World Watcher) is a 1990s American animated television series about a purple alien sent to Earth to protect the planet from environmental polluters like Ratchet. In S45:32 Widget and Mega Brain time travel to the time of the dinosaurs and find out that the dinosaurs died out due to the asteroid polluting the air.",
     "weight": 0,
     "value": 300,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."

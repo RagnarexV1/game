@@ -1,6 +1,6 @@
 import type { MapSystem } from './MapSystem'
 import { isSpecialTile } from './ItemPlacement'
-import { AREA_MONSTERS, MONSTER_TIER, areaInfo, monsterTierFactor, pickWeighted, scaleMonsterCount, type Tier } from './SpawnTables'
+import { AREA_MONSTERS, GARDEN_STRAYS, GARDEN_STRAY_FACTOR, MONSTER_TIER, areaInfo, monsterTierFactor, pickWeighted, scaleMonsterCount, type Tier } from './SpawnTables'
 
 export interface PlacedMonster {
   x: number
@@ -8,11 +8,27 @@ export interface PlacedMonster {
   defId: string
 }
 
-/** Picks one generic monster id for `area`, weighted by how well its tier suits the area. */
-export function pickAreaMonster(area: string, rng: () => number, tierOverride?: Tier): string {
+/**
+ * Picks one generic monster id for `area`, weighted by how well its tier suits
+ * the area. `weightScale` multiplies individual monsters' weights (0 = never).
+ */
+export function pickAreaMonster(
+  area: string,
+  rng: () => number,
+  tierOverride?: Tier,
+  weightScale: Record<string, number> = {},
+): string {
   const { category, tier } = areaInfo(area, tierOverride)
-  const pool = (AREA_MONSTERS[category] ?? [])
-    .map(id => ({ value: id, weight: monsterTierFactor(tier, MONSTER_TIER[id] ?? 1) }))
+  const native = AREA_MONSTERS[category] ?? []
+  const strays = native.length > 0 ? GARDEN_STRAYS.filter(id => !native.includes(id)) : []
+  const pool = [
+    ...native.map(id => ({ id, factor: 1 })),
+    ...strays.map(id => ({ id, factor: GARDEN_STRAY_FACTOR })),
+  ]
+    .map(({ id, factor }) => ({
+      value: id,
+      weight: monsterTierFactor(tier, MONSTER_TIER[id] ?? 1) * factor * (weightScale[id] ?? 1),
+    }))
     .filter(p => p.weight > 0)
   if (pool.length === 0) throw new Error(`No monster pool for area '${area}'`)
   return pickWeighted(pool, rng)
@@ -28,6 +44,8 @@ export interface SpawnOptions {
   bounds?: { x1: number; y1: number; x2: number; y2: number }
   /** Extra per-tile veto. */
   allow?: (x: number, y: number) => boolean
+  /** Per-monster weight multipliers for this map (0 = never). */
+  weightScale?: Record<string, number>
 }
 
 /**
@@ -59,7 +77,7 @@ export function spawnRandomMonsters(
     if (opts.player && Math.abs(x - opts.player.x) < 5 && Math.abs(y - opts.player.y) < 3) continue
     if (opts.allow && !opts.allow(x, y)) continue
     taken.add(key)
-    results.push({ x, y, defId: pickAreaMonster(area, rng, opts.tierOverride) })
+    results.push({ x, y, defId: pickAreaMonster(area, rng, opts.tierOverride, opts.weightScale) })
   }
   return results
 }

@@ -230,14 +230,30 @@ export function generateForestMap(
 
   const srng = spawnRng(world.seed)
   const tier = forestCellTier(cx, cy)
+  // The starting cell is too gentle for ogres; mid-garden cells see fewer heavy brutes.
+  const weightScale: Record<string, number> =
+    cx === 0 && cy === 0 ? { ogre: 0 } :
+    tier === 2 ? { ogre: 0.4, troll: 0.4 } : {}
   const randomMonsters = spawnRandomMonsters(map, srng, 'forest', cellData?.randomMonsters ?? 6, {
     tierOverride: tier,
     player,
     avoid: [...fixedMonsters, ...fixedItems],
     bounds: { x1: 3, y1: 3, x2: W - 4, y2: H - 4 },
     allow: (x, y) => !inTraderChamber(x, y),
+    weightScale,
   })
-  const monsters = [...fixedMonsters, ...randomMonsters]
+
+  // A couple of kamikaze pigeons roam every garden cell, never right next to the start.
+  const nearPlayer: Array<{ x: number; y: number }> = []
+  for (let dy = -4; dy <= 4; dy++)
+    for (let dx = -8; dx <= 8; dx++) nearPlayer.push({ x: player.x + dx, y: player.y + dy })
+  const pigeons: Array<{ x: number; y: number; defId: string }> = []
+  for (let i = 0; i < 2 + Math.floor(srng() * 2); i++) {
+    const p = placeSingleItemRandomly(map, srng, 'duif',
+      [...nearPlayer, ...fixedMonsters, ...fixedItems, ...randomMonsters, ...pigeons])
+    if (p && !inTraderChamber(p.x, p.y)) pigeons.push({ x: p.x, y: p.y, defId: 'duif' })
+  }
+  const monsters = [...fixedMonsters, ...randomMonsters, ...pigeons]
 
   const chamberTiles: Array<{ x: number; y: number }> = []
   if (cx === 1 && cy === 1)
@@ -250,7 +266,7 @@ export function generateForestMap(
     [player, ...monsters, ...fixedItems, ...chamberTiles, ...loot])
   const scattered = [...loot, ...gear]
 
-  // Bottom-centre garden is overgrown with Ericgrass and Petergras.
+  // Bottom-centre garden is overgrown with Ericgrass and Petergrass.
   const grass: typeof scattered = []
   if (cx === 1 && cy === 2) {
     const grassIds = [...Array(30).fill('ericgras'), ...Array(20).fill('petergras')]
@@ -476,9 +492,6 @@ export function generateGarageTopMap(map: MapSystem, relicItem?: string | null):
   for (let y = 1; y <= 3; y++)
     for (let x = 36; x <= 44; x++)
       map.setTile(x, y, 'floor')
-
-  // Portal out to the driveway
-  map.setTile(5, 1, 'garage_portal_driveway')
 
   const player = { x: 40, y: 2 }
   const srng = spawnRng(50)
@@ -1555,7 +1568,7 @@ export function generateChaosMap(map: MapSystem, relicItem?: string | null): Spa
       map.setTile(x, y, CHAOS_TILES[Math.floor(Math.random() * CHAOS_TILES.length)])
   const cx = Math.floor(W / 2)
   const cy = Math.floor(H / 2)
-  map.setTile(cx, cy, 'portal_chaos')
+  map.setTile(cx, cy, 'floor')
   map.setTile(cx + 1, cy, 'floor')
   // East door: back to the upper hall
   map.setTile(W - 1, cy, 'chaos_exit_upper_hall')
@@ -1762,8 +1775,8 @@ export function generateBedroomLowerMap(map: MapSystem, relicItem?: string | nul
   for (let y = 1; y < H - 1; y++) { map.setTile(0, y, 'wall_left'); map.setTile(W - 1, y, 'wall_right') }
   for (let sx = 0; sx < W; sx++) map.setTile(sx, 0, 'bedroom_stairs_up')
 
-  // Bottom door: back to the upper hall
-  map.setTile(Math.floor(W / 2), H - 1, 'mar_exit_upper_hall')
+  // Bottom-left corner: down arrow back to the upper hall
+  map.setTile(1, H - 1, 'mar_exit_upper_hall')
 
   // Balcony door out to the driveway, in the bottom-right wall
   for (let y = H - 5; y <= H - 2; y++) map.setTile(W - 1, y, 'bedroom_portal_driveway')
@@ -2110,12 +2123,12 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
   const categoryPool: string[][] = [
     ['banaan', 'sinaasappel', 'pannenkoeken', 'boterham', 'stroopwafels', 'speculaas', 'sprits', 'dropje', 'mispel'],
     ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'katana', 'mace', 'silversword', 'wasknijper', 'shuriken'],
-    ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike'],
+    ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike', 'scroll_knowledge'],
     ['leather_armor', 'chain_mail', 'mirrorshield', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
     ['ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility', 'ring_locus'],
     ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'remote', 'gompie'],
     ['ericgras'],
-    ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion'],
+    ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion', 'lycanthropy_potion'],
   ]
 
   const numCols = Math.floor((W - 2 - BLOCK_W) / STRIDE_X) + 1

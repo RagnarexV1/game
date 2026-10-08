@@ -2,7 +2,7 @@ import { rollRunSeed, setRunSeed, forestCellTier } from './SpawnTables'
 
 export interface CellSnapshot {
   tiles: Array<{ defId: string; explored: boolean }>
-  monsters: Array<{ defId: string; x: number; y: number; hp: number; message?: string; hasSpoken: boolean; stunTurns: number }>
+  monsters: Array<{ defId: string; x: number; y: number; hp: number; message?: string; hasSpoken: boolean; stunTurns: number; eatingFish?: boolean }>
   items: Array<{ x: number; y: number; defId: string; qty: number; charges?: number }>
 }
 
@@ -189,6 +189,11 @@ export class WorldState {
   widgetFound  = false
   peterWarned  = false
   horseDead    = false
+  // Where the horse collapsed from the Petergrass; its carcass stays there for the rest of the run
+  deadHorseSite: { key: string; x: number; y: number } | null = null
+  // Given the Ericgras: the horse follows the player and stops blocking the hall
+  horseFed     = false
+  get horseQuestDone(): boolean { return this.horseDead || this.horseFed }
   // Quest items handed over so far (Dad wants all 3 stamps, Mar all 3 fragments)
   stampsGiven    = 0
   fragmentsGiven = 0
