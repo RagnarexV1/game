@@ -8,11 +8,21 @@ const ITEMS = itemData as ItemDef[]
 // Unique/quest items — kept only at their hand-placed spot, never duplicated by random scatter.
 // The Scroll of Transport and the empty vials are placed per game via WorldState.questSites;
 // the Gompie only lies in the garage (and is sold in the pantry).
-export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport', 'gompie', 'empty_vial'])
+export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport', 'gompie', 'empty_vial', 'ring_hastening', 'telephone'])
+
+// Items lying at the bottom of bath water stay unseen unless a Potion of
+// Depredation (item vision) reveals them.
+const SUBMERGED_IDS = new Set(['ring_hastening'])
+export function isHiddenUnderWater(defId: string, tileDefId: string | undefined, itemVision: boolean): boolean {
+  return SUBMERGED_IDS.has(defId) && tileDefId === 'water_bath' && !itemVision
+}
 
 // Items that only ever turn up in random loot on areas of at least this tier.
 const MIN_TIER: Record<string, Tier> = {
   amulet: 3,
+  // Skill-teaching Scrolls of Knowledge; the fact scrolls turn up anywhere.
+  scroll_knowledge:     2,
+  scroll_ventriloquism: 2,
 }
 
 // Items clearly tied to one kind of location — never scattered onto an unrelated map type.
@@ -32,13 +42,6 @@ const RESTRICTED: Record<string, string[]> = {
   mispel:         ['forest'],
   lekkervisje:    ['kitchen'],
   pannenkoeken:   ['kitchen'],
-  scroll_fact_beavers:    ['study'],
-  scroll_fact_dinosaurs:  ['study'],
-  scroll_fact_prokofiev:  ['study'],
-  scroll_fact_cavalcanti: ['study'],
-  scroll_fact_eric:       ['study'],
-  scroll_fact_medlar:     ['study'],
-  scroll_fact_widget:     ['study'],
 }
 
 // Items that never turn up in random loot on these area categories.
@@ -226,6 +229,19 @@ function buildFoodPool(category: string): Array<{ value: string; weight: number 
     .filter(it => it.type === 'eat' && !it.relic && !EXCLUDE_IDS.has(it.id) && !NON_FOOD_EAT.has(it.id))
     .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes(category))
     .map(it => ({ value: it.id, weight: it.id === 'sinaasappel' ? 2 : 1 }))
+}
+
+/**
+ * Random stock for Eric the trader's chamber, rerolled each game: any tier,
+ * weighted by rarity, but never unique, relic or quest items, coins or junk food.
+ */
+export function rollTraderStock(rng: () => number, count: number): string[] {
+  const pool = ITEMS
+    .filter(it => !it.relic && !EXCLUDE_IDS.has(it.id) && it.id !== 'amulet')
+    .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes('forest'))
+    .filter(it => it.type !== 'gold' && !NON_FOOD_EAT.has(it.id))
+    .map(it => ({ value: it.id, weight: rarityWeight(it) }))
+  return Array.from({ length: count }, () => pickWeighted(pool, rng))
 }
 
 /** One random item from `area`'s loot table, e.g. for a monster's death drop. */

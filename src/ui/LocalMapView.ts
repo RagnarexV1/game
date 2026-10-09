@@ -3,6 +3,7 @@ import type { MapSystem } from '../engine/MapSystem'
 import type { Player } from '../entities/Player'
 import type { Monster } from '../entities/Monster'
 import type { FloorItem } from '../entities/FloorItem'
+import { isHiddenUnderWater } from '../engine/ItemPlacement'
 import itemData from '../data/items.json'
 
 // Fallback inv-category sprite for items without a specific floor sprite
@@ -44,6 +45,7 @@ export const TILE_SPRITES: Record<string, string> = {
   stairs_down:  'terrain_stairs_up',
   lava:         'terrain_lava',
   mud:          'terrain_mud',
+  mud_footprint: 'terrain_mud_footprint',
   carpet:       'terrain_carpet',
   exit_right:   'terrain_next_right',
   exit_left:    'terrain_next_left',
@@ -184,6 +186,7 @@ const ITEM_SPRITES: Record<string, string> = {
   scroll_fact_eric:       'item_scroll',
   scroll_fact_medlar:     'item_scroll',
   scroll_fact_widget:     'item_scroll',
+  scroll_fact_guineapigs: 'item_scroll',
   relic_scroll_1:     'item_scroll',
   relic_scroll_2:     'item_scroll',
   relic_scroll_3:     'item_scroll',
@@ -211,6 +214,7 @@ const ITEM_SPRITES: Record<string, string> = {
   wasknijperbom:    'item_wasknijperbom',
   stop:             'terrain_stop',
   toiletBrush:      'item_toiletBrush',
+  telephone:        'item_telephone',
   mirrorshield:     'item_mirrorshield',
   ninjabroek:       'item_ninjabroek',
   tuinhandschoen:   'item_tuinhandschoen',
@@ -271,6 +275,7 @@ const ITEM_SPRITES: Record<string, string> = {
   gompie:           'item_gompie',
   mjollnir:         'item_mjollnir',
   clarinet:         'item_clarinet',
+  katapult:         'item_katapult',
 }
 
 const MONSTER_SPRITES: Record<string, string> = {
@@ -327,6 +332,9 @@ const MONSTER_SPRITES: Record<string, string> = {
   klopper:     'monster_klopper',
   wildboar:    'monster_wildboar',
   ogre:        'monster_ogre',
+  rockgiant:   'monster_rockgiant',
+  salamander:  'monster_salamander',
+  spetterpoep: 'monster_spetterpoep',
   spirit:      'monster_spirit',
   car:         'monster_car',
   guardian:    'monster_guardian',
@@ -793,6 +801,7 @@ export class LocalMapView {
     for (const fi of floorItems) {
       const tile = this.map.getTile(fi.x, fi.y)
       if (!tile?.visible) continue
+      if (isHiddenUnderWater(fi.item.defId, tile.defId, player.itemVision)) continue
       const sx = x + camOffX + fi.x * TILE
       const sy = y + camOffY + fi.y * TILE
 
@@ -833,6 +842,7 @@ export class LocalMapView {
       const isOnWater = tileUnder === 'water_bath' || tileUnder === 'water'
       const spriteKey = (m.defId === 'eric' && isOnWater) ? 'monster_eric_water'
         : (m.defId === 'klopper' && isOnWater) ? 'monster_klopper_water'
+        : (m.defId === 'pissebed' && m.rolled) ? 'monster_pissebedRond'
         : m.defId === 'doppelganger' ? player.spriteKey
         : baseSpriteKey
       if (spriteKey && this.scene.textures.exists(spriteKey)) {
@@ -912,6 +922,7 @@ export class LocalMapView {
       scroll_fact_eric:       { glyph: '?', color: '#40ffff' },
       scroll_fact_medlar:     { glyph: '?', color: '#40ffff' },
       scroll_fact_widget:     { glyph: '?', color: '#40ffff' },
+      scroll_fact_guineapigs: { glyph: '?', color: '#40ffff' },
       relic_scroll_1:      { glyph: '?', color: '#ffd080' },
       relic_scroll_2:      { glyph: '?', color: '#ffd080' },
       relic_scroll_3:      { glyph: '?', color: '#ffd080' },

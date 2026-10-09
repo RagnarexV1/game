@@ -1,7 +1,7 @@
 ﻿import type { MapSystem } from './MapSystem'
 import type { WorldState } from './WorldState'
 import mapSpawnsData from '../data/mapSpawns.json'
-import { scatterRandomItems, placeSingleItemRandomly, scatterBasicGear } from './ItemPlacement'
+import { scatterRandomItems, placeSingleItemRandomly, scatterBasicGear, rollTraderStock } from './ItemPlacement'
 import { spawnRandomMonsters, pickAreaMonster } from './MonsterPlacement'
 import { spawnRng, forestCellTier, scaleMonsterCount } from './SpawnTables'
 
@@ -174,26 +174,6 @@ export function generateForestMap(
     for (let y = 7; y <= 10; y++) map.setTile(58, y, 'wall_right')
   }
 
-  // NW cell: bathroom portal + garage portal near player start (room 4 center)
-  if (cx === 0 && cy === 0) {
-    map.setTile(63, 5, 'portal_driveway')
-    map.setTile(65, 5, 'portal')
-    map.setTile(67, 5, 'portal_garage')
-    map.setTile(69, 5, 'portal_hall')
-    map.setTile(71, 5, 'portal_chaos')
-    map.setTile(73, 5, 'portal_bedroom')
-    map.setTile(65, 7, 'portal_stairs')
-    map.setTile(67, 7, 'portal_stairs_up')
-    map.setTile(69, 9, 'portal_tub_enclosure')
-    map.setTile(71, 7, 'portal_loft')
-    map.setTile(75, 7, 'portal_loft3')
-    map.setTile(75, 5, 'portal_study')
-    map.setTile(77, 5, 'portal_pantry')
-    map.setTile(73, 7, 'portal_pond')
-    map.setTile(59, 5, 'portal_upper_hall_left')
-    map.setTile(61, 5, 'portal_upper_hall_right')
-  }
-
   // Player spawn: NW always uses room 4 (dry, east of lake); others random
   const spawnIdx = (cx === 0 && cy === 0) ? 4 : 1 + Math.floor(rng() * 3)
   const sr = ROOMS[spawnIdx]
@@ -224,16 +204,18 @@ export function generateForestMap(
   for (const it of fixedItems)
     if (map.getTile(it.x, it.y)?.defId === 'tree') map.setTile(it.x, it.y, 'grass')
 
-  // Keep random spawns out of Eric the trader's chamber (its stock is fixed).
+  // Keep random spawns out of Eric the trader's chamber (it gets its own stock below).
   const inTraderChamber = (x: number, y: number) =>
     cx === 1 && cy === 1 && x >= 49 && x <= 59 && y >= 5 && y <= 12
 
   const srng = spawnRng(world.seed)
   const tier = forestCellTier(cx, cy)
-  // The starting cell is too gentle for ogres; mid-garden cells see fewer heavy brutes.
+  // The starting cell is too gentle for rock giants; mid-garden cells see fewer heavy brutes.
+  // Sheep only graze in tier-3 cells.
   const weightScale: Record<string, number> =
-    cx === 0 && cy === 0 ? { ogre: 0 } :
-    tier === 2 ? { ogre: 0.4, troll: 0.4 } : {}
+    cx === 0 && cy === 0 ? { rockgiant: 0, schaap: 0 } :
+    tier === 2 ? { rockgiant: 0.4, troll: 0.4, schaap: 0 } :
+    tier === 1 ? { schaap: 0 } : {}
   const randomMonsters = spawnRandomMonsters(map, srng, 'forest', cellData?.randomMonsters ?? 6, {
     tierOverride: tier,
     player,
@@ -243,21 +225,40 @@ export function generateForestMap(
     weightScale,
   })
 
-  // A couple of kamikaze pigeons roam every garden cell, never right next to the start.
+  // A couple of kamikaze pigeons roam each tier-3 garden cell, never right next to the start.
   const nearPlayer: Array<{ x: number; y: number }> = []
   for (let dy = -4; dy <= 4; dy++)
     for (let dx = -8; dx <= 8; dx++) nearPlayer.push({ x: player.x + dx, y: player.y + dy })
   const pigeons: Array<{ x: number; y: number; defId: string }> = []
-  for (let i = 0; i < 2 + Math.floor(srng() * 2); i++) {
-    const p = placeSingleItemRandomly(map, srng, 'duif',
+  if (tier === 3) {
+    for (let i = 0; i < 2 + Math.floor(srng() * 2); i++) {
+      const p = placeSingleItemRandomly(map, srng, 'duif',
+        [...nearPlayer, ...fixedMonsters, ...fixedItems, ...randomMonsters, ...pigeons])
+      if (p && !inTraderChamber(p.x, p.y)) pigeons.push({ x: p.x, y: p.y, defId: 'duif' })
+    }
+  }
+  // The only werewolf in the garden prowls the bottom-right cell.
+  if (cx === 2 && cy === 2) {
+    const p = placeSingleItemRandomly(map, srng, 'werewolf',
       [...nearPlayer, ...fixedMonsters, ...fixedItems, ...randomMonsters, ...pigeons])
-    if (p && !inTraderChamber(p.x, p.y)) pigeons.push({ x: p.x, y: p.y, defId: 'duif' })
+    if (p) pigeons.push({ x: p.x, y: p.y, defId: 'werewolf' })
   }
   const monsters = [...fixedMonsters, ...randomMonsters, ...pigeons]
 
   const chamberTiles: Array<{ x: number; y: number }> = []
   if (cx === 1 && cy === 1)
     for (let y = 5; y <= 12; y++) for (let x = 49; x <= 59; x++) chamberTiles.push({ x, y })
+
+  // Eric's shelves (x=51-57, y=7-10) hold random common items, rerolled each game.
+  const stock: Array<{ x: number; y: number; defId: string }> = []
+  if (cx === 1 && cy === 1) {
+    const shelves: Array<{ x: number; y: number }> = []
+    for (let y = 7; y <= 10; y++)
+      for (let x = 51; x <= 57; x++)
+        if (!monsters.some(m => m.x === x && m.y === y)) shelves.push({ x, y })
+    const ids = rollTraderStock(srng, shelves.length)
+    shelves.forEach((s, i) => stock.push({ ...s, defId: ids[i] }))
+  }
 
   const loot = scatterRandomItems(map, srng, 'forest', cellData?.randomItems ?? 10,
     [player, ...monsters, ...fixedItems, ...chamberTiles], tier)
@@ -277,7 +278,7 @@ export function generateForestMap(
     }
   }
 
-  return { player, monsters, items: [...fixedItems, ...scattered, ...grass] }
+  return { player, monsters, items: [...fixedItems, ...stock, ...scattered, ...grass] }
 }
 
 function addBorderRocks(
@@ -447,13 +448,16 @@ export function generateBathroomBottomMap(map: MapSystem): SpawnPoints {
   ]
   const stopItem = { x: 5, y: 9, defId: 'stop' }
   const rng = spawnRng(211)
+  // The game's one Ring of Hastening lies at the bottom of the bath pool
+  const poolTiles = [{ x: 2, y: 8 }, { x: 2, y: 9 }, { x: 2, y: 10 }]
+  const ring = { ...poolTiles[Math.floor(rng() * poolTiles.length)], defId: 'ring_hastening' }
   // Keep the tap/stopper corner clear.
   const monsters = [...fixedMonsters, ...spawnRandomMonsters(map, rng, 'bathroom', 7, {
     player, avoid: [...fixedMonsters, stopItem], allow: x => x > 6,
   })]
   const scattered = scatterRandomItems(map, rng, 'bathroom', 4, [player, ...monsters, stopItem])
 
-  return { player, monsters, items: [stopItem, ...scattered] }
+  return { player, monsters, items: [stopItem, ring, ...scattered] }
 }
 
 function spawnGarageMonsters(
@@ -2125,7 +2129,7 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
     ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'katana', 'mace', 'silversword', 'wasknijper', 'shuriken'],
     ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike', 'scroll_knowledge'],
     ['leather_armor', 'chain_mail', 'mirrorshield', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
-    ['ring_hastening', 'ring_famine', 'ring_cold', 'ring_invisibility', 'ring_locus'],
+    ['ring_famine', 'ring_cold', 'ring_invisibility', 'ring_locus'],
     ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'remote', 'gompie'],
     ['ericgras'],
     ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion', 'transformation_potion', 'lycanthropy_potion'],

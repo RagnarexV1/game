@@ -40,6 +40,7 @@ export interface WorldStateSave {
   peterWarned?: boolean
   horseDead?: boolean
   deadHorseSite?: { key: string; x: number; y: number } | null
+  sasMourned?: boolean
   horseFed?: boolean
   stairsOrigin?: string | null
   extinctRaces?: string[]

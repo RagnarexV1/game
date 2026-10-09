@@ -115,6 +115,7 @@ export class SelfScreen {
     const diagnostics = [...player.diagnostics]
     if (player.isTranslucent()) diagnostics.push('Transparent')
     if (player.lycanthropy) diagnostics.push('Lycanthropy')
+    if (player.invulnerableTurns > 0) diagnostics.push('Invulnerable')
 
     addList(12,  diagnostics)
     addList(185, skills)

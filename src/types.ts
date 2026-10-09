@@ -40,7 +40,7 @@ export interface ItemDef {
   glyph: string
   color: string
   type: 'weapon' | 'armor' | 'drink' | 'eat' | 'gold' | 'scroll' | 'ring' | 'wand' | 'tool'
-  slot: 'weapon' | 'body' | 'head' | 'hand' | 'arms' | 'feet' | 'leg' | 'neck' | 'amulet' | 'shield' | 'cape' | 'ring' | 'tool' | null
+  slot: 'weapon' | 'body' | 'head' | 'hand' | 'arms' | 'feet' | 'leg' | 'neck' | 'amulet' | 'shield' | 'cape' | 'ring' | 'tool' | 'launcher' | null
   damage?: number
   defense?: number
   healAmount?: number
@@ -83,6 +83,8 @@ export interface EquipmentSlots {
   amulet: ItemInstance | null
   shield: ItemInstance | null
   cape:   ItemInstance | null
+  // Shooting tool (katapult), held next to the wielded weapon
+  launcher?: ItemInstance | null
   ring1: ItemInstance | null
   ring2: ItemInstance | null
   ring3: ItemInstance | null
@@ -96,6 +98,8 @@ export interface ItemInstance {
   defId: string
   quantity: number
   charges?: number
+  // Weapons/armour: this item's roll on the base damage/defense (0.7-1.3)
+  quality?: number
   // Scroll of Transport: spot remembered on first read, returned to on the second
   transportMark?: { area: string | null; cx?: number; cy?: number; ucx?: number; ucy?: number; x: number; y: number }
 }

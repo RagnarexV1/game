@@ -3,7 +3,7 @@ import { MapSystem } from '../engine/MapSystem'
 import { TurnManager } from '../engine/TurnManager'
 import { MessageLog } from '../engine/MessageLog'
 import { CombatSystem, playerHitChance } from '../engine/CombatSystem'
-import { InventorySystem, REMOTE_CHARGES } from '../engine/InventorySystem'
+import { InventorySystem, REMOTE_CHARGES, BAD_SPECULAAS_CHANCE, itemDamage, itemValue, rollWandCharges } from '../engine/InventorySystem'
 import { EquipmentSystem } from '../engine/EquipmentSystem'
 import { SaveSystem } from '../engine/SaveSystem'
 import type { GameSaveData } from '../engine/SaveSystem'
@@ -11,7 +11,7 @@ import { LeaderboardSystem } from '../engine/LeaderboardSystem'
 import type { LeaderboardEntry } from '../engine/LeaderboardSystem'
 import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateHallMap, generateChaosMap, mutateChaosMap, chaosPartyArea, chaosPartyRing, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateTubEnclosureMap, generateLoftMap, generateLoft3Map, generateStudyMap, generateLoftStairsMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map, generateDrivewayMap, generateUpperHallMap, peterPatrolLoop, type SpawnPoints } from '../engine/MapGenerator'
 import { WorldState, type ClarinetLocation } from '../engine/WorldState'
-import { placeSingleItemRandomly, isSpecialTile, pickAreaItem, EXCLUDE_IDS } from '../engine/ItemPlacement'
+import { placeSingleItemRandomly, isSpecialTile, pickAreaItem, EXCLUDE_IDS, isHiddenUnderWater } from '../engine/ItemPlacement'
 import { AREA_MONSTERS, areaInfo } from '../engine/SpawnTables'
 import { Player } from '../entities/Player'
 import { Monster } from '../entities/Monster'
@@ -23,7 +23,7 @@ import { WorldMapView } from '../ui/WorldMapView'
 import { LocalMapView } from '../ui/LocalMapView'
 import { InventoryScreen, sellPrice } from '../ui/InventoryScreen'
 import { SelfScreen } from '../ui/SelfScreen'
-import { SkillScreen } from '../ui/SkillScreen'
+import { SkillScreen, SKILL_LIST } from '../ui/SkillScreen'
 import { QuestScreen } from '../ui/QuestScreen'
 import { TravellersLog } from '../ui/TravellersLog'
 import {
@@ -47,6 +47,8 @@ const MAP_H = 20
 const GARDEN_START = { x: 68, y: 5 }
 
 const LEGO_DAMAGE = 3
+// Deep water: only divers, or anyone floating on a Gompie, can move over it
+const WATER_TILES = new Set(['water', 'loft_water', 'water_bath'])
 // Chance that you spring your own Clothespin Trap when stepping on it (anyone else always does)
 const OWN_TRAP_CHANCE = 0.1
 
@@ -55,10 +57,8 @@ const LEX_FISH_BONUS_TURNS = 300
 const TIME_WARNING_INTERVAL = 5000
 const SUMMON_INTERVAL = 5
 
-// TESTING: player takes no damage and can't die. Set to false before release.
-const GOD_MODE = true
-// TESTING: drop one of every wand next to the player on a new game. Set to false before release.
-const TEST_WANDS = true
+// TESTING: put one of every item from items.json in the player's inventory on a new game. Set to false before release.
+const TEST_ALL_ITEMS = false
 
 // Start screen splash shows once per page load (not on restart after victory/death)
 let startScreenShown = false
@@ -119,7 +119,17 @@ export class GameScene extends Phaser.Scene {
   private questScreen!: QuestScreen
   private travellersLog!: TravellersLog
 
+  // Cheats, toggled by typing a secret code in the quest screen
+  private godMode = false
+  private cheatItemIds: string[] = []
+  private cheatSkillIds: string[] = []
+
   private inputBlocked = false
+  private phoneOverlay: Phaser.GameObjects.Image | null = null
+  private phoneHangUpReady = false
+  private phoneSound: Phaser.Sound.BaseSound | null = null
+  // Sas leading the player by the hand to the dead horse (no player control meanwhile)
+  private sasWalk: { sas: Monster; lex: Monster | null; path: Array<{ x: number; y: number }>; onDriveway: boolean } | null = null
   private werewolfMoveScheduled = false
   private lookMode = false
   private teleportPicking = false
@@ -158,9 +168,12 @@ export class GameScene extends Phaser.Scene {
   private pendingDugEntry: { side: Side; coord: number; backTile: string } | null = null
   // Phasing across a map edge: arrive on this side of the next map, at the same x/y, without arrows
   private pendingEdgeEntry: { side: Side; coord: number } | null = null
+  // The map edge the arrow being stepped on lies on, and its x/y along that edge (see alignEdgeEntry)
+  private edgeCross: { side: Side; coord: number } | null = null
 
   // Dad was in sight at the end of the last turn (the Smurf tune plays when he comes into view)
   private dadInSight = false
+  private smurfSound: Phaser.Sound.BaseSound | null = null
   // Speed at 300+ warns once, until the player slows down again
   private speedWarned = false
   // Where the player and each monster stood at the last trap check, so only stepping onto a trap springs it
@@ -176,6 +189,8 @@ export class GameScene extends Phaser.Scene {
 
   private stairsBombs: Array<{tx: number; ty: number; dx: number}> = []
   private stairsBombFallExtra = 0
+  // Player's tile before their last step: the blocking horse pushes them back to that side
+  private preMove: { x: number; y: number } | null = null
   private stairsOrigin: string | null = null
 
   private forestMusic:   Phaser.Sound.BaseSound | null = null
@@ -194,6 +209,9 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.inputBlocked = false
+    this.phoneOverlay = null
+    this.phoneHangUpReady = false
+    this.phoneSound = null
     this.throwMode = false
     this.zapMode = false
     this.pendingThrowItem = null
@@ -205,7 +223,6 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x000000)
     this.initSystems()
     this.buildMap()
-    if (TEST_WANDS) this.placeTestWands()
     this.buildUI()
     this.setupInput()
     this.updateFOV()
@@ -249,22 +266,6 @@ export class GameScene extends Phaser.Scene {
     } else {
       afterStart()
     }
-  }
-
-  private placeTestWands(): void {
-    const ids = ['wand_displacement', 'wand_fire', 'wand_cold', 'wand_evocation', 'wand_tunneling']
-    const taken = new Set(this.floorItems.map(fi => `${fi.x},${fi.y}`))
-    for (let r = 1; r <= 4 && ids.length > 0; r++)
-      for (let dy = -r; dy <= r && ids.length > 0; dy++)
-        for (let dx = -r; dx <= r && ids.length > 0; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
-          const x = this.player.x + dx, y = this.player.y + dy
-          const tile = this.mapSystem.getTile(x, y)
-          if (!tile || !this.mapSystem.isWalkable(x, y) || isSpecialTile(tile.defId)) continue
-          if (taken.has(`${x},${y}`) || this.getMonsterAt(x, y)) continue
-          taken.add(`${x},${y}`)
-          this.floorItems.push(new FloorItem(x, y, this.inventory.createInstance(ids.shift()!)))
-        }
   }
 
   private updateMusic(area: string | null): void {
@@ -398,10 +399,15 @@ export class GameScene extends Phaser.Scene {
     this.stairsBombFallExtra = 0
     for (let i = this.stairsBombs.length - 1; i >= 0; i--) {
       const b = this.stairsBombs[i]
-      b.ty += fall
-      b.tx += b.dx * fall
-      if (b.ty >= MAP_H || b.tx < 0 || b.tx >= MAP_W) { this.stairsBombs.splice(i, 1); continue }
-      if (b.tx === this.player.x && b.ty === this.player.y) {
+      // Walking into a banana or being passed by one on its way down both count as a hit
+      let hit = b.tx === this.player.x && b.ty === this.player.y
+      for (let step = 0; step < fall && !hit; step++) {
+        b.ty++
+        b.tx += b.dx
+        hit = b.tx === this.player.x && b.ty === this.player.y
+      }
+      if (!hit && (b.ty >= MAP_H || b.tx < 0 || b.tx >= MAP_W)) { this.stairsBombs.splice(i, 1); continue }
+      if (hit) {
         if (this.isInvulnerable()) {
           this.messageLog.add('A banaan bounces off you harmlessly!', '#ffff80')
           this.stairsBombs.splice(i, 1)
@@ -450,6 +456,88 @@ export class GameScene extends Phaser.Scene {
     for (const defId of ['leather_armor', 'health_potion', 'boterham', 'health_potion']) {
       this.player.inventory.push(this.inventory.createInstance(defId))
     }
+    if (TEST_ALL_ITEMS) this.addAllItems()
+  }
+
+  // One of every item from items.json; returns the new instance ids
+  private addAllItems(): string[] {
+    const ids: string[] = []
+    for (const def of this.inventory.getAllDefs()) {
+      if (def.id === 'wand') continue  // generic placeholder; real wands are listed separately
+      const item = this.inventory.createInstance(def.id)
+      this.player.inventory.push(item)
+      ids.push(item.instanceId)
+    }
+    return ids
+  }
+
+  // Secret quest-screen codes: the two toggles, plus ragna<map> warps.
+  // 3x3 maps number their cells 1-9 row by row; 2x1 maps are 1 (top/left) and 2.
+  private cheatActions(): Record<string, () => void> {
+    const actions: Record<string, () => void> = {
+      odogodogodog: () => this.toggleCheat('god'),
+      ikzalaltijdaardigtegenericzijn: () => this.toggleCheat('items'),
+      peterisdom: () => this.toggleCheat('skills'),
+    }
+    for (let n = 1; n <= 9; n++) {
+      const cx = (n - 1) % 3, cy = Math.floor((n - 1) / 3)
+      actions[`ragnagarden${n}`] = () => this.cheatWarp({ area: null, cx, cy, x: -1, y: -1 })
+      actions[`ragnahall${n}`]   = () => this.cheatWarp({ area: 'hall', ucx: cx, ucy: cy, x: -1, y: -1 })
+    }
+    const AREAS: Record<string, Parameters<GameScene['transitionToArea']>[0]> = {
+      bathroom1: 'bathroom_top', bathroom2: 'bathroom_bottom',
+      garage1: 'garage_top', garage2: 'garage_bottom',
+      bedroom1: 'bedroom', bedroom2: 'bedroom_lower',
+      upperhall1: 'upper_hall_left', upperhall2: 'upper_hall_right',
+      ericsbedroom: 'chaos', kitchen: 'kitchen', stairs: 'stairs', tub: 'tub_enclosure',
+      loft: 'loft', peterandthewolf: 'loft3', atticstairs: 'loft_stairs', study: 'study',
+      pantry: 'pantry', driveway: 'driveway', pond: 'pond1', caves: 'pond2', depths: 'pond3',
+    }
+    for (const [name, area] of Object.entries(AREAS)) {
+      actions[`ragna${name}`] = () => {
+        this.questScreen.hide()
+        if (this.worldState.currentArea === null) {
+          this.worldState.savedPlayerX = this.player.x
+          this.worldState.savedPlayerY = this.player.y
+        }
+        if (area === 'stairs') this.stairsOrigin = 'hall'
+        this.transitionToArea(area)
+      }
+    }
+    return actions
+  }
+
+  // Garden and hall cells: warp in like the clarinet, landing on the map's own spawn tile
+  private cheatWarp(loc: ClarinetLocation): void {
+    this.questScreen.hide()
+    this.clarinetWarp(loc, true)
+  }
+
+  private toggleCheat(cheat: 'god' | 'items' | 'skills'): void {
+    if (cheat === 'skills') {
+      if (this.cheatSkillIds.length === 0) {
+        const all = [...SKILL_LIST.map(s => s.id), 'swimming', 'diving']
+        this.cheatSkillIds = all.filter(id => !this.player.hasSkill(id))
+        for (const id of this.cheatSkillIds) this.player.learnSkill(id)
+        this.messageLog.add('You know all the skills.', '#ffff80')
+      } else {
+        for (const id of this.cheatSkillIds) this.player.skills.delete(id)
+        this.cheatSkillIds = []
+        this.messageLog.add('Cheat skills forgotten.', '#ffff80')
+      }
+    } else if (cheat === 'god') {
+      this.godMode = !this.godMode
+      this.messageLog.add(`God mode ${this.godMode ? 'activated' : 'deactivated'}.`, '#ffff80')
+    } else if (this.cheatItemIds.length === 0) {
+      this.cheatItemIds = this.addAllItems()
+      this.messageLog.add('All items added to your inventory.', '#ffff80')
+    } else {
+      // Equipped cheat items stay; unequipping here would skip their stat bookkeeping
+      for (const id of this.cheatItemIds) this.inventory.removeFromInventory(this.player.inventory, id)
+      this.cheatItemIds = []
+      this.messageLog.add('Cheat items removed from your inventory.', '#ffff80')
+    }
+    this.statsPanel.update(this.player, this.turnManager.getTurn())
   }
 
   private buildMap(): void {
@@ -492,7 +580,45 @@ export class GameScene extends Phaser.Scene {
       if (placed) allMonsters.push({ x: placed.x, y: placed.y, defId })
     }
 
+    allMonsters.push(...this.salamanderSpots(occupied()))
+
     this.spawnEntities(allMonsters, allItems)
+    this.refreshMamMessage()
+  }
+
+  // Mom's line follows the birthday quest, wherever she turns up
+  private refreshMamMessage(): void {
+    const message = this.worldState.mamHasVase ? 'La la la la! La la la laaaa!'
+      : this.worldState.mamHasOrange ? 'La la la la! La la laaaa! ...oh, if only I had a blue vase to put these flowers in.'
+      : 'Cough... Orange juice... Cough... Cough...'
+    for (const mam of this.monsters.filter(m => m.defId === 'mam')) mam.message = message
+  }
+
+  // One to three salamanders on dry land right beside the water, on maps with a fair bit of it
+  private salamanderSpots(occupied: Array<{ x: number; y: number }>): Array<{ x: number; y: number; defId: string }> {
+    const isWater = (x: number, y: number) => {
+      const id = this.mapSystem.getTile(x, y)?.defId
+      return id === 'water' || id === 'water_bath'
+    }
+    const taken = new Set(occupied.map(p => `${p.x},${p.y}`))
+    let waterTiles = 0
+    const shore: Array<{ x: number; y: number }> = []
+    for (let y = 1; y < this.mapSystem.height - 1; y++)
+      for (let x = 1; x < this.mapSystem.width - 1; x++) {
+        if (isWater(x, y)) { waterTiles++; continue }
+        const tile = this.mapSystem.getTile(x, y)
+        if (!tile || !this.mapSystem.isWalkable(x, y) || isSpecialTile(tile.defId) || taken.has(`${x},${y}`)) continue
+        if (Math.abs(x - this.player.x) < 5 && Math.abs(y - this.player.y) < 3) continue
+        if (isWater(x + 1, y) || isWater(x - 1, y) || isWater(x, y + 1) || isWater(x, y - 1)) shore.push({ x, y })
+      }
+    if (waterTiles < 6 || shore.length === 0) return []
+    const spots: Array<{ x: number; y: number; defId: string }> = []
+    const count = 1 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < count && shore.length > 0; i++) {
+      const [p] = shore.splice(Math.floor(Math.random() * shore.length), 1)
+      spots.push({ x: p.x, y: p.y, defId: 'salamander' })
+    }
+    return spots
   }
 
   private spawnEntities(
@@ -557,6 +683,199 @@ export class GameScene extends Phaser.Scene {
       ?? this.findSpotNearPlayer()
     this.spawnEntities([{ x: spot.x, y: spot.y, defId: 'paard' }], [])
     this.messageLog.add('The horse is here too, blocking your way!', '#c08040')
+  }
+
+  // Standing next to Sas on the driveway after the horse died of Petergrass: she
+  // takes the player by the hand and walks them to the carcass. Lex tags along
+  // unless he is busy with a juicy fish.
+  private checkSasHorseWalk(): void {
+    if (this.sasWalk || this.worldState.sasMourned || !this.worldState.deadHorseSite) return
+    if (this.worldState.currentArea !== 'driveway' || !this.player.isAlive()) return
+    const sas = this.monsters.find(m => m.defId === 'sas' && m.isAlive())
+    if (!sas || Math.max(Math.abs(sas.x - this.player.x), Math.abs(sas.y - this.player.y)) > 1) return
+    const exit = { x: MAP_W - 1, y: 1 }  // hall arrows in the driveway's top-right corner
+    const path = this.sasPath(sas, (x, y) => x === exit.x && y === exit.y)
+    if (!path) return
+    const lex = this.monsters.find(m => m.defId === 'lex' && m.isAlive() && !m.eatingFish && m.stunTurns <= 0) ?? null
+    this.worldState.sasMourned = true
+    this.sasWalk = { sas, lex, path, onDriveway: true }
+    this.inputBlocked = true
+    if (this.inventoryScreen.isVisible()) this.inventoryScreen.hide()
+    this.messageLog.add('Sas looks at you with tears in her eyes and takes you by the hand.', '#ffff80')
+    if (lex) this.messageLog.add('Lex trots after you.', '#c0c0c0')
+    this.scheduleSasStep()
+  }
+
+  // Shortest walk for Sas from her tile to the first tile satisfying `isGoal`
+  // (excluding her own tile). Doors are fine; other transit tiles only as goal.
+  private sasPath(from: { x: number; y: number }, isGoal: (x: number, y: number) => boolean): Array<{ x: number; y: number }> | null {
+    const prev = new Map<number, number>()
+    const key = (x: number, y: number) => y * MAP_W + x
+    const start = key(from.x, from.y)
+    prev.set(start, -1)
+    const queue = [start]
+    while (queue.length > 0) {
+      const cur = queue.shift()!
+      const cx = cur % MAP_W, cy = Math.floor(cur / MAP_W)
+      if (cur !== start && isGoal(cx, cy)) {
+        const path: Array<{ x: number; y: number }> = []
+        for (let k = cur; k !== start; k = prev.get(k)!) path.unshift({ x: k % MAP_W, y: Math.floor(k / MAP_W) })
+        return path
+      }
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = cx + dx, ny = cy + dy
+          if (!this.mapSystem.isInBounds(nx, ny) || prev.has(key(nx, ny))) continue
+          if (!this.mapSystem.isWalkable(nx, ny)) continue
+          const id = this.mapSystem.getTile(nx, ny)!.defId
+          if (isSpecialTile(id) && !id.startsWith('door') && !isGoal(nx, ny)) continue
+          prev.set(key(nx, ny), cur)
+          queue.push(key(nx, ny))
+        }
+    }
+    return null
+  }
+
+  private scheduleSasStep(): void {
+    this.time.delayedCall(250, () => this.sasStep())
+  }
+
+  // One step of the walk: Sas moves along her path, the player takes her old
+  // tile, Lex takes the player's old one; everyone else gets out of her way.
+  private sasStep(): void {
+    const walk = this.sasWalk
+    if (!walk) return
+    if (this.locationOverlay) { this.scheduleSasStep(); return }
+    const { sas, lex } = walk
+    const next = walk.path.shift()
+    if (!next) {
+      if (walk.onDriveway) this.sasEnterHorseMap()
+      else this.finishSasWalk()
+      return
+    }
+    const blocker = this.getMonsterAt(next.x, next.y)
+    if (blocker && blocker !== sas && blocker !== lex) this.shoveAside(blocker, walk.path)
+
+    const sasFrom = { x: sas.x, y: sas.y }
+    const playerFrom = { x: this.player.x, y: this.player.y }
+    sas.x = next.x; sas.y = next.y
+    if (this.mapSystem.getTile(next.x, next.y)?.defId === 'door_closed') this.mapSystem.setTile(next.x, next.y, 'door_open')
+    this.player.x = sasFrom.x; this.player.y = sasFrom.y
+    if (lex) {
+      if (Math.max(Math.abs(lex.x - playerFrom.x), Math.abs(lex.y - playerFrom.y)) <= 1) { lex.x = playerFrom.x; lex.y = playerFrom.y }
+      else lex.stepToward(playerFrom.x, playerFrom.y)
+    }
+
+    // Everyone else keeps two tiles clear of Sas and off the stretch she is about to walk
+    const ahead = walk.path.slice(0, 3)
+    for (const m of this.monsters) {
+      if (m === sas || m === lex || !m.isAlive()) continue
+      const near = Math.max(Math.abs(m.x - sas.x), Math.abs(m.y - sas.y)) <= 2
+      if (near || ahead.some(p => p.x === m.x && p.y === m.y)) this.fleeFromSas(m, sas, ahead)
+    }
+
+    this.refreshMapViews()
+    this.scheduleSasStep()
+  }
+
+  private isFreeForFlee(x: number, y: number, avoid: Array<{ x: number; y: number }>): boolean {
+    if (!this.mapSystem.isWalkable(x, y) || isSpecialTile(this.mapSystem.getTile(x, y)!.defId)) return false
+    if (x === this.player.x && y === this.player.y) return false
+    if (this.getMonsterAt(x, y)) return false
+    return !avoid.some(p => p.x === x && p.y === y)
+  }
+
+  // Step to the neighbouring tile farthest from Sas that is off her path
+  private fleeFromSas(m: Monster, sas: Monster, ahead: Array<{ x: number; y: number }>): void {
+    const dist = (x: number, y: number) => Math.max(Math.abs(x - sas.x), Math.abs(y - sas.y))
+    const onPath = ahead.some(p => p.x === m.x && p.y === m.y)
+    let best: { x: number; y: number } | null = null
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = m.x + dx, ny = m.y + dy
+        if ((dx === 0 && dy === 0) || !this.isFreeForFlee(nx, ny, ahead)) continue
+        // Never closer to her, unless that is the only way off her path
+        if (dist(nx, ny) < dist(m.x, m.y) && !onPath) continue
+        if (!best || dist(nx, ny) > dist(best.x, best.y)) best = { x: nx, y: ny }
+      }
+    if (best) { m.x = best.x; m.y = best.y }
+  }
+
+  // A monster that could not get out of the way in time is pushed to the nearest free tile off the path
+  private shoveAside(m: Monster, path: Array<{ x: number; y: number }>): void {
+    const dist = (p: { x: number; y: number }) => Math.max(Math.abs(p.x - m.x), Math.abs(p.y - m.y))
+    const spot = this.freeSpots((x, y) => !path.some(p => p.x === x && p.y === y) && !(x === m.x && y === m.y))
+      .sort((a, b) => dist(a) - dist(b))[0]
+    if (spot) { m.x = spot.x; m.y = spot.y }
+  }
+
+  // Through the hall arrows straight onto the map where the horse lies, entering
+  // from its bottom or right edge, with Sas in front and the player (and Lex) behind.
+  private sasEnterHorseMap(): void {
+    const walk = this.sasWalk!
+    const site = this.worldState.deadHorseSite!
+    const followers = [walk.sas, ...(walk.lex ? [walk.lex] : [])]
+    for (const m of followers) this.turnManager.removeActor(m.id)
+    this.monsters = this.monsters.filter(m => !followers.includes(m))
+
+    const hall = /^hall_(\d+)_(\d+)$/.exec(site.key)
+    if (hall) {
+      this.worldState.ucx = Number(hall[1]); this.worldState.ucy = Number(hall[2])
+      this.transitionToArea('hall')
+    } else if (site.key.startsWith('area_')) {
+      this.transitionToArea(site.key.slice(5) as Parameters<GameScene['transitionToArea']>[0])
+    }
+    if (this.currentMapKey() !== site.key) { this.finishSasWalk(); return }
+
+    // Nearest tile along the bottom/right edge from which the horse can be reached
+    const atEdge = (x: number, y: number) => (x >= MAP_W - 2 || y >= MAP_H - 2) && !this.getMonsterAt(x, y)
+    const toEdge = this.sasPath(site, atEdge)
+    const start = toEdge?.[toEdge.length - 1]
+    if (!toEdge || !start) { this.finishSasWalk(); return }
+    // Her route runs back along that path, stopping beside the horse
+    walk.path = toEdge.slice(0, -1).reverse()
+    walk.onDriveway = false
+
+    const occupied = [start]
+    const behind = (from: { x: number; y: number }) => {
+      let best: { x: number; y: number } | null = null
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = from.x + dx, ny = from.y + dy
+          if (!this.mapSystem.isWalkable(nx, ny) || this.getMonsterAt(nx, ny)) continue
+          if (occupied.some(p => p.x === nx && p.y === ny) || walk.path.some(p => p.x === nx && p.y === ny)) continue
+          // Prefer the tile closest to the edge she came in from
+          if (!best || nx + ny > best.x + best.y) best = { x: nx, y: ny }
+        }
+      return best ?? from
+    }
+    walk.sas.x = start.x; walk.sas.y = start.y
+    const p = behind(start)
+    occupied.push(p)
+    this.player.x = p.x; this.player.y = p.y
+    if (walk.lex) { const l = behind(p); walk.lex.x = l.x; walk.lex.y = l.y }
+
+    for (const m of followers) {
+      m.energy = 0
+      m.setContext(this.mapSystem, this.player, (mx, my) => this.getMonsterAt(mx, my), (mm) => this.handleMonsterAttack(mm))
+      this.monsters.push(m)
+      this.turnManager.addActor(m)
+    }
+    this.refreshMapViews()
+    this.scheduleSasStep()
+  }
+
+  private finishSasWalk(): void {
+    const walk = this.sasWalk
+    this.sasWalk = null
+    this.inputBlocked = false
+    if (walk && !walk.onDriveway) {
+      walk.sas.aiType = 'static'
+      walk.sas.message = 'Poor horse...'
+      walk.sas.hasSpoken = false
+      this.messageLog.add('Sas lets go of your hand and kneels beside the horse, sobbing quietly.', '#ffff80')
+    }
+    this.refreshMapViews()
   }
 
   // Lex can't resist a juicy fish lying on his map: he walks to the nearest one
@@ -655,6 +974,7 @@ export class GameScene extends Phaser.Scene {
 
   private transitionCell(dx: number, dy: number, fromDir: 'right'|'left'|'down'|'up', entryCoord: number): void {
     this.player.itemVision = false
+    const sasAlong = this.takeSasAlong()
     this.saveCellSnapshot(this.forestKey())
     this.worldState.go(dx, dy)
     this.ericChamberEntered = false
@@ -690,7 +1010,7 @@ export class GameScene extends Phaser.Scene {
     this.player.y = entry.y
 
     // Re-add companions near the player's entry position
-    this.bringCompanions(savedCompanions)
+    this.bringCompanions(savedCompanions, sasAlong)
 
     const {cx, cy} = this.worldState
     const realm = (cx === 0 && cy === 1) ? 'Mispelheim' : 'Garden'
@@ -757,6 +1077,7 @@ export class GameScene extends Phaser.Scene {
 
   private transitionHallCell(dx: number, dy: number, fromDir: 'right'|'left'|'down'|'up'): void {
     this.player.itemVision = false
+    const sasAlong = this.takeSasAlong()
     this.saveCellSnapshot(this.hallKey())
     this.worldState.goHall(dx, dy)
 
@@ -778,11 +1099,11 @@ export class GameScene extends Phaser.Scene {
       this.spawnMapEntities(hallResult.monsters, hallResult.items)
     }
 
-    const entry = this.applyDugEntry() ?? this.hallEntryTile(fromDir)
+    const entry = this.applyDugEntry() ?? this.alignEdgeEntry(this.hallEntryTile(fromDir))
     this.player.x = entry.x
     this.player.y = entry.y
 
-    this.bringCompanions(savedCompanions)
+    this.bringCompanions(savedCompanions, sasAlong)
 
     this.statsPanel.setRealm('Hall')
     this.endPlayerTurn()
@@ -795,6 +1116,7 @@ export class GameScene extends Phaser.Scene {
     this.traderUnpaidGhosts.clear()
     this.localMapView.groundDecorations = []
     const prevArea = this.worldState.currentArea
+    const sasAlong = this.takeSasAlong()
     this.saveCellSnapshot(this.worldState.currentArea === null ? this.forestKey() : this.areaKey(this.worldState.currentArea))
     const savedCompanions = this.companions.slice()
     for (const m of this.monsters) this.turnManager.removeActor(m.id)
@@ -844,15 +1166,6 @@ export class GameScene extends Phaser.Scene {
       this.spawnMapEntities(result.monsters, result.items)
     }
 
-    if (area === 'kitchen') {
-      const mam = this.monsters.find(m => m.defId === 'mam')
-      if (mam && this.worldState.mamHasVase) {
-        mam.message = 'La la la la! La la la laaaa!'
-      } else if (mam && this.worldState.mamHasOrange) {
-        mam.message = 'La la la la! La la laaaa! ...oh, if only I had a blue vase to put these flowers in.'
-      }
-    }
-
     // Walking between the two upper hall cells, or between a hall cell and one
     // of its rooms, lands next to the arrow that leads back the way you came
     const link = UPPER_HALL_LINKS.find(l =>
@@ -865,16 +1178,18 @@ export class GameScene extends Phaser.Scene {
       : prevArea === 'stairs' && area === 'loft'             ? this.findTile('portal_stairs')
       : prevArea === 'driveway' && area === 'hall'           ? this.besideNearestBorderTile('hall_exit_driveway', this.player.x)
       : undefined
-    const entry = this.applyDugEntry() ?? exactEntry ?? upperHallEntry
+    // The study and Mar's room meet the upper hall on a different edge: any free tile on the same x/y will do
+    const looseLink = !!link && (link.room === 'study' || link.room === 'bedroom_lower')
+    const entry = this.applyDugEntry() ?? this.alignEdgeEntry(exactEntry ?? upperHallEntry
       ?? ((fromDir !== undefined && entryCoord !== undefined)
         ? this.firstEntryTile(fromDir, entryCoord)
-        : result.player)
+        : result.player), looseLink)
     this.player.x = entry.x
     this.player.y = entry.y
     this.setupEricsBedroom()
     if (prevArea === 'driveway' && area === 'hall') this.placeDrivewayHorse()
 
-    this.bringCompanions(savedCompanions)
+    this.bringCompanions(savedCompanions, sasAlong)
 
     const msg = area === 'bathroom_top'    ? 'You enter the bathroom.'
       : area === 'bathroom_bottom'         ? 'You descend into the bath room.'
@@ -1007,14 +1322,43 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // Playing the clarinet (from the use menu or the Music skill). With the Music
+  // skill it marks this spot; playing again warps back to the last marked spot.
+  private playClarinet(): void {
+    const known = this.player.hasSkill('music')
+    this.sound.play(known ? 'sfx_clarinet_bad' : 'sfx_clarinet_worse')
+
+    if (!known || this.worldState.currentArea === 'stairs') {
+      this.messageLog.add(known
+        ? "You play something beautiful, but this place is too chaotic to remember."
+        : 'You play a happy tune on the clarinet.', known ? '#ff8080' : '#c08080')
+      this.endPlayerTurn()
+      return
+    }
+
+    const here = this.currentLocation()
+    const prev = this.worldState.clarinetLocation
+    this.worldState.clarinetLocation = here
+
+    if (!prev) {
+      this.messageLog.add('You play something beautiful. You will remember this place when you play again.', '#ff40ff')
+      this.endPlayerTurn()
+      return
+    }
+
+    this.messageLog.add('You play something beautiful. The melody pulls you back to where you last played it!', '#ff40ff')
+    this.clarinetWarp(prev)
+  }
+
   // The clarinet's / Scroll of Transport's return warp: reload whatever
   // area/cell was remembered, dropping the player on the exact tile.
-  private clarinetWarp(loc: ClarinetLocation): void {
+  // anySpot: ignore loc.x/y and land on the map's spawn tile (or a free tile).
+  private clarinetWarp(loc: ClarinetLocation, anySpot = false): void {
     const sameSpot = this.worldState.currentArea === loc.area
       && (loc.area !== null || (this.worldState.cx === loc.cx && this.worldState.cy === loc.cy))
       && (loc.area !== 'hall' || (this.worldState.ucx === loc.ucx && this.worldState.ucy === loc.ucy))
 
-    if (sameSpot) {
+    if (sameSpot && !anySpot) {
       this.player.x = loc.x
       this.player.y = loc.y
       this.updateFOV()
@@ -1042,11 +1386,21 @@ export class GameScene extends Phaser.Scene {
     if (loc.area === 'hall') { this.worldState.ucx = loc.ucx!; this.worldState.ucy = loc.ucy! }
 
     const enterKey = loc.area === null ? this.forestKey() : this.areaKey(loc.area)
+    let spawn: { x: number; y: number } | undefined
     if (!this.tryRestoreFromSnapshot(enterKey)) {
       const result = this.generateAreaSpawnPoints(loc.area)
       this.spawnMapEntities(result.monsters, result.items)
+      spawn = result.player
     }
 
+    if (anySpot) {
+      if (!spawn || !this.mapSystem.isWalkable(spawn.x, spawn.y) || this.getMonsterAt(spawn.x, spawn.y)) {
+        const mid = { x: this.mapSystem.width / 2, y: this.mapSystem.height / 2 }
+        spawn = this.freeSpots().sort((a, b) =>
+          Math.hypot(a.x - mid.x, a.y - mid.y) - Math.hypot(b.x - mid.x, b.y - mid.y))[0] ?? spawn
+      }
+      loc = { ...loc, x: spawn?.x ?? 1, y: spawn?.y ?? 1 }
+    }
     this.player.x = loc.x
     this.player.y = loc.y
     this.setupEricsBedroom()
@@ -1133,7 +1487,7 @@ export class GameScene extends Phaser.Scene {
     const monsters = this.monsters
       .filter(m => !companionIds.has(m.id))
       .map(m => ({ defId: m.defId, x: m.x, y: m.y, hp: m.hp, message: m.message, hasSpoken: m.hasSpoken, stunTurns: m.stunTurns, eatingFish: m.eatingFish || undefined }))
-    const items = this.floorItems.map(fi => ({ x: fi.x, y: fi.y, defId: fi.item.defId, qty: fi.item.quantity, charges: fi.item.charges }))
+    const items = this.floorItems.map(fi => ({ x: fi.x, y: fi.y, defId: fi.item.defId, qty: fi.item.quantity, charges: fi.item.charges, quality: fi.item.quality }))
     this.worldState.cellSnapshots.set(key, { tiles, monsters, items })
   }
 
@@ -1169,8 +1523,10 @@ export class GameScene extends Phaser.Scene {
     for (const it of snap.items) {
       const instance = this.inventory.createInstance(it.defId, it.qty)
       if (it.charges !== undefined) instance.charges = it.charges
+      instance.quality = it.quality
       this.floorItems.push(new FloorItem(it.x, it.y, instance))
     }
+    this.refreshMamMessage()
     return true
   }
 
@@ -1246,6 +1602,7 @@ export class GameScene extends Phaser.Scene {
     this.traderUnpaidGhosts.clear()
     this.updateMusic(null)
     if (this.worldState.currentArea === 'stairs') this.stopBombSpawner()
+    const sasAlong = this.takeSasAlong()
     this.saveCellSnapshot(this.areaKey(this.worldState.currentArea!))
     const areaLeft = this.worldState.currentArea
     const savedCompanions = this.companions.slice()
@@ -1264,11 +1621,11 @@ export class GameScene extends Phaser.Scene {
       )
       this.spawnMapEntities(monsters, items)
     }
-    const entry = this.applyDugEntry() ?? { x: this.worldState.savedPlayerX, y: this.worldState.savedPlayerY }
+    const entry = this.applyDugEntry() ?? this.alignEdgeEntry({ x: this.worldState.savedPlayerX, y: this.worldState.savedPlayerY })
     this.player.x = entry.x
     this.player.y = entry.y
 
-    this.bringCompanions(savedCompanions)
+    this.bringCompanions(savedCompanions, sasAlong)
 
     const leaveMsg = areaLeft?.startsWith('bathroom') ? 'You leave the bathroom.'
       : areaLeft === 'hall' ? 'You climb back to the surface.'
@@ -1298,6 +1655,7 @@ export class GameScene extends Phaser.Scene {
         if (inv.isVisible() && inv.getMode() === mode) { inv.hide(); return }
         inv.show(this.player, mode as Parameters<typeof inv.show>[1])
       }
+      if (this.inputBlocked) return
       switch (action) {
         case 'pack':    inv.isVisible() && inv.getMode() === 'all' ? inv.hide() : this.openInventory(); break
         case 'wear':    toggleInv('wear');   break
@@ -1308,6 +1666,7 @@ export class GameScene extends Phaser.Scene {
         case 'mix':     toggleInv('mix');    break
         case 'read':    toggleInv('read');   break
         case 'useitem': toggleInv('use');    break
+        case 'npc':     this.tryNpcInteract(); break
         case 'throw':   toggleInv('throw');  break
         case 'zap':     inv.isVisible() && inv.getMode() === 'zap' ? inv.hide() : this.tryStartZap(); break
         case 'drop':    toggleInv('drop');   break
@@ -1362,8 +1721,14 @@ export class GameScene extends Phaser.Scene {
     this.skillScreen.onActivate = (skillId) => {
       if (skillId === 'ventriloquism') this.useVentriloquism()
       if (skillId === 'clothespin_trap') this.makeClothespinTrap()
+      if (skillId === 'music') {
+        if (this.player.inventory.some(it => it.defId === 'clarinet')) this.playClarinet()
+        else this.messageLog.add('You do not have an instrument.', '#808080')
+      }
     }
     this.questScreen = new QuestScreen(this)
+    this.questScreen.cheatCodes = Object.keys(this.cheatActions())
+    this.questScreen.onCheat = (code) => this.cheatActions()[code]?.()
     this.travellersLog = new TravellersLog(this)
 
     this.inventoryScreen = new InventoryScreen(
@@ -1498,13 +1863,17 @@ export class GameScene extends Phaser.Scene {
         `You mix the ${def1.name} and ${def2.name} into a ${resultDef?.name} potion!`,
         '#AA5500',
       )
+      if (resultId === 'invulnerability_potion')
+        this.messageLog.add('Its power is precious. Save it for only the most dangerous situations!', '#ffff80')
       this.inventoryScreen.hide()
       this.endPlayerTurn()
     }
 
     this.inventoryScreen.onConsume = (item, player) => {
-      const def = this.inventory.getDef(item.defId)
+      let def = this.inventory.getDef(item.defId)
       if (!def) return
+      // Speculaas stacks hide which biscuits are bad: decide on eating
+      if (item.defId === 'speculaas' && Math.random() < BAD_SPECULAAS_CHANCE) def = this.inventory.getDef('speculaas_bad') ?? def
       if (item.defId === 'second_life_potion') {
         player.secondLife = true
         this.messageLog.add('You feel watched over by divine forces.', '#ffd080')
@@ -1538,8 +1907,8 @@ export class GameScene extends Phaser.Scene {
         player.spriteKey = `monster_${monsterId}`
         this.messageLog.add(`Your body warps and twists. You become a ${monsterDef.name}! (STR +${monsterDef.str}, Max HP +${monsterDef.hp})`, '#40ffff')
       } else if (item.defId === 'speed_potion') {
-        // Doses stack (speed capped at 400) and reset the duration
-        const gain = Math.max(0, Math.min(100, 400 - player.speed))
+        // Doses stack (no cap — above 400 every step hurts) and reset the duration
+        const gain = 100
         player.speed += gain
         player.speedPotionBonus += gain
         player.speedTurns = 30
@@ -1690,31 +2059,22 @@ export class GameScene extends Phaser.Scene {
         return
       }
 
-      if (item.defId === 'clarinet') {
-        const known = player.hasSkill('music')
-        this.sound.play(known ? 'sfx_clarinet_bad' : 'sfx_clarinet_worse')
+      if (item.defId === 'telephone') {
         this.inventoryScreen.hide()
+        this.playPhoneCall()
+        return
+      }
 
-        if (!known || this.worldState.currentArea === 'stairs') {
-          this.messageLog.add(known
-            ? "You play something beautiful, but this place is too chaotic to remember."
-            : 'You play a happy tune on the clarinet.', known ? '#ff8080' : '#c08080')
-          this.endPlayerTurn()
-          return
-        }
+      if (item.defId === 'toiletBrush') {
+        this.inventoryScreen.hide()
+        if (this.mapSystem.getTile(player.x, player.y)?.defId === 'toilet') this.flushToilet()
+        else this.messageLog.add('You have no use for the toilet brush here.', '#808080')
+        return
+      }
 
-        const here = this.currentLocation()
-        const prev = this.worldState.clarinetLocation
-        this.worldState.clarinetLocation = here
-
-        if (!prev) {
-          this.messageLog.add('You play something beautiful. You will remember this place when you play again.', '#ff40ff')
-          this.endPlayerTurn()
-          return
-        }
-
-        this.messageLog.add('You play something beautiful. The melody pulls you back to where you last played it!', '#ff40ff')
-        this.clarinetWarp(prev)
+      if (item.defId === 'clarinet') {
+        this.inventoryScreen.hide()
+        this.playClarinet()
         return
       }
 
@@ -1911,7 +2271,7 @@ export class GameScene extends Phaser.Scene {
 
     this.inventoryScreen.onPay = (item, player) => {
       const def = this.inventory.getDef(item.defId)
-      const price = def?.value ?? 0
+      const price = itemValue(def, item)
       if (player.gold < price) {
         this.messageLog.add(`Not enough cents! ${def?.name ?? item.defId} costs ${price}c.`, '#ff8040')
         this.inventoryScreen.refresh(player)
@@ -1938,10 +2298,11 @@ export class GameScene extends Phaser.Scene {
       if (item.quantity > 1) {
         item.quantity--
         sold = this.inventory.createInstance(item.defId)
+        sold.quality = item.quality
       } else {
         this.inventory.removeFromInventory(player.inventory, item.instanceId)
       }
-      const price = sellPrice(def?.value)
+      const price = sellPrice(itemValue(def, sold))
       player.gold += price
       this.floorItems.push(new FloorItem(player.x, player.y, sold))
       this.messageLog.add(`You sell the ${def?.name ?? item.defId} to Eric for ${price}c.`, '#ffd080')
@@ -2027,7 +2388,6 @@ export class GameScene extends Phaser.Scene {
           }
         }
       }
-      if (this.worldState.currentArea === 'stairs') this.advanceBombs()
       this.statsPanel.update(this.player, this.turnManager.getTurn())
       this.localMapView.render(this.player, this.monsters, this.floorItems, this.corpses)
       if (this.worldState.currentArea === 'stairs') this.localMapView.renderBombs(this.stairsBombs)
@@ -2060,6 +2420,7 @@ export class GameScene extends Phaser.Scene {
       if (event.key === 'r' && event.ctrlKey) {
         event.preventDefault()
         this.stopAllMusic()
+        this.phoneSound?.stop()
         this.scene.restart()
         return
       }
@@ -2069,6 +2430,8 @@ export class GameScene extends Phaser.Scene {
         this.triggerVictory()
         return
       }
+
+      if (this.phoneOverlay) { if (this.phoneHangUpReady) this.hangUpPhone(); return }
 
       if (this.locationOverlay) { this.hideLocationOverlay(); return }
 
@@ -2304,7 +2667,7 @@ export class GameScene extends Phaser.Scene {
       dy = r[1]
     }
     const standingTile = this.mapSystem.getTile(this.player.x, this.player.y)
-    if (standingTile?.defId === 'mud' && this.player.equipment.feet?.defId !== 'rubberboots') {
+    if ((standingTile?.defId === 'mud' || standingTile?.defId === 'mud_footprint') && this.player.equipment.feet?.defId !== 'rubberboots') {
       if (Math.random() < 0.8) {
         this.messageLog.add('You slip in the mud.', '#8b6040')
         this.endPlayerTurn()
@@ -2312,6 +2675,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (dy > 0 && this.worldState?.currentArea === 'stairs') this.stairsBombFallExtra = 1
+    this.preMove = { x: this.player.x, y: this.player.y }
     const nx = this.player.x + dx
     const ny = this.player.y + dy
 
@@ -2351,6 +2715,7 @@ export class GameScene extends Phaser.Scene {
             monster.y = this.player.y
             this.player.x = nx
             this.player.y = ny
+            this.hurtIfTooFast()
           }
         }
         this.endPlayerTurn()
@@ -2392,11 +2757,16 @@ export class GameScene extends Phaser.Scene {
       if (this.enterTransitTile(tile.defId, nx, ny)) return
     }
 
-    // Water: requires Diving skill (must first learn Swimming, then Diving)
-    if (tile?.defId === 'water' || tile?.defId === 'loft_water') {
-      if (this.player.hasSkill('diving')) {
+    // Water: requires Diving skill (must first learn Swimming, then Diving), or
+    // a Gompie to float on. Phasing doesn't help here.
+    if (tile && WATER_TILES.has(tile.defId)) {
+      if (this.player.hasSkill('diving') || this.hasGompie()) {
+        const fromLand = !WATER_TILES.has(standingTile?.defId ?? '')
+        if (fromLand && !this.player.hasSkill('diving'))
+          this.messageLog.add('You inflate your Gompie and float onto the water.', '#80c0ff')
         this.player.x = nx
         this.player.y = ny
+        this.hurtIfTooFast()
         this.endPlayerTurn()
       } else {
         this.messageLog.add(
@@ -2416,7 +2786,9 @@ export class GameScene extends Phaser.Scene {
       if (this.player.werewolfTurns > 0) this.endPlayerTurn()
       return
     }
-    if (!this.mapSystem.isWalkable(nx, ny) && (this.player.phasingTurns <= 0 || lockedIn)) {
+    // Holding the toilet brush lets the player climb onto a toilet
+    const brushToilet = tile.defId === 'toilet' && this.hasToiletBrush()
+    if (!brushToilet && !this.mapSystem.isWalkable(nx, ny) && (this.player.phasingTurns <= 0 || lockedIn)) {
       if (lockedIn && this.player.phasingTurns > 0) {
         this.messageLog.add("You can't phase through the trader's walls while you owe cents.", '#808080')
       }
@@ -2427,13 +2799,46 @@ export class GameScene extends Phaser.Scene {
 
     this.player.x = nx
     this.player.y = ny
+    if (tile.defId === 'mud') this.mapSystem.setTile(nx, ny, 'mud_footprint')
+    this.hurtIfTooFast()
     this.endPlayerTurn()
+  }
+
+  // Above speed 400 every step hurts; passing turns (. / 5) and other actions stay free.
+  private hurtIfTooFast(): void {
+    if (this.player.speed <= 400 || this.isInvulnerable()) return
+    this.player.hp = Math.max(0, this.player.hp - 20)
+    this.messageLog.add('You are moving too fast for your short legs!', '#ff4000')
+    if (!this.player.isAlive()) this.lastKilledBy = 'running too fast'
+  }
+
+  // NPC button: with a character next to you it opens the Use menu, as the Use button does.
+  private tryNpcInteract(): void {
+    const p = this.player
+    const near = this.monsters.some(m => m.isAlive() && (m.npc || m.defId === 'paard') &&
+      Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) === 1)
+    if (!near) {
+      this.messageLog.add('There is no other character next to you.', '#808080')
+      return
+    }
+    if (this.inventoryScreen.isVisible() && this.inventoryScreen.getMode() === 'use') this.inventoryScreen.hide()
+    else this.inventoryScreen.show(p, 'use')
   }
 
   // Stepping onto an arrow, portal or stairs tile: switches maps and returns true
   // when (x, y) leads somewhere. Also used for phasing across a map edge, which
   // follows the edge's arrow without stepping on it.
   private enterTransitTile(defId: string, x: number, y: number): boolean {
+    const side = this.edgeSideOf(x, y)
+    this.edgeCross = side ? { side, coord: side === 'left' || side === 'right' ? y : x } : null
+    try {
+      return this.followTransitTile(defId, x, y)
+    } finally {
+      this.edgeCross = null
+    }
+  }
+
+  private followTransitTile(defId: string, x: number, y: number): boolean {
     const tile = { defId }
     const isHallArea = this.worldState.currentArea === 'hall'
     // Dug or tunnelled arrows through a wall linking two rooms (see EDGE_LINKS)
@@ -2701,7 +3106,7 @@ export class GameScene extends Phaser.Scene {
     if (tile?.defId === 'exit_garage') {
       this.worldState.savedPlayerX = this.player.x
       this.worldState.savedPlayerY = this.player.y
-      this.transitionToArea('garage_top')
+      this.transitionToArea('garage_top', 'down', x)
       return true
     }
     if (tile?.defId === 'kitchen_exit') {
@@ -2724,13 +3129,19 @@ export class GameScene extends Phaser.Scene {
 
   private tryDiveIntoPond(): void {
     const tile = this.mapSystem.getTile(this.player.x, this.player.y)
-    if (tile?.defId === 'portal_stairs') {
+    if (tile?.defId === 'toilet' && this.hasToiletBrush()) {
+      this.flushToilet()
+    } else if (tile?.defId === 'portal_stairs') {
       this.stairsOrigin = this.worldState.currentArea
       this.worldState.savedPlayerX = this.player.x
       this.worldState.savedPlayerY = this.player.y
       this.transitionToArea('stairs')
     } else if (tile?.defId === 'water' && this.worldState.currentArea === null &&
         this.worldState.cx === 2 && this.worldState.cy === 0) {
+      if (!this.player.hasSkill('diving')) {
+        this.messageLog.add('You float on your Gompie, but you cannot dive.', '#80c0ff')
+        return
+      }
       this.worldState.savedPlayerX = this.player.x
       this.worldState.savedPlayerY = this.player.y
       this.transitionToArea('pond1')
@@ -2846,8 +3257,8 @@ export class GameScene extends Phaser.Scene {
       // Wiping out a species weighs on the soul and tempts fate
       const wasLevel = player.moraleLevel()
       player.morale -= 2
-      player.luck = Math.max(0, player.luck - 3)
-      this.messageLog.add('A heavy feeling settles over you. (Luck -3)', '#a080c0')
+      player.luck = Math.max(0, player.luck - 10)
+      this.messageLog.add('A heavy feeling settles over you. (Luck -10)', '#a080c0')
       if (player.moraleLevel() !== wasLevel)
         this.messageLog.add(`Your morale sinks: you feel ${player.moraleLevel().toLowerCase()}.`, '#a080c0')
       this.statsPanel.update(player, this.turnManager.getTurn())
@@ -2894,6 +3305,11 @@ export class GameScene extends Phaser.Scene {
       this.messageLog.add('Nothing here to pick up.', '#808080')
       return
     }
+    // Things on the bottom of the water need a diver to fetch them
+    if (WATER_TILES.has(this.mapSystem.getTile(this.player.x, this.player.y)?.defId ?? '') && !this.player.hasSkill('diving')) {
+      this.messageLog.add('Your short arms cannot reach the bottom.', '#4090d0')
+      return
+    }
     const fi = items[0]
     const def = this.inventory.getDef(fi.item.defId)
     if (fi.item.defId === 'gong' && !this.player.inventory.some(i => i.defId === 'gongmallet')) {
@@ -2906,12 +3322,19 @@ export class GameScene extends Phaser.Scene {
       this.endPlayerTurn()
       return
     }
+    const inForestChamber = this.worldState.cx === 1 && this.worldState.cy === 1 &&
+        this.worldState.currentArea === null &&
+        this.player.x >= 51 && this.player.x <= 57 &&
+        this.player.y >= 7 && this.player.y <= 10
+    const inTraderChamber = inForestChamber || this.worldState.currentArea === 'pantry'
     if (def?.type === 'gold') {
       const amount = (def.goldValue ?? 1) * fi.item.quantity
       this.player.gold += amount
       this.messageLog.add(`You pick up ${amount} cents.`, '#ffcc00')
     } else {
-      this.inventory.addToInventory(this.player.inventory, fi.item)
+      // Shop items stay separate so they can be paid for (or dropped back) one by one
+      this.inventory.addToInventory(this.player.inventory, fi.item,
+        inTraderChamber ? null : existing => !this.traderUnpaid.has(existing.instanceId))
     }
     this.floorItems.splice(this.floorItems.indexOf(fi), 1)
     if (fi.item.defId === 'gong') {
@@ -2919,11 +3342,6 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(1200, () => this.triggerVictory())
       return
     }
-    const inForestChamber = this.worldState.cx === 1 && this.worldState.cy === 1 &&
-        this.worldState.currentArea === null &&
-        this.player.x >= 51 && this.player.x <= 57 &&
-        this.player.y >= 7 && this.player.y <= 10
-    const inTraderChamber = inForestChamber || this.worldState.currentArea === 'pantry'
     if (inTraderChamber) {
       if (def?.type !== 'gold') this.traderUnpaid.add(fi.item.instanceId)
       if (inForestChamber && this.mapSystem.getTile(54, 11)?.defId === 'door_closed') {
@@ -2981,7 +3399,7 @@ export class GameScene extends Phaser.Scene {
     // Generic wands from older saves turn into a real kind on first use
     if (item.defId === 'wand') {
       item.defId = this.inventory.randomWandId()
-      item.charges = 3 + Math.floor(Math.random() * 6)
+      item.charges = rollWandCharges()
     }
     // Remotes from older saves had no charges yet
     if (item.defId === 'remote' && item.charges === undefined) item.charges = REMOTE_CHARGES
@@ -3056,13 +3474,15 @@ export class GameScene extends Phaser.Scene {
 
   // Follows a wand ray for `range` tiles, reflecting off whatever blocks it. A tile
   // for which `stopAt` returns true ends the ray there (and is included in `tiles`).
+  // throughTrees: the ray passes through living trees instead of bouncing off them.
   private traceBouncingRay(
     dx: number, dy: number, range: number,
     stopAt: (x: number, y: number) => boolean = () => false,
+    throughTrees = false,
   ): { tiles: Array<{ x: number; y: number }>; waypoints: Array<{ x: number; y: number }>; bounced: boolean } {
     const passable = (x: number, y: number) => {
       const tile = this.mapSystem.getTile(x, y)
-      return !!tile && (this.mapSystem.isWalkable(x, y) || tile.defId === 'water')
+      return !!tile && (this.mapSystem.isWalkable(x, y) || tile.defId === 'water' || (throughTrees && tile.defId === 'tree'))
     }
     let x = this.player.x, y = this.player.y
     const tiles: Array<{ x: number; y: number }> = []
@@ -3188,7 +3608,11 @@ export class GameScene extends Phaser.Scene {
     const color = kind === 'fire' ? '#ff6020' : '#80e0ff'
     const resists = kind === 'fire' ? this.hasHeatResistance() : this.hasColdResistance()
     const ray = this.traceBouncingRay(dx, dy, 12,
-      (x, y) => resists && x === this.player.x && y === this.player.y)
+      (x, y) => resists && x === this.player.x && y === this.player.y, true)
+
+    // Trees in the ray's path die; dead trees can be walked over
+    const killedTrees = ray.tiles.filter(t => this.mapSystem.getTile(t.x, t.y)?.defId === 'tree')
+    for (const t of killedTrees) this.mapSystem.setTile(t.x, t.y, 'tree_dead')
 
     const hits: Array<Monster | 'player'> = []
     for (const t of ray.tiles) {
@@ -3199,6 +3623,10 @@ export class GameScene extends Phaser.Scene {
 
     this.messageLog.add(kind === 'fire' ? 'A ray of fire shoots from the wand!' : 'A ray of ice shoots from the wand!', color)
     if (ray.bounced) this.messageLog.add('The ray bounces off the wall!', color)
+    if (killedTrees.length > 0)
+      this.messageLog.add(kind === 'fire'
+        ? (killedTrees.length === 1 ? 'A tree is scorched to death!' : 'The trees are scorched to death!')
+        : (killedTrees.length === 1 ? 'A tree freezes to death!' : 'The trees freeze to death!'), color)
     this.localMapView.animateBoltPath(ray.waypoints, color, () => {
       const spared = new Set<Monster>()
       for (const target of hits) {
@@ -3214,7 +3642,7 @@ export class GameScene extends Phaser.Scene {
           }
           this.player.hp -= dmg
           this.messageLog.add(kind === 'fire' ? `The fire burns you! (-${dmg} HP)` : `The ice freezes you! (-${dmg} HP)`, color)
-          if (!this.player.isAlive()) this.lastKilledBy = kind === 'fire' ? 'a wand of fire' : 'a wand of cold'
+          if (!this.player.isAlive()) this.lastKilledBy = kind === 'fire' ? 'a wand of fire' : 'a wand of ice'
           continue
         }
         const monster = target
@@ -3349,7 +3777,7 @@ export class GameScene extends Phaser.Scene {
     const { item, others } = candidates[Math.floor(Math.random() * candidates.length)]
     const newDef = others[Math.floor(Math.random() * others.length)]
     item.defId = newDef.id
-    if (newDef.wandEffect && item.charges === undefined) item.charges = 3 + Math.floor(Math.random() * 6)
+    if (newDef.wandEffect && item.charges === undefined) item.charges = rollWandCharges()
     this.messageLog.add('Your pack quivers.', '#c040ff')
   }
 
@@ -3432,6 +3860,17 @@ export class GameScene extends Phaser.Scene {
     this.endPlayerTurn()
   }
 
+  // Strength 18 throws 2 tiles, each full point above that one more (max 11);
+  // heavy items fly half their weight shorter
+  private throwDistance(weight: number): number {
+    return Math.min(11, Math.max(1, Math.floor(this.player.str) - 16 - Math.floor(weight / 2))) + this.shootingBonus()
+  }
+
+  // A katapult held for shooting adds this to both throw distance and thrown damage
+  private shootingBonus(): number {
+    return this.player.equipment.launcher?.defId === 'katapult' ? 2 : 0
+  }
+
   private throwWeapon(item: ItemInstance, dx: number, dy: number): void {
     const def = this.inventory.getDef(item.defId)
     if (!def) return
@@ -3444,7 +3883,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (item.defId === 'banaan') {
-      const maxDist = Math.min(8, Math.max(1, Math.floor((this.player.str * 2) / 1)))
+      const maxDist = this.throwDistance(def.weight ?? 0)
       let landX = this.player.x
       let landY = this.player.y
       let directHit = false
@@ -3469,7 +3908,7 @@ export class GameScene extends Phaser.Scene {
         'banaan',
         this.player.x, this.player.y,
         landX, landY,
-        () => this.bananaExplode(landX, landY, true, () => this.endPlayerTurn(), directHit ? (def.damage ?? 10) : 3),
+        () => this.bananaExplode(landX, landY, true, () => this.endPlayerTurn(), directHit ? (def.damage ?? 10) + this.shootingBonus() : 3),
       )
       return
     }
@@ -3477,18 +3916,21 @@ export class GameScene extends Phaser.Scene {
     // From a stack (e.g. shurikens) only one is thrown
     if (item.quantity > 1) {
       item.quantity--
-      this.throwWeapon(this.inventory.createInstance(item.defId, 1), dx, dy)
+      const one = this.inventory.createInstance(item.defId, 1)
+      one.quality = item.quality
+      this.throwWeapon(one, dx, dy)
       return
     }
 
-    const weight = Math.max(1, def.weight ?? 1)
-    const maxDist = Math.min(8, Math.max(1, Math.floor((this.player.str * 2) / weight)))
+    const maxDist = this.throwDistance(def.weight ?? 0)
 
     this.inventory.removeFromInventory(this.player.inventory, item.instanceId)
     this.forgiveIfUnpaid(item)
 
     let landX = this.player.x
     let landY = this.player.y
+    // Hit messages are held back so they follow the "You throw ..." line
+    const hitMsgs: Array<[string, string]> = []
 
     for (let i = 1; i <= maxDist; i++) {
       const nx = this.player.x + dx * i
@@ -3506,27 +3948,29 @@ export class GameScene extends Phaser.Scene {
 
       const monster = this.getMonsterAt(nx, ny)
       if (monster && (monster.aiType === 'friendly' || monster.aiType === 'follow' || monster.npc)) {
-        this.messageLog.add(`You kindly throw the ${def.name} around ${monster.name}.`, '#80c080')
+        hitMsgs.push([`You kindly throw the ${def.name} around ${monster.name}.`, '#80c080'])
       } else if (monster) {
         if (item.defId === 'pannenkoek') {
           monster.stunTurns = 3
-          this.messageLog.add(`The pannenkoek splats over ${monster.name}'s face! (blinded 3 turns)`, '#e0a060')
+          hitMsgs.push([`The pannenkoek splats over ${monster.name}'s face! (blinded 3 turns)`, '#e0a060'])
           landX = nx; landY = ny
           break
         } else if (item.defId === 'mispel') {
-          this.messageLog.add(`The mispel splatters on the ${monster.name}!`, '#806040')
+          hitMsgs.push([`The mispel splatters on the ${monster.name}!`, '#806040'])
           landX = nx; landY = ny
           break
+        } else if (monster.rolled) {
+          hitMsgs.push([`The ${def.name} bounces off the rolled-up ${monster.name}.`, '#a0a0a0'])
         } else if (Math.random() * 100 >= playerHitChance(this.player, monster)) {
-          this.messageLog.add(`The ${def.name} misses the ${monster.name}.`, '#a0a0a0')
+          hitMsgs.push([`The ${def.name} misses the ${monster.name}.`, '#a0a0a0'])
         } else {
-          let dmg = Math.max(1, def.damage ?? 1)
+          let dmg = Math.max(1, itemDamage(def, item)) + this.shootingBonus()
           if (item.defId === 'silversword' && monster.defId === 'werewolf') dmg = Math.max(dmg, monster.hp)
           monster.hp = Math.max(0, monster.hp - dmg)
-          this.messageLog.add(`The ${def.name} hits the ${monster.name}! (${dmg} dmg)`, '#ff8040')
+          hitMsgs.push([`The ${def.name} hits the ${monster.name}! (${dmg} dmg)`, '#ff8040'])
           if (!monster.isAlive()) {
             this.removeMonster(monster)
-            this.messageLog.add(`The ${monster.name} is slain!`, '#ff4040')
+            hitMsgs.push([`The ${monster.name} is slain!`, '#ff4040'])
           }
         }
       }
@@ -3537,6 +3981,7 @@ export class GameScene extends Phaser.Scene {
     // mispel always disappears after throw (splashes)
     if (item.defId === 'mispel') {
       this.messageLog.add(`You throw the ${def.name}. It splatters and disappears.`, '#806040')
+      for (const [m, c] of hitMsgs) this.messageLog.add(m, c)
       this.localMapView.animateThrow(
         item.defId,
         this.player.x, this.player.y,
@@ -3555,6 +4000,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.messageLog.add(`You throw the ${def.name}.`, '#c0c0c0')
+    for (const [m, c] of hitMsgs) this.messageLog.add(m, c)
 
     this.localMapView.animateThrow(
       item.defId,
@@ -3744,6 +4190,64 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(400, tick)
   }
 
+  private hasToiletBrush(): boolean {
+    return this.player.inventory.some(i => i.defId === 'toiletBrush')
+  }
+
+  // A Gompie in the pack lets the player float over water (but not swim or dive)
+  private hasGompie(): boolean {
+    return this.player.inventory.some(i => i.defId === 'gompie')
+  }
+
+  // Flushing with the toilet brush: the player is stuck while the sound plays,
+  // and a turn passes every 250 ms until it ends.
+  // Telephone: a Teams call to Sas shown fullscreen. Keys are ignored while the
+  // call plays out; once the last screen has shown for 5 s, any key hangs up.
+  private playPhoneCall(): void {
+    this.messageLog.add('You pick up the telephone and dial...', '#ff8080')
+    this.inputBlocked = true
+    this.phoneHangUpReady = false
+    const img = this.add.image(0, 0, 'call_teams_start').setOrigin(0, 0)
+      .setDisplaySize(GAME_W, GAME_H).setDepth(1100)
+    this.phoneOverlay = img
+    const show = (key: string) => img.setTexture(key).setDisplaySize(GAME_W, GAME_H)
+    this.time.delayedCall(1000, () => {
+      show('call_teams')
+      this.phoneSound = this.sound.add('sfx_teams')
+      this.phoneSound.play()
+      this.time.delayedCall(2000, () => {
+        show('call_sas_skype')
+        this.time.delayedCall(5000, () => { this.phoneHangUpReady = true })
+      })
+    })
+  }
+
+  private hangUpPhone(): void {
+    this.phoneSound?.stop()
+    this.phoneSound?.destroy()
+    this.phoneSound = null
+    this.phoneOverlay?.destroy()
+    this.phoneOverlay = null
+    this.phoneHangUpReady = false
+    this.inputBlocked = false
+  }
+
+  private flushToilet(): void {
+    this.messageLog.add('You give the toilet a thorough scrub and pull the chain.', '#c0c040')
+    this.inputBlocked = true
+    const snd = this.sound.add('sfx_toilet')
+    let playing = true
+    snd.once('complete', () => { playing = false; snd.destroy() })
+    snd.play()
+    const tick = () => {
+      if (this.player.hp <= 0) { snd.stop(); snd.destroy(); return }
+      if (!playing) { this.inputBlocked = false; return }
+      this.endPlayerTurn()
+      this.time.delayedCall(250, tick)
+    }
+    this.time.delayedCall(250, tick)
+  }
+
   private passTime(): void {
     this.messageLog.add('You wait.', '#606060')
     this.endPlayerTurn()
@@ -3763,7 +4267,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private isInvulnerable(): boolean {
-    return GOD_MODE || this.player.invulnerableTurns > 0
+    return this.godMode || this.player.invulnerableTurns > 0
   }
 
   private hasFamineRing(): boolean {
@@ -3870,11 +4374,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   // Dad hums the Smurf tune once each time he comes into view, unless other
-  // audio (music included) is already playing.
+  // audio (music included) is already playing. Louder the closer he is:
+  // full volume right next to you, silent from 7 tiles away.
   private checkDadInSight(): void {
-    const seen = this.player.blindTurns <= 0 && this.monsters.some(m =>
-      m.defId === 'pap2' && m.isAlive() && this.mapSystem.getTile(m.x, m.y)?.visible)
-    if (seen && !this.dadInSight && this.sound.getAllPlaying().length === 0) this.sound.play('sfx_smurf')
+    const dad = this.monsters.find(m => m.defId === 'pap2' && m.isAlive())
+    const seen = !!dad && this.player.blindTurns <= 0 && !!this.mapSystem.getTile(dad.x, dad.y)?.visible
+    const dist = dad ? Math.max(Math.abs(dad.x - this.player.x), Math.abs(dad.y - this.player.y)) : Infinity
+    const volume = Phaser.Math.Clamp((7 - dist) / 6, 0, 1)
+    if (seen && !this.dadInSight && this.sound.getAllPlaying().length === 0) {
+      this.smurfSound?.destroy()
+      this.smurfSound = this.sound.add('sfx_smurf', { volume })
+      this.smurfSound.once('complete', () => { this.smurfSound?.destroy(); this.smurfSound = null })
+      this.smurfSound.play()
+    } else if (this.smurfSound?.isPlaying) {
+      (this.smurfSound as Phaser.Sound.WebAudioSound).setVolume(volume)
+    }
     this.dadInSight = seen
   }
 
@@ -3943,6 +4457,28 @@ export class GameScene extends Phaser.Scene {
     this.endPlayerTurn()
   }
 
+  // The blocking horse stepped onto the player in its row: shove them back to
+  // the side they came from, so it can't be slipped past diagonally either way.
+  // Straight off the horse if that tile is free, otherwise back where they stepped from.
+  private pushOffHorse(horse: Monster): void {
+    if (horse.x !== this.player.x || horse.y !== this.player.y) return
+    const prev = this.preMove
+    const y = horse.y + (prev && prev.y > horse.y ? 1 : -1)
+    const free = (x: number, y: number) => this.mapSystem.isWalkable(x, y) && this.getMonsterAt(x, y) === null
+    if (free(horse.x, y)) {
+      this.player.y = y
+    } else if (prev && prev.y !== horse.y && free(prev.x, prev.y)) {
+      this.player.x = prev.x
+      this.player.y = prev.y
+    } else {
+      const side = [-1, 0, 1].map(dx => ({ x: horse.x + dx, y })).find(p => free(p.x, p.y))
+      if (!side) return
+      this.player.x = side.x
+      this.player.y = side.y
+    }
+    this.updateFOV()
+  }
+
   private endPlayerTurn(): void {
     this.updateFOV()
     if (this.player.timestopTurns > 0) {
@@ -3958,7 +4494,8 @@ export class GameScene extends Phaser.Scene {
       this.player.phasingTurns--
       if (this.player.phasingTurns === 5) this.messageLog.add('Reality is catching up with you. You will solidify soon!', '#ff8080')
       if (this.player.phasingTurns === 0) {
-        if (!this.mapSystem.isWalkable(this.player.x, this.player.y) && !this.isInvulnerable()) {
+        const onWater = WATER_TILES.has(this.mapSystem.getTile(this.player.x, this.player.y)?.defId ?? '')
+        if (!onWater && !this.mapSystem.isWalkable(this.player.x, this.player.y) && !this.isInvulnerable()) {
           this.lastKilledBy = 'solidifying with your surroundings'
           this.messageLog.add('You solidify with your surroundings!', '#ff0000')
           if (this.player.secondLife) {
@@ -4015,10 +4552,7 @@ export class GameScene extends Phaser.Scene {
       const blocker = this.monsters.find(m => m.defId === 'paard' && m.aiType !== 'follow' && m.isAlive())
       if (blocker) {
         blocker.takeTurn()
-        if (blocker.x === this.player.x && blocker.y === this.player.y) {
-          this.player.y -= 1
-          this.updateFOV()
-        }
+        this.pushOffHorse(blocker)
       }
     } else {
       // World ticks until player accumulates enough energy to act again
@@ -4026,10 +4560,7 @@ export class GameScene extends Phaser.Scene {
         this.turnManager.processTurn()
       }
       const horse = this.monsters.find(m => m.defId === 'paard' && m.aiType !== 'follow' && m.isAlive())
-      if (horse && horse.x === this.player.x && horse.y === this.player.y) {
-        this.player.y -= 1
-        this.updateFOV()
-      }
+      if (horse) this.pushOffHorse(horse)
       for (const m of [...this.monsters]) {
         if (!m.isAlive()) this.removeMonster(m)
       }
@@ -4040,6 +4571,8 @@ export class GameScene extends Phaser.Scene {
       if (tick % 15 === 0 && this.player.food > 0) this.getHungrier()
       if (tick % 5 === 0 && this.player.food > 0 && this.hasFamineRing()) this.getHungrier()
     }
+    // Bananas fall once per player action, whatever the player's speed
+    if (this.worldState.currentArea === 'stairs') this.advanceBombs()
     const turn = this.turnManager.getTurn()
     if (this.mapSystem.getTile(this.player.x, this.player.y)?.defId === 'flame' && !this.hasHeatResistance() && !this.isInvulnerable()) {
       this.messageLog.add('The pentagram flames scorch you! (-10 HP)', '#ff4000')
@@ -4081,6 +4614,7 @@ export class GameScene extends Phaser.Scene {
     if (this.inventoryScreen.isVisible()) this.inventoryScreen.refresh(this.player)
     this.checkDuckMessages()
     this.scheduleWerewolfMove()
+    this.checkSasHorseWalk()
     this.notifyItemsUnderfoot()
     if (!this.ericChamberEntered &&
         ((this.worldState.cx === 1 && this.worldState.cy === 1 &&
@@ -4280,6 +4814,59 @@ export class GameScene extends Phaser.Scene {
     if (link) { this.followEdgeLink(link); this.pendingEdgeEntry = null; return true }
     this.pendingEdgeEntry = null
     return false
+  }
+
+  // Leaving through an arrow on the map edge: when the default entry lies beside
+  // an arrow on the new map's edge, move along that edge to the same x/y as the
+  // arrow taken (whatever its axis there), beside a matching arrow. With
+  // `loose`, any free tile at that x/y will do. Otherwise keeps `entry`.
+  private alignEdgeEntry(entry: { x: number; y: number }, loose = false): { x: number; y: number } {
+    const cross = this.edgeCross
+    this.edgeCross = null
+    if (!cross) return entry
+    const transit = (id: string | undefined): id is string => !!id && isSpecialTile(id) && !id.includes('door') && id !== 'flame'
+    const sides: Array<[Side, boolean, number, number]> = [
+      ['left',  entry.x === 1,         0,           entry.y],
+      ['right', entry.x === MAP_W - 2, MAP_W - 1,   entry.y],
+      ['up',    entry.y === 1,         entry.x,     0],
+      ['down',  entry.y === MAP_H - 2, entry.x,     MAP_H - 1],
+    ]
+    const arrival = sides.find(([, beside, bx, by]) => beside && transit(this.mapSystem.getTile(bx, by)?.defId))
+    if (!arrival) return entry
+    const [side, , bx, by] = arrival
+    const backId = this.mapSystem.getTile(bx, by)!.defId
+    const vertical = side === 'left' || side === 'right'
+    const len = vertical ? MAP_H : MAP_W
+    // Border tile and the tile just inside it at index i along the arrival edge
+    const at = (i: number) => vertical
+      ? { border: { x: bx, y: i }, inner: { x: side === 'left' ? 1 : MAP_W - 2, y: i } }
+      : { border: { x: i, y: by }, inner: { x: i, y: side === 'up' ? 1 : MAP_H - 2 } }
+    const free = (p: { x: number; y: number }) => {
+      const id = this.mapSystem.getTile(p.x, p.y)?.defId
+      return !!id && this.mapSystem.isWalkable(p.x, p.y) && !isSpecialTile(id)
+    }
+    const beside = (i: number) => {
+      const { border, inner } = at(i)
+      return this.mapSystem.getTile(border.x, border.y)?.defId === backId && free(inner)
+    }
+    let best: number | undefined
+    if (cross.coord >= 1 && cross.coord <= len - 2 && (beside(cross.coord) || (loose && free(at(cross.coord).inner)))) {
+      best = cross.coord
+    } else if (!loose) {
+      for (let i = 1; i < len - 1; i++)
+        if (beside(i) && (best === undefined || Math.abs(i - cross.coord) < Math.abs(best - cross.coord))) best = i
+    }
+    if (best === undefined) return entry
+    const spot = at(best).inner
+    const blocker = this.getMonsterAt(spot.x, spot.y)
+    if (blocker) {
+      this.player.x = spot.x
+      this.player.y = spot.y
+      const away = this.findSpotNearPlayer()
+      blocker.x = away.x
+      blocker.y = away.y
+    }
+    return spot
   }
 
   // Called once the new map is loaded: places the arrow back plus one walkable
@@ -4485,15 +5072,19 @@ export class GameScene extends Phaser.Scene {
     return inForestChamber || this.worldState.currentArea === 'pantry'
   }
 
+  private isItemHidden(fi: FloorItem): boolean {
+    return isHiddenUnderWater(fi.item.defId, this.mapSystem.getTile(fi.x, fi.y)?.defId, this.player.itemVision)
+  }
+
   private notifyItemsUnderfoot(): void {
-    const here = this.floorItems.filter(fi => fi.x === this.player.x && fi.y === this.player.y)
+    const here = this.floorItems.filter(fi => fi.x === this.player.x && fi.y === this.player.y && !this.isItemHidden(fi))
     if (here.length === 0) return
     const inShop = this.isInShopArea()
     for (const fi of here) {
       const def = this.inventory.getDef(fi.item.defId)
       const name = def?.name ?? fi.item.defId
       const qty  = fi.item.quantity > 1 ? ` (${fi.item.quantity})` : ''
-      const price = inShop && def?.type !== 'gold' ? `  [${def?.value ?? 0}c]` : ''
+      const price = inShop && def?.type !== 'gold' ? `  [${itemValue(def, fi.item)}c]` : ''
       this.messageLog.add(`You see here: ${name}${qty}.${price}`, '#c8a060')
     }
   }
@@ -4517,14 +5108,97 @@ export class GameScene extends Phaser.Scene {
   // ─── Monster helpers ────────────────────────────────────────────────────────
 
   private handleMonsterAttack(monster: Monster): void {
+    if (monster.defId === 'sorcerer' && this.sorcererZap(monster)) {
+      if (!this.player.isAlive()) this.lastKilledBy = monster.name
+      this.statsPanel.update(this.player, this.turnManager.getTurn())
+      return
+    }
     this.combat.monsterAttacks(monster, this.player)
     if (!this.player.isAlive()) this.lastKilledBy = monster.name
     this.statsPanel.update(this.player, this.turnManager.getTurn())
   }
 
+  // Sorcerers zap their wand at the player instead of hitting. Returns false once
+  // the wand is empty, so the sorcerer falls back to his fists.
+  private sorcererZap(m: Monster): boolean {
+    if (!m.wand) {
+      // Tunneling would do nothing to the player, so a sorcerer never carries one
+      let wandId = this.inventory.randomWandId()
+      while (wandId === 'wand_tunneling') wandId = this.inventory.randomWandId()
+      m.wand = this.inventory.createInstance(wandId)
+    }
+    if ((m.wand.charges ?? 0) <= 0) return false
+    m.wand.charges = (m.wand.charges ?? 0) - 1
+    const effect = this.inventory.getDef(m.wand.defId)?.wandEffect
+    if (effect === 'fire' || effect === 'cold') {
+      const color = effect === 'fire' ? '#ff6020' : '#80e0ff'
+      this.localMapView.animateBolt(m.x, m.y, this.player.x, this.player.y, color, () => {})
+      this.messageLog.add(`The ${m.name} zaps a wand of ${effect === 'fire' ? 'fire' : 'ice'} at you!`, color)
+      const resists = effect === 'fire' ? this.hasHeatResistance() : this.hasColdResistance()
+      if (resists) {
+        this.messageLog.add(effect === 'fire' ? 'You feel only a pleasant warmth.' : 'You feel only a pleasant chill.', color)
+      } else if (this.isInvulnerable()) {
+        this.messageLog.add(effect === 'fire' ? 'The fire washes over you harmlessly.' : 'The ice washes over you harmlessly.', color)
+      } else {
+        const dmg = 4 + Math.floor(Math.random() * 7)  // 4-10
+        this.player.hp -= dmg
+        this.messageLog.add(effect === 'fire' ? `The fire burns you! (-${dmg} HP)` : `The ice freezes you! (-${dmg} HP)`, color)
+      }
+    } else if (effect === 'displacement') {
+      this.messageLog.add(`The ${m.name} zaps a wand of displacement at you!`, '#c080ff')
+      const spot = this.randomSpot(this.freeSpots(undefined, this.inPond()))
+      if (spot) {
+        this.player.x = spot.x
+        this.player.y = spot.y
+        this.messageLog.add('You blink out of existence and reappear elsewhere!', '#c080ff')
+        this.updateFOV()
+      } else {
+        this.messageLog.add('You shimmer for a moment, but stay put.', '#c080ff')
+      }
+    } else if (effect === 'evocation') {
+      this.messageLog.add(`The ${m.name} zaps a wand of evocation!`, '#ff4040')
+      const category = areaInfo(this.worldState.currentArea ?? '').category
+      const pool = AREA_MONSTERS[category] ?? ['snail', 'rat', 'bat', 'wilddog', 'spirit', 'ogre']
+      const slot = this.randomSpot(this.freeSpots((x, y) =>
+        Math.max(Math.abs(x - this.player.x), Math.abs(y - this.player.y)) <= 2, this.inPond()))
+      if (slot) {
+        this.spawnEntities([{ x: slot.x, y: slot.y, defId: pool[Math.floor(Math.random() * pool.length)] }], [])
+        this.messageLog.add('The air tears open and a monster tumbles out!', '#ff4040')
+      } else {
+        this.messageLog.add('The air ripples, but nothing comes through.', '#ff4040')
+      }
+    } else {
+      return false
+    }
+    return true
+  }
+
+  // Sas standing right next to the player when they leave the map tags along.
+  // She is taken off the old map before its snapshot is saved, so she isn't left
+  // behind there as well, and on the new map she is an ordinary resident again.
+  private takeSasAlong(): Monster[] {
+    if (this.sasWalk) return []
+    const sas = this.monsters.find(m => m.defId === 'sas' && m.isAlive() && !this.companions.includes(m)
+      && Math.max(Math.abs(m.x - this.player.x), Math.abs(m.y - this.player.y)) <= 1)
+    if (!sas) return []
+    this.turnManager.removeActor(sas.id)
+    this.monsters = this.monsters.filter(m => m !== sas)
+    return [sas]
+  }
+
   // Puts the companions from the previous map back next to the player. The
   // horse can't swim: it waits outside the pond levels until the player is back.
-  private bringCompanions(saved: Monster[]): void {
+  // `tagAlong` monsters are placed the same way but don't become companions.
+  private bringCompanions(saved: Monster[], tagAlong: Monster[] = []): void {
+    for (const m of tagAlong) {
+      const pos = this.findSpotNearPlayer()
+      m.x = pos.x; m.y = pos.y
+      m.energy = 0; m.hasSpoken = false
+      m.setContext(this.mapSystem, this.player, (mx, my) => this.getMonsterAt(mx, my), (mm) => this.handleMonsterAttack(mm))
+      this.monsters.push(m)
+      this.turnManager.addActor(m)
+    }
+    if (tagAlong.length > 0) this.messageLog.add('Sas follows you.', '#ffff80')
     const inPond = this.inPond()
     const all = inPond ? saved : [...saved, ...this.parkedCompanions]
     if (!inPond) this.parkedCompanions = []
@@ -4576,6 +5250,8 @@ export class GameScene extends Phaser.Scene {
     this.turnManager.removeActor(monster.id)
     this.monsters   = this.monsters.filter(m => m.id !== monster.id)
     this.companions = this.companions.filter(m => m.id !== monster.id)
+    // Jormungand is unique: once slain it never returns this game
+    if (monster.defId === 'jormungand' && !monster.isAlive()) this.worldState.extinctRaces.add('jormungand')
     if (monster.xpValue > 0) {
       const def = (monsterData as MonsterDef[]).find(d => d.id === monster.defId)
       // Human-like monsters ('random') sometimes drop something from the local loot table
@@ -4586,6 +5262,9 @@ export class GameScene extends Phaser.Scene {
           const drop = pickAreaItem(lootArea, Math.random)
           if (drop) this.floorItems.push(new FloorItem(monster.x, monster.y, this.inventory.createInstance(drop.defId, drop.qty)))
         }
+      } else if (monster.defId === 'sorcerer' && monster.wand) {
+        // The wand he was zapping, with whatever charges are left
+        this.floorItems.push(new FloorItem(monster.x, monster.y, monster.wand))
       } else if (monster.defId === 'summoner') {
         this.floorItems.push(new FloorItem(monster.x, monster.y, this.inventory.createInstance('wand_evocation')))
       } else if (monster.defId === 'swordsman' && Math.random() < 0.5) {
@@ -4672,7 +5351,7 @@ export class GameScene extends Phaser.Scene {
       this.messageLog.add('A slain creature lies here.', '#807050')
     }
 
-    for (const fi of this.floorItems.filter(f => f.x === tx && f.y === ty)) {
+    for (const fi of this.floorItems.filter(f => f.x === tx && f.y === ty && !this.isItemHidden(f))) {
       if (fi.item.defId === 'petergras') {
         this.messageLog.add('Petergrass died just by looking at it.', '#808060')
         this.floorItems = this.floorItems.filter(f => f !== fi)
@@ -4747,10 +5426,10 @@ export class GameScene extends Phaser.Scene {
         currentArea: this.worldState.currentArea,
         savedCx: this.worldState.savedCx, savedCy: this.worldState.savedCy,
         savedPlayerX: this.worldState.savedPlayerX, savedPlayerY: this.worldState.savedPlayerY,
-        mamHasOrange: this.worldState.mamHasOrange, mamHasVase: this.worldState.mamHasVase, widgetFound: this.worldState.widgetFound,
-        peterWarned: this.worldState.peterWarned,
+        mamHasOrange: this.worldState.mamHasOrange, mamHasVase: this.worldState.mamHasVase, widgetFound: this.worldState.widgetFound,        peterWarned: this.worldState.peterWarned,
         horseDead: this.worldState.horseDead,
         deadHorseSite: this.worldState.deadHorseSite,
+        sasMourned: this.worldState.sasMourned,
         horseFed: this.worldState.horseFed,
         stairsOrigin: this.stairsOrigin,
         extinctRaces: [...this.worldState.extinctRaces],
@@ -4789,6 +5468,7 @@ export class GameScene extends Phaser.Scene {
     // Items removed from the game since the save (e.g. the plain Ring) are dropped
     this.player.inventory = p.inventory.filter(i => this.inventory.getDef(i.defId)).map(i => ({ ...i }))
     this.player.equipment = JSON.parse(JSON.stringify(p.equipment))
+    this.player.equipment.launcher ??= null
     for (const [slot, it] of Object.entries(this.player.equipment))
       if (it && !this.inventory.getDef(it.defId)) (this.player.equipment as unknown as Record<string, unknown>)[slot] = null
     this.player.skills = new Set(p.skills)
@@ -4827,6 +5507,7 @@ export class GameScene extends Phaser.Scene {
     this.worldState.peterWarned = ws.peterWarned ?? false
     this.worldState.horseDead = ws.horseDead ?? false
     this.worldState.deadHorseSite = ws.deadHorseSite ?? null
+    this.worldState.sasMourned = ws.sasMourned ?? false
     this.worldState.horseFed = ws.horseFed ?? false
     this.stairsOrigin = ws.stairsOrigin ?? null
     this.worldState.extinctRaces = new Set(ws.extinctRaces ?? [])
@@ -5045,7 +5726,34 @@ export class GameScene extends Phaser.Scene {
 
   private triggerVictory(): void {
     this.inputBlocked = true
-    this.scene.start('VictoryScene')
+    this.recordLeaderboardEntry('Victory - saved the world!')
+    this.scene.start('VictoryScene', { score: this.player.exp })
+  }
+
+  // Adds the current run to the Hall of Defeat and returns the updated entries.
+  private recordLeaderboardEntry(cause: string) {
+    const AREA_NAMES: Record<string, string> = {
+      bathroom_top: 'Bathroom', bathroom_bottom: 'Bathroom',
+      garage_top: 'Garage', garage_bottom: 'Lower Garage',
+      hall: 'Hall', chaos: "Eric's bedroom",
+      bedroom: "Mar's Bedroom", bedroom_lower: "Mar's Bedroom", stairs: 'Rainbow Stairs', loft_stairs: 'Loft Stairs',
+      driveway: 'Driveway',
+      upper_hall_left: 'Upper Hall', upper_hall_right: 'Upper Hall',
+      pond1: 'Pond', pond2: 'Pond', pond3: 'Pond',
+    }
+    const area = this.worldState.currentArea
+    const inDrivewayBalcony = area === 'driveway' &&
+      this.player.x >= 65 && this.player.x <= 79 && this.player.y >= 13 && this.player.y <= 15
+    const level = inDrivewayBalcony ? 'Balcony'
+      : area ? (AREA_NAMES[area] ?? area) : this.cellName()
+    return new LeaderboardSystem().addEntry({
+      name:  this.player.name,
+      score: this.player.exp,
+      level,
+      hp:    this.player.hp,
+      maxHp: this.player.maxHp,
+      cause,
+    })
   }
 
   // Turns left before time runs out (20000 + bonus turns from distracting Lex).
@@ -5091,7 +5799,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private gameOver(cause?: string): void {
-    if (GOD_MODE) {
+    if (this.godMode) {
       this.player.hp = this.player.maxHp
       this.messageLog.add(`[God mode] Death prevented${cause ? ` (${cause})` : ''}.`, '#ffff80')
       this.statsPanel.update(this.player, this.turnManager.getTurn())
@@ -5104,29 +5812,7 @@ export class GameScene extends Phaser.Scene {
     this.player.blindTurns = 0
     this.localMapView.clearBlind()
 
-    const lb = new LeaderboardSystem()
-    const AREA_NAMES: Record<string, string> = {
-      bathroom_top: 'Bathroom', bathroom_bottom: 'Bathroom',
-      garage_top: 'Garage', garage_bottom: 'Lower Garage',
-      hall: 'Hall', chaos: "Eric's bedroom",
-      bedroom: "Mar's Bedroom", bedroom_lower: "Mar's Bedroom", stairs: 'Rainbow Stairs', loft_stairs: 'Loft Stairs',
-      driveway: 'Driveway',
-      upper_hall_left: 'Upper Hall', upper_hall_right: 'Upper Hall',
-      pond1: 'Pond', pond2: 'Pond', pond3: 'Pond',
-    }
-    const area = this.worldState.currentArea
-    const inDrivewayBalcony = area === 'driveway' &&
-      this.player.x >= 65 && this.player.x <= 79 && this.player.y >= 13 && this.player.y <= 15
-    const level = inDrivewayBalcony ? 'Balcony'
-      : area ? (AREA_NAMES[area] ?? area) : this.cellName()
-    const entries = lb.addEntry({
-      name:  this.player.name,
-      score: this.player.exp,
-      level,
-      hp:    this.player.hp,
-      maxHp: this.player.maxHp,
-      cause: cause ?? 'Unknown',
-    })
+    const entries = this.recordLeaderboardEntry(cause ?? 'Unknown')
 
     // Full-screen defeat image
     this.add.image(GAME_W / 2, GAME_H / 2, 'ui_defeat')

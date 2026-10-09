@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import type { Player } from '../entities/Player'
-import type { InventorySystem } from '../engine/InventorySystem'
+import { itemDamage, itemDefense, itemValue, type InventorySystem } from '../engine/InventorySystem'
 import type { EquipmentSystem } from '../engine/EquipmentSystem'
 import type { MessageLog } from '../engine/MessageLog'
 import type { ItemInstance, EquipmentSlots } from '../types'
@@ -9,6 +9,16 @@ import {
 } from './Layout'
 
 const LETTERS  = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+// Keys that close a menu (or act on the selection in the full inventory) never
+// label an item there, so pressing them can't mean two things
+const MODE_KEYS: Record<string, string> = {
+  all: 'pP', wear: 'wW', eat: 'eE', drink: 'dD', read: 'rR', remove: 'vV', wield: 'hH',
+  throw: 'tT', zap: 'zZ', use: 'uU', drop: 'pP', examine: 'xX', pay: 'yY',
+}
+function itemLetters(mode: string): string {
+  const reserved = 'iI' + (MODE_KEYS[mode] ?? '')
+  return [...LETTERS].filter(c => !reserved.includes(c)).join('')
+}
 const INV_X    = STATS_W
 const INV_Y    = BOTTOM_Y
 const INV_W    = CENTER_W
@@ -310,8 +320,8 @@ export class InventoryScreen {
 
     const ringSlots:   (keyof EquipmentSlots)[] = ['ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
     const armorSlots:  (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
-    const weaponSlots: (keyof EquipmentSlots)[] = ['weapon']
-    const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
+    const weaponSlots: (keyof EquipmentSlots)[] = ['weapon', 'launcher']
+    const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'launcher', 'body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
 
     // Which equipment slots contribute to the display
     const equippedSlots: (keyof EquipmentSlots)[] =
@@ -383,7 +393,7 @@ export class InventoryScreen {
         const prev = groupedItems[groupedItems.length - 1]
         // Wands each carry their own charges, and unpaid shop items each get
         // their own line, so neither is ever merged
-        if (prev && !prev.equipped && prev.item.defId === di.item.defId && !di.def.wandEffect && di.def.id !== 'remote'
+        if (prev && !prev.equipped && prev.item.defId === di.item.defId && itemDamage(di.def, di.item) === itemDamage(prev.def, prev.item) && itemDefense(di.def, di.item) === itemDefense(prev.def, prev.item) && !di.def.wandEffect && di.def.id !== 'remote'
             && !isUnpaid(di) && !isUnpaid(prev)) {
           prev.count++
           continue
@@ -401,6 +411,7 @@ export class InventoryScreen {
     // ── Build display lines ───────────────────────────────────────────────
     this.letterToLine.clear()
     let letterIdx = 0
+    const letters = itemLetters(this.mode)
 
     const displayLines: Array<{ text: string; color: string; data: LineEntry | null }> = []
 
@@ -410,9 +421,9 @@ export class InventoryScreen {
 
       // Letters assigned to: non-equipped items in all modes; equipped items in 'remove' mode
       const getsLetter = !equipped || this.mode === 'remove' || this.mode === 'examine'
-      const letter = getsLetter ? (LETTERS[letterIdx] ?? '?') : ''
-      if (getsLetter && letterIdx < LETTERS.length) {
-        this.letterToLine.set(LETTERS[letterIdx], i)
+      const letter = getsLetter ? (letters[letterIdx] ?? '?') : ''
+      if (getsLetter && letterIdx < letters.length) {
+        this.letterToLine.set(letters[letterIdx], i)
         letterIdx++
       }
 
@@ -420,10 +431,10 @@ export class InventoryScreen {
       if (di.count > 1) desc += ` (${di.count})`
       else if (item.quantity > 1) desc += ` (${item.quantity})`
       if (def.wandEffect || def.id === 'remote') desc += ` (${item.charges ?? 0})`
-      if (def.damage)  desc += ` (+${def.damage} dmg)`
-      if (def.defense) desc += ` (-${def.defense} AC)`
-      if (this.mode === 'pay') desc += `  [${def.value ?? 0}g]`
-      if (this.mode === 'sell') desc += `  [${sellPrice(def.value)}c]`
+      if (def.damage)  desc += ` (+${itemDamage(def, item)} dmg)`
+      if (def.defense) desc += ` (-${itemDefense(def, item)} AC)`
+      if (this.mode === 'pay') desc += `  [${itemValue(def, item)}g]`
+      if (this.mode === 'sell') desc += `  [${sellPrice(itemValue(def, item))}c]`
       if (this.mode === 'pay' && this.payGhosts?.has(item.instanceId)) desc += ' (used)'
       if (this.mode !== 'pay' && this.unpaidItems?.has(item.instanceId)) desc += ' (unpaid)'
 
@@ -431,13 +442,13 @@ export class InventoryScreen {
       let color: string
 
       if (equipped) {
-        const tag = slot === 'weapon' ? 'held' : (slot as string).startsWith('ring') ? 'ring' : 'worn'
+        const tag = slot === 'weapon' ? 'held' : slot === 'launcher' ? 'shooting' : (slot as string).startsWith('ring') ? 'ring' : 'worn'
         text  = this.mode === 'remove'
           ? `${letter}  [${tag}] ${desc}`
           : `   [${tag}] ${desc}`
         color = '#00c080'
       } else {
-        const isSelected = this.mode === 'all' && this.letterToLine.get(LETTERS[this.selectedIdx]) === i
+        const isSelected = this.mode === 'all' && this.letterToLine.get(letters[this.selectedIdx]) === i
         const isMixSel   = this.mode === 'mix' && this.mixFirstItem?.instanceId === item.instanceId
         const isRelic    = this.mode === 'read' && def.relic === true
         color = isMixSel ? '#ff8040' : isSelected ? '#ffff40' : isRelic ? '#ffd080' : (CATEGORY_COLOR[di.category] ?? '#d0d0d0')
@@ -613,7 +624,7 @@ export class InventoryScreen {
         }
       }
       // 'all' mode: select item
-      const letterIdx = LETTERS.indexOf(event.key)
+      const letterIdx = itemLetters(this.mode).indexOf(event.key)
       if (letterIdx >= 0 && this.mode === 'all') {
         this.selectedIdx = letterIdx
         this.refresh(player)
@@ -633,7 +644,7 @@ export class InventoryScreen {
     }
 
     if ((event.key === 'p' || event.key === 'P') && this.mode === 'all') {
-      const selLineIdx = this.letterToLine.get(LETTERS[this.selectedIdx])
+      const selLineIdx = this.letterToLine.get(itemLetters(this.mode)[this.selectedIdx])
       if (selLineIdx !== undefined && this.lineData[selLineIdx]?.item)
         return false // let GameScene handle drop
     }

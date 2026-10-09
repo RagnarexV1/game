@@ -36,6 +36,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('terrain_tree_down', 'assets/terrain/tree_down.png')
     this.load.image('terrain_lava', 'assets/terrain/lavaM.png')
     this.load.image('terrain_mud', 'assets/terrain/modder.png')
+    this.load.image('terrain_mud_footprint', 'assets/terrain/modder_footprint.png')
     this.load.image('terrain_driveway', 'assets/terrain/opritTile.png')
     this.load.image('terrain_carpet', 'assets/terrain/tapijt.png')
     this.load.image('terrain_next_right',  'assets/terrain/nextRight.png')
@@ -134,6 +135,9 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_squid',       'assets/monsters/squid.png')
     this.load.image('monster_silvervisje', 'assets/monsters/silvervisje.png')
     this.load.image('monster_pissebed',    'assets/monsters/pissebed.png')
+    this.load.image('monster_pissebedRond', 'assets/monsters/pissebedRond.png')
+    this.load.image('monster_salamander',  'assets/monsters/salamander.png')
+    this.load.image('monster_spetterpoep', 'assets/monsters/spetterpoep.png')
     this.load.image('monster_bat',         'assets/monsters/bat.png')
     this.load.image('monster_lowerdwarf',  'assets/monsters/lowerDwarf.png')
     this.load.image('monster_cactus',      'assets/monsters/cactus.png')
@@ -149,6 +153,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_klopper_water', 'assets/monsters/klopper2_water.png')
     this.load.image('monster_wildboar',    'assets/monsters/wildboard.png')
     this.load.image('monster_ogre',        'assets/monsters/ogre.png')
+    this.load.image('monster_rockgiant',   'assets/monsters/rockgiant.png')
     this.load.image('monster_spirit',      'assets/monsters/spirit.png')
     this.load.image('monster_muddman',     'assets/monsters/muddman.png')
     this.load.image('monster_nymph',       'assets/monsters/nymph.png')
@@ -169,6 +174,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_coin',            'assets/items/stuiver.png')
     this.load.image('item_kruk',            'assets/items/kruk.png')
     this.load.image('item_knife',           'assets/items/knife.png')
+    this.load.image('item_katapult',        'assets/items/katapult.png')
     this.load.image('item_lekkervisje',     'assets/items/lekkervisje.png')
     this.load.image('item_mirrorshield',    'assets/items/mirrorshield.png')
     this.load.image('item_ninjabroek',      'assets/items/ninjabroek.png')
@@ -187,6 +193,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_sprits',          'assets/items/spr_sprits.png')
     this.load.image('item_stroopwafels',    'assets/items/spr_stroopwafels.png')
     this.load.image('item_toiletBrush',     'assets/items/spr_toiletBrush.png')
+    this.load.image('item_telephone',       'assets/items/telephone.png')
     this.load.image('item_tuinhandschoen',  'assets/items/spr_tuinhandschoen.png')
     this.load.image('item_tuinschaar',      'assets/items/tuinschaar.png')
     this.load.image('item_wasknijper',      'assets/items/wasknijper.png')
@@ -235,6 +242,10 @@ export class BootScene extends Phaser.Scene {
     // bedroom + bedroom_lower share one. loc_start + loc_intro are the game-start screens (loft has none).
     // bedroom + bedroom_lower share one; loft + loft3 share one.
     this.load.image('loc_start',       'assets/locations/startscherm.png')
+    // Telephone call screens
+    this.load.image('call_teams_start', 'assets/locations/teams_start.png')
+    this.load.image('call_teams',       'assets/locations/teams.png')
+    this.load.image('call_sas_skype',   'assets/locations/sas_skype.png')
     this.load.image('loc_bathroom',    'assets/locations/bathroom.webp')
     this.load.image('loc_garden',      'assets/locations/garden.webp')
     this.load.image('loc_garage',      'assets/locations/garage.webp')
@@ -337,6 +348,8 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('sfx_clarinet_worse', 'assets/sound/clarinet_worse.mp3')
     this.load.audio('sfx_clarinet_bad',   'assets/sound/clarinet_bad.mp3')
     this.load.audio('sfx_smurf',          'assets/sound/smurf_short.mp3')
+    this.load.audio('sfx_teams',          'assets/sound/teams.mp3')
+    this.load.audio('sfx_toilet',         'assets/sound/toilet.mp3')
   }
 
   create(): void {

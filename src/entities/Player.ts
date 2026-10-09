@@ -72,6 +72,7 @@ export class Player {
     amulet: null,
     shield: null,
     cape:   null,
+    launcher: null,
     ring1:  null,
     ring2:  null,
     ring3:  null,
@@ -79,7 +80,7 @@ export class Player {
     ring5:  null,
     ring6:  null,
   }
-  skills: Set<string> = new Set(['swimming', 'diving'])
+  skills: Set<string> = new Set()
   // Fact Scrolls of Knowledge already read (by item id)
   knownFacts: Set<string> = new Set()
 
@@ -102,6 +103,13 @@ export class Player {
   getWeaponDamage(): number {
     if (!this.equipSys) return 2
     return this.equipSys.getWeaponDamage(this.equipment, this.invSys)
+  }
+
+  // Name of the wielded weapon, or null when fighting with bare paws
+  getWeaponName(): string | null {
+    const weapon = this.equipment.weapon
+    if (!weapon) return null
+    return this.invSys?.getItemName(weapon) ?? weapon.defId
   }
 
   getAC(): number {

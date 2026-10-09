@@ -1,6 +1,8 @@
 import type { ItemInstance, EquipmentSlots, ItemDef } from '../types'
 import type { MessageLog } from './MessageLog'
-import type { InventorySystem } from './InventorySystem'
+import { itemDamage, itemDefense, type InventorySystem } from './InventorySystem'
+
+const UNIQUE_RINGS = new Set(['ring_hastening'])
 
 export class EquipmentSystem {
   constructor(
@@ -38,6 +40,11 @@ export class EquipmentSystem {
     // Rings go into the first free ring slot (max 6)
     if (def.slot === 'ring') {
       const ringSlots = ['ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6'] as const
+      // Unique rings: only one of each may be worn, like the amulet
+      if (UNIQUE_RINGS.has(def.id) && ringSlots.some(s => equipment[s]?.defId === def.id)) {
+        this.log.add(`You can only wear one ${def.name}.`, '#ff8080')
+        return false
+      }
       const freeSlot = ringSlots.find(s => !equipment[s])
       if (!freeSlot) {
         this.log.add(`You can't wear more than 6 rings.`, '#ff8080')
@@ -69,7 +76,7 @@ export class EquipmentSystem {
     if (idx !== -1) inv.splice(idx, 1)
     equipment[slot] = item
     if (player) this.applyBonuses(def, player, 1)
-    this.log.add(`You equip the ${def.name}.`, '#00ff80')
+    this.log.add(slot === 'launcher' ? `You ready the ${def.name} for shooting.` : `You equip the ${def.name}.`, '#00ff80')
     return true
   }
 
@@ -101,7 +108,7 @@ export class EquipmentSystem {
     const weapon = equipment.weapon
     if (!weapon) return 2 // bare hands
     const def = inventory.getDef(weapon.defId) as ItemDef | undefined
-    return def?.damage ?? 4
+    return def?.damage ? itemDamage(def, weapon) : 4
   }
 
   getArmorBonus(equipment: EquipmentSlots, inventory: InventorySystem): number {
@@ -111,7 +118,7 @@ export class EquipmentSystem {
       const item = equipment[slot]
       if (!item) continue
       const def = inventory.getDef(item.defId) as ItemDef | undefined
-      bonus += def?.defense ?? 0
+      if (def) bonus += itemDefense(def, item)
     }
     return bonus
   }

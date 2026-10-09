@@ -3,6 +3,7 @@ import type { MapSystem } from '../engine/MapSystem'
 import type { Player } from '../entities/Player'
 import type { Monster } from '../entities/Monster'
 import type { FloorItem } from '../entities/FloorItem'
+import { isHiddenUnderWater } from '../engine/ItemPlacement'
 import itemData from '../data/items.json'
 
 const ITEM_TYPE_SPRITES: Record<string, string> = (() => {
@@ -165,6 +166,7 @@ export class WorldMapView {
       const tile = this.map.getTile(fi.x, fi.y)
       const revealed = player.itemVision || (torchlightOnly ? tile?.visible : tile?.explored)
       if (!revealed) continue
+      if (isHiddenUnderWater(fi.item.defId, tile?.defId, player.itemVision)) continue
       const spriteKey = ITEM_TYPE_SPRITES[fi.item.defId] ?? 'inv_null'
       if (!this.scene.textures.exists(spriteKey)) continue
       const img = this.scene.add.image(ox + fi.x * ts, oy + fi.y * ts, spriteKey)
@@ -226,6 +228,7 @@ export class WorldMapView {
       stairs_down: 0x909090,
       lava:         0x903010,
       mud:          0x4a3010,
+      mud_footprint: 0x4a3010,
       carpet:       0x603060,
       void:         0x000000,
       sand:         0x8a6a30,

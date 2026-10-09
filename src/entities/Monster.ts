@@ -1,4 +1,4 @@
-import type { MonsterDef } from '../types'
+import type { MonsterDef, ItemInstance } from '../types'
 import type { MapSystem } from '../engine/MapSystem'
 import type { Player } from './Player'
 
@@ -8,7 +8,6 @@ export class Monster {
   name: string
   glyph: string
   color: string
-  hp: number
   maxHp: number
   str: number
   ac: number
@@ -36,6 +35,17 @@ export class Monster {
   turnOverride?: () => boolean
   // Lex: busy with the juicy fish on his tile, which he finishes once his distraction wears off
   eatingFish = false
+  // Woodlouse: rolled up into an armoured ball after moving, which nothing can hurt
+  rolled = false
+  // Sorcerer: the wand he zaps at the player instead of hitting, dropped when he dies
+  wand?: ItemInstance
+
+  private _hp = 0
+  get hp(): number { return this._hp }
+  set hp(value: number) {
+    if (this.rolled && value < this._hp) return
+    this._hp = value
+  }
 
   private map!: MapSystem
   private player!: Player
@@ -75,6 +85,7 @@ export class Monster {
   takeTurn(): void {
     if (!this.map || !this.player) return
     if (!this.isAlive()) return
+    this.rolled = false
     if (this.stunTurns > 0) { this.stunTurns--; return }
 
     if (this.patrolPath) { this.patrol(this.patrolPath); return }
@@ -117,7 +128,9 @@ export class Monster {
     } else if (this.aiType === 'follow') {
       this.followPlayer(dx, dy, this.defId === 'paard' ? 2 : 3)
     } else if (this.aiType === 'friendly') {
-      this.wander()
+      // Sas comes straight for the player instead of drifting about
+      if (this.defId === 'sas') this.followPlayer(dx, dy, 1)
+      else this.wander()
     } else if (this.aiType === 'kamikaze') {
       this.kamikazeAttack(dx, dy)
     } else if (this.aiType === 'chase' && dist <= 10) {
@@ -140,6 +153,7 @@ export class Monster {
     const ox = this.x, oy = this.y
     this.x = nx
     this.y = ny
+    if (this.defId === 'pissebed') this.rolled = true
     this.onAfterMove?.(ox, oy)
   }
 

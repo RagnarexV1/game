@@ -84,6 +84,11 @@ const QUESTS: QuestDef[] = [
 ]
 
 export class QuestScreen {
+  // Secret codes typed (invisibly) while the screen is open: letters, optionally ending in a digit
+  cheatCodes: string[] = []
+  onCheat?: (code: string) => void
+  private typed = ''
+
   private container: Phaser.GameObjects.Container | null = null
   private view: 'list' | 'detail' = 'list'
   private selected = 0
@@ -99,6 +104,7 @@ export class QuestScreen {
     this.player = player
     this.worldState = worldState
     this.view = 'list'
+    this.typed = ''
     this.render()
   }
 
@@ -113,6 +119,9 @@ export class QuestScreen {
   handleKey(event: KeyboardEvent): void {
     if (!this.container) return
     if (event.key === 'Escape') { this.back(); return }
+    if (/^[a-z]$/i.test(event.key)) { this.trackCheat(event.key.toLowerCase()); return }
+    // A digit that completes a code (ragnagarden1) doesn't also open that quest
+    if (/^[0-9]$/.test(event.key) && this.trackCheat(event.key)) return
     if (this.view === 'list') {
       const n = parseInt(event.key, 10)
       if (n >= 1 && n <= QUESTS.length) {
@@ -121,6 +130,16 @@ export class QuestScreen {
         this.render()
       }
     }
+  }
+
+  /** Returns true when `ch` completed a cheat code. */
+  private trackCheat(ch: string): boolean {
+    this.typed = (this.typed + ch).slice(-64)
+    const code = this.cheatCodes.find(c => this.typed.endsWith(c))
+    if (!code) return false
+    this.typed = ''
+    this.onCheat?.(code)
+    return true
   }
 
   private back(): void {

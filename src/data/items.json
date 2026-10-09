@@ -58,7 +58,7 @@
     "slot": "weapon",
     "relic": true,
     "damage": 40,
-    "weight": 5,
+    "weight": 10,
     "value": 9999,
     "description": "A god-forged hammer humming with thunder. Legends say only the worthy can wield it."
   },
@@ -73,6 +73,18 @@
     "weight": 1,
     "value": 20,
     "description": "A small, concealable blade."
+  },
+  {
+    "id": "katapult",
+    "name": "Katapult",
+    "glyph": "}",
+    "color": "#a07040",
+    "type": "weapon",
+    "slot": "launcher",
+    "damage": 1,
+    "weight": 2,
+    "value": 40,
+    "description": "A forked stick with a strong rubber band. Held for shooting, thrown items fly 2 tiles further and hit 2 harder."
   },
   {
     "id": "leather_armor",
@@ -350,7 +362,7 @@
     "color": "#40e040",
     "type": "eat",
     "slot": null,
-    "foodAmount": 5,
+    "foodAmount": 0,
     "luckAmount": 4,
     "eatMessage": "You eat the four-leaf clover. You feel lucky!",
     "weight": 0,
@@ -390,7 +402,7 @@
     "slot": "tool",
     "throwable": true,
     "damage": 4,
-    "weight": 3,
+    "weight": 5,
     "value": 5,
     "description": "A wooden crutch repurposed as a bludgeon."
   },
@@ -441,13 +453,23 @@
     "name": "Toilet Brush",
     "glyph": ")",
     "color": "#c0c040",
-    "type": "weapon",
-    "slot": "weapon",
+    "type": "tool",
+    "slot": "tool",
     "relic": true,
-    "damage": 3,
     "weight": 1,
     "value": 2,
     "description": "Terrifying in the wrong hands."
+  },
+  {
+    "id": "telephone",
+    "name": "Telephone",
+    "glyph": "(",
+    "color": "#ff4040",
+    "type": "tool",
+    "slot": "tool",
+    "weight": 1,
+    "value": 50,
+    "description": "An old telephone. Someone might be waiting for your call."
   },
   {
     "id": "mirrorshield",
@@ -625,9 +647,9 @@
     "type": "scroll",
     "slot": null,
     "relic": true,
-    "scrollText": "Rex leaps across the ancient lands.",
+    "scrollText": "5 cents",
     "weight": 0,
-    "value": 0,
+    "value": 5,
     "description": "A collectible stamp featuring Rex. He looks like you!"
   },
   {
@@ -638,9 +660,9 @@
     "type": "scroll",
     "slot": null,
     "relic": true,
-    "scrollText": "Stego roams the prehistoric plains.",
+    "scrollText": "5 cents",
     "weight": 0,
-    "value": 0,
+    "value": 5,
     "description": "A collectible stamp featuring a stegosaurus."
   },
   {
@@ -651,9 +673,9 @@
     "type": "scroll",
     "slot": null,
     "relic": true,
-    "scrollText": "Full steam ahead into the unknown.",
+    "scrollText": "5 cents",
     "weight": 0,
-    "value": 0,
+    "value": 5,
     "description": "A collectible stamp featuring a steam engine."
   },
   {
@@ -872,7 +894,7 @@
   },
   {
     "id": "wand_cold",
-    "name": "Wand of Cold",
+    "name": "Wand of Ice",
     "glyph": "/",
     "color": "#80e0ff",
     "type": "wand",
@@ -1097,7 +1119,7 @@
     "scrollText": "You learn to throw your voice.",
     "weight": 0,
     "value": 300,
-    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+    "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
   },
   {
     "id": "scroll_fact_medlar",
@@ -1120,8 +1142,7 @@
     "type": "scroll",
     "slot": null,
     "factScroll": true,
-    "scrollText": "Beavers (Castor fiber) slap their tail on top of water to warn others of danger.",
-    "weight": 0,
+    "scrollText": "Beavers (Castor fiber) slap their tail on top of water to warn others of danger, this makes a sharp, booming splash that can be startling to predators and even humans.",    "weight": 0,
     "value": 300,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
@@ -1186,6 +1207,19 @@
     "slot": null,
     "factScroll": true,
     "scrollText": "Widget (also known as Widget the World Watcher) is a 1990s American animated television series about a purple alien sent to Earth to protect the planet from environmental polluters like Ratchet. In S45:32 Widget and Mega Brain time travel to the time of the dinosaurs and find out that the dinosaurs died out due to the asteroid polluting the air.",
+    "weight": 0,
+    "value": 300,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_guineapigs",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Guinea pigs (Cavia porcellus) are social South American rodents. They have a wide 340-degree field of vision and can hear high-frequency sounds up to 50,000–60,000 Hz, well above human limits. They practice coprophagy by eating special soft droppings (caecotrophs) to reabsorb vital B and K vitamins.",
     "weight": 0,
     "value": 300,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."

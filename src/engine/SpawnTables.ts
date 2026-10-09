@@ -172,19 +172,21 @@ export function itemAffinity(item: ItemDef): string[] {
 
 export const MONSTER_TIER: Record<string, Tier> = {
   snail: 1, hagedis: 1, egel: 1, rat: 1, wilddog: 1, wildboar: 1,
-  silvervisje: 1, pissebed: 1, bat: 1, stinkdier: 1, secitt: 1, dwarf: 1, spirit: 1,
-  mier: 1, schaap: 1, worm: 1, koe: 1, mol: 1,
-  nymph: 2, muddman: 2, lowerdwarf: 2, hamster: 2, ogre: 2,
+  silvervisje: 1, pissebed: 1, spetterpoep: 1, salamander: 1, bat: 1, stinkdier: 1, secitt: 1, dwarf: 1, spirit: 1,
+  mier: 1, worm: 1, koe: 1, mol: 1,
+  nymph: 2, muddman: 2, lowerdwarf: 2, hamster: 2, ogre: 2, rockgiant: 2,
   wizard: 2, magician: 2, sorcerer: 2, swordsman: 2, blauwkip: 2, migdnart: 2,
-  troll: 3, werewolf: 3,
+  troll: 3, werewolf: 3, schaap: 3,
 }
 
 // Generic hostile pools per area category. NPCs, bosses, set-pieces and
 // decorative monsters stay hand-placed in the map generators / mapSpawns.json.
 export const AREA_MONSTERS: Record<string, string[]> = {
-  forest:      ['snail', 'hagedis', 'egel', 'rat', 'wilddog', 'wildboar', 'stinkdier', 'ogre', 'troll', 'werewolf',
+  // Werewolves stay out of the garden pool; the bottom-right cell places its one by hand.
+  // Sheep only graze in tier-3 garden cells (see generateForestMap).
+  forest:      ['snail', 'hagedis', 'egel', 'rat', 'wilddog', 'wildboar', 'stinkdier', 'rockgiant', 'troll',
                 'mier', 'schaap', 'worm', 'koe', 'mol'],
-  bathroom:    ['silvervisje', 'pissebed', 'muddman'],
+  bathroom:    ['silvervisje', 'pissebed', 'muddman', 'spetterpoep'],
   garage:      ['bat', 'pissebed', 'dwarf', 'lowerdwarf'],
   kitchen:     ['rat', 'secitt', 'hamster', 'swordsman', 'blauwkip'],
   loft:        ['bat', 'stinkdier', 'hamster', 'werewolf', 'blauwkip'],
@@ -195,7 +197,7 @@ export const AREA_MONSTERS: Record<string, string[]> = {
 
 // Garden animals that also stray into every other area's random pool, at
 // GARDEN_STRAY_FACTOR of their normal weight.
-export const GARDEN_STRAYS = ['mier', 'schaap', 'worm', 'koe', 'mol']
+export const GARDEN_STRAYS = ['mier', 'worm', 'koe', 'mol']
 export const GARDEN_STRAY_FACTOR = 0.25
 
 // Every map holds this many times its base number of generic hostiles.

@@ -3,7 +3,7 @@ import { rollRunSeed, setRunSeed, forestCellTier } from './SpawnTables'
 export interface CellSnapshot {
   tiles: Array<{ defId: string; explored: boolean }>
   monsters: Array<{ defId: string; x: number; y: number; hp: number; message?: string; hasSpoken: boolean; stunTurns: number; eatingFish?: boolean }>
-  items: Array<{ x: number; y: number; defId: string; qty: number; charges?: number }>
+  items: Array<{ x: number; y: number; defId: string; qty: number; charges?: number; quality?: number }>
 }
 
 export interface RelicSite {
@@ -32,8 +32,9 @@ const RELIC_AREAS = [
 
 // Rolled once per game: the blue vase lands in one of these, each stamp on any
 // indoor map except the loft, pantry and tub enclosure (cellar). 'garage' picks
-// the top or bottom level; 'forest' picks a tier-3 garden cell; 'hall' a random hall cell.
-const VASE_AREAS = ['garage', 'forest', 'kitchen', 'hall']
+// the top or bottom level; 'forest' picks a tier-3 garden cell; 'garden' any garden
+// cell but the start; 'hall' a random hall cell.
+const VASE_AREAS = ['garage', 'forest', 'garden', 'kitchen', 'hall']
 const STAMP_AREAS = [
   'bathroom_top', 'bathroom_bottom', 'garage_top', 'garage_bottom',
   'hall', 'bedroom', 'bedroom_lower', 'kitchen', 'study',
@@ -111,6 +112,8 @@ export class WorldState {
     // Keys may carry an '@suffix' so one item can have several sites.
     this.questSites['toiletBrush'] = this.rollSite(['bathroom'])
     if (Math.random() < 0.5) this.questSites['toiletBrush@hall'] = this.rollSite(['hall'])
+    // The one Telephone lies somewhere in the hall
+    this.questSites['telephone'] = this.rollSite(['hall'])
     this.questSites['helm_knowledge'] = this.rollSite(['chaos', 'bathroom', 'bedroom', 'study'])
     // The Gompie always lies in the lower garage; now and then a second one upstairs.
     if (Math.random() < 0.2) this.questSites['gompie@garage'] = { area: 'garage_top' }
@@ -127,12 +130,20 @@ export class WorldState {
     this.npcSites = {}
     this.npcSites['pap2'] = { area: 'forest', cx: Math.floor(Math.random() * this.GRID), cy: 1 }
     if (Math.random() < 0.5) this.npcSites['mar'] = { area: 'forest', cx: Math.floor(Math.random() * this.GRID), cy: this.GRID - 1 }
+    // Mom always stands in the kitchen; now and then she also turns up in a hall cell and/or the bathroom
+    if (Math.random() < 0.5) this.npcSites['mam@hall'] = this.rollSite(['hall'])
+    if (Math.random() < 0.5) this.npcSites['mam@bathroom'] = this.rollSite(['bathroom'])
   }
 
   private rollSite(areas: string[]): RelicSite {
     let area = areas[Math.floor(Math.random() * areas.length)]
     if (area === 'garage') area = Math.random() < 0.5 ? 'garage_top' : 'garage_bottom'
     if (area === 'bathroom') area = Math.random() < 0.5 ? 'bathroom_top' : 'bathroom_bottom'
+    if (area === 'garden') {
+      let cx = 0, cy = 0
+      while (cx === 0 && cy === 0) { cx = Math.floor(Math.random() * this.GRID); cy = Math.floor(Math.random() * this.GRID) }
+      return { area: 'forest', cx, cy }
+    }
     const site: RelicSite = { area }
     if (area === 'forest') {
       const cells: Array<[number, number]> = []
@@ -145,11 +156,11 @@ export class WorldState {
     return site
   }
 
-  // NPCs rolled to this area/cell, if any.
+  // NPCs rolled to this area/cell, if any. Keys may carry an '@suffix' so one NPC can have several sites.
   npcsFor(area: string, cx?: number, cy?: number): string[] {
     return Object.entries(this.npcSites)
       .filter(([, site]) => site.area === area && (site.cx === undefined || (site.cx === cx && site.cy === cy)))
-      .map(([id]) => id)
+      .map(([key]) => key.split('@')[0])
   }
 
   // Quest items (vase, stamps, …) rolled to this area/cell, if any.
@@ -191,6 +202,8 @@ export class WorldState {
   horseDead    = false
   // Where the horse collapsed from the Petergrass; its carcass stays there for the rest of the run
   deadHorseSite: { key: string; x: number; y: number } | null = null
+  // Sas has led the player to the dead horse (happens once)
+  sasMourned = false
   // Given the Ericgras: the horse follows the player and stops blocking the hall
   horseFed     = false
   get horseQuestDone(): boolean { return this.horseDead || this.horseFed }

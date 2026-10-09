@@ -10,6 +10,6 @@ export const MYSTERY_POOL  = ['speed_potion', 'phasing_potion', 'depredation_pot
 // Non-npc monsters strong enough to be worth becoming; excludes legendary uniques (e.g. jormungand, guardian).
 export const POWERFUL_MONSTER_IDS = [
   'troll', 'lowerdwarf', 'swordsman', 'icedragon', 'firedragon', 'lorkest',
-  'muddman', 'summoner', 'watcher', 'ogre', 'magician', 'qivuit',
+  'muddman', 'summoner', 'watcher', 'ogre', 'rockgiant', 'magician', 'qivuit',
   'squid', 'wizard', 'sorcerer', 'werewolf', 'hamster', 'blauwkip',
 ]

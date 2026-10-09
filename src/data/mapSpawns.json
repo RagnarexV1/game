@@ -87,35 +87,7 @@
     "monsters": [
       { "x": 54, "y":  7, "defId": "eric_trader" }
     ],
-    "items": [
-      { "x": 51, "y":  7, "defId": "knife"         },
-      { "x": 52, "y":  7, "defId": "branch"    },
-      { "x": 53, "y":  7, "defId": "wasknijper"     },
-      { "x": 55, "y":  7, "defId": "silversword"    },
-      { "x": 56, "y":  7, "defId": "katana"         },
-      { "x": 57, "y":  7, "defId": "mace"           },
-      { "x": 51, "y":  8, "defId": "redcape"        },
-      { "x": 52, "y":  8, "defId": "bijl"           },
-      { "x": 53, "y":  8, "defId": "pickaxe"        },
-      { "x": 54, "y":  8, "defId": "leather_armor"  },
-      { "x": 55, "y":  8, "defId": "chain_mail"     },
-      { "x": 56, "y":  8, "defId": "bracers"        },
-      { "x": 57, "y":  8, "defId": "gorget"         },
-      { "x": 51, "y":  9, "defId": "helmet"         },
-      { "x": 52, "y":  9, "defId": "rubberboots"    },
-      { "x": 53, "y":  9, "defId": "scroll_teleport" },
-      { "x": 54, "y":  9, "defId": "tuinhandschoen" },
-      { "x": 55, "y":  9, "defId": "scroll_cartography" },
-      { "x": 56, "y":  9, "defId": "speed_potion"   },
-      { "x": 57, "y":  9, "defId": "ring_hastening" },
-      { "x": 51, "y": 10, "defId": "sinaasappel"    },
-      { "x": 52, "y": 10, "defId": "wand"           },
-      { "x": 53, "y": 10, "defId": "speculaas"      },
-      { "x": 54, "y": 10, "defId": "health_potion"  },
-      { "x": 55, "y": 10, "defId": "banaan"         },
-      { "x": 56, "y": 10, "defId": "boterham"       },
-      { "x": 57, "y": 10, "defId": "stroopwafels"   }
-    ]
+    "items": []
   },
   {
     "cx": 2, "cy": 1,

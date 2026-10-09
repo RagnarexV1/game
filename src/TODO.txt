@@ -1,78 +1,31 @@
-- if you are blind, you cannot also not be touched by the gaze of a watcher
 
-- Add the latin name for beaver (Castor fiber) in the knowledge text.
-
-- If you drop the juicy fish on the driveway map, Lex should walk to it and when on the item act as if you gave it. If you give the fish when standing next to him, place the juicy fish item on the ground beneath Lex. 
-
-- remove the portal in the upper garage map to the driveway
-
-- at speed 300 show message: You are moving dangerously fast!
-
-- Add a potion of lycanthropy, which has the same effect as the werewolf infection.
-
-- add a scroll of knowledge about Widget: 
-"Widget (also known as Widget the World Watcher) is a 1990s American animated television series about a purple alien sent to Earth to protect the planet from environmental polluters like Ratchet.
-In S45:32 Widget and Mega Brain time travel to the time of the dinosaurs and find out that the dinosaurs died out due to the asteroid polluting the air."
-
-- eric should not spawn on the driveway map
-
-- if you wipe out the horse with a scroll of extintion, the hall music should not play anymore as well
-
-- when phasing, you can also move between maps if you cross the border. This always works if there is also an arrow portal on that edge. No arrows appear this way. You spawn at the same x of y location on the other map as you crossed the edge. 2 special cases where there are no implicit arrows but this trick would work (also by tunneling or digging): upper garage right edge leads to kitchen, lower garage right edge leads to the top left hall, left wall of study leads to bottom side Mar's bedroom.  
-
-- when entering the hall through the driveway portal and the player has not finished the horse quest, spawn the horse also in the bottom right hall map and let the driveway portal lead to this map. 
-
-- give the helm of knowledge -5AC
-
-- stepping on a lego brick should do a bit more damage
-
-- if drop a clothspin trap and someone steps on it, they get hit by the trap. you have 10% chance of getting hit.
-
-- scrolls of knowledge can be spawn in the pantry as sales item
-
-- the sell button currently doesn't work. It should show the inventory of unworn items and show the prices which are half their buy value. if you click an item you sell it (automatically drop it) and get the cents. The item has it normal price after being sold.
-
-- if you throw the banana and it hits a monster it splits. let the new bananas also be able to hit other monsters.
-
-- the downArrow portal in mar's bedroom should be in the bottom left corner instead of bottom center. move it over. The location in the upper hall doesn't change.
-
-- After fulfilling Eric's quest he learns you to swim and dive, not only swim. adapt the messages.
-
-- When eric's quest is fulfilled, Widget should be in the choas map in the center of the carpet area near the entrance. Klopper, Eric, Pap, Mam should go in circles around Widget and say specific lines. I though this was in already but I don't see it.
-
-- remove the test portal near the center in the choas map
-
-- in the travelers log, the driveway minimap should be way bigger and span the width of the house, and keep the aspect ratio. the garage should shift right so that the garage roof touches the house front corner. the front door might need to shift a bit right as well but should remain visible.
 --------
 
 
 nieuw:
-
- - remove the yellow arrow to the pond in the travelers log. reposition the tub encloser to fit on the map.
- - i want to see the fish under lex
-
-
-
-
-Vragen:
-
-hoe impact experience en strength je vecht skills?
+- the message "You throw ..." shows after the messages that the monsters have been hit. it should show before.
+- change luck with -10 instead of -3 after extintion
+- the bananas in the stairs level should move every turn, ignoring the player speed. currently you are not always hit as well.
+- the kamikaze pigeon should not move less fast. it should always hit.
+- in the menu's, certain keys have a double function (closing the menu), avoid those keys for items. (for example i closes the inventory)
+- the sorcerer zaps the wand he has instead of hitting you.
+- give shurikens always 12 dmg, and ignore the variation. they should always stack this way (except unpaid)
 
 
-
+- upper bathroom, beaver river?
+- is there always a juicy fish availble? or 
 
 ------
 Losse eindjes:
+- test damage of cold and heat wand without resistance
 
-- make a use for the toilet brush
-
-
+- enable cheats:
+odogodogodog = god mode
+ikzalaltijdaardigtegenericzijn = all items in inventory
+peterisdom = all skills
+ragna<level#> = teleport
 
 Before release:
+- rename trap tp bom
 - check of lego does damage in the pantry
 - remove the arrow portal in the Pantry
-- remove garden testportals
-- disable god mode
-- remove starting with cold and fire resistance
-- remove starting with swim/diving skill
-

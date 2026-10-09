@@ -26,9 +26,14 @@ export class CombatSystem {
   constructor(private log: MessageLog) {}
 
   playerAttacks(player: Player, monster: Monster): CombatResult {
+    if (monster.rolled) {
+      this.log.add(`Your blow bounces off the rolled-up ${monster.name}.`, '#a0a0a0')
+      return { hit: false, damage: 0, killed: false }
+    }
     const hitChance = playerHitChance(player, monster)
 
-    if (Math.random() * 100 >= hitChance) {
+    // A kamikaze pigeon dives straight into you and never misses
+    if (monster.aiType !== 'kamikaze' && Math.random() * 100 >= hitChance) {
       this.log.add(`You miss the ${monster.name}.`, '#a0a0a0')
       return { hit: false, damage: 0, killed: false }
     }
@@ -42,7 +47,9 @@ export class CombatSystem {
       this.log.add(`The silver blade sears the ${monster.name}!`, '#e0e0ff')
     }
     monster.hp -= damage
-    this.log.add(`You hit the ${monster.name} for ${damage} damage.`, '#ffff00')
+    const weaponName = player.getWeaponName()
+    const withWhat = weaponName ? `your ${weaponName}` : 'your bare paws'
+    this.log.add(`You hit the ${monster.name} with ${withWhat} for ${damage} damage.`, '#ffff00')
 
     if (monster.hp <= 0) {
       this.log.add(`You kill the ${monster.name}!`, '#ff8000')

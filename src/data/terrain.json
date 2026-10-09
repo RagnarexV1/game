@@ -368,12 +368,20 @@
     "transparent": true
   },
   {
+    "id": "mud_footprint",
+    "name": "Mud",
+    "glyph": ".",
+    "color": "#704030",
+    "walkable": true,
+    "transparent": true
+  },
+  {
     "id": "tree_dead",
     "name": "Dead Tree",
     "glyph": "T",
     "color": "#505050",
-    "walkable": false,
-    "transparent": false
+    "walkable": true,
+    "transparent": true
   },
   {
     "id": "tree_down",
