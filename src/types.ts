@@ -69,6 +69,8 @@ export interface MapTile {
   defId: TileId
   explored: boolean
   visible: boolean
+  // Revealed by a Scroll of Cartography but never actually seen: no items shown
+  mapped?: boolean
 }
 
 export interface EquipmentSlots {

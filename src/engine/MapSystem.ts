@@ -89,6 +89,7 @@ export class MapSystem {
     if (tile) {
       tile.visible = true
       tile.explored = true
+      tile.mapped = false
     }
 
     // Shadowcasting FOV - 8 octants
@@ -125,6 +126,7 @@ export class MapSystem {
           if (tile) {
             tile.visible = true
             tile.explored = true
+            tile.mapped = false
           }
         }
 

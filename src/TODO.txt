@@ -3,21 +3,19 @@
 
 
 nieuw:
-- the message "You throw ..." shows after the messages that the monsters have been hit. it should show before.
-- change luck with -10 instead of -3 after extintion
-- the bananas in the stairs level should move every turn, ignoring the player speed. currently you are not always hit as well.
-- the kamikaze pigeon should not move less fast. it should always hit.
-- in the menu's, certain keys have a double function (closing the menu), avoid those keys for items. (for example i closes the inventory)
-- the sorcerer zaps the wand he has instead of hitting you.
-- give shurikens always 12 dmg, and ignore the variation. they should always stack this way (except unpaid)
 
-
-- upper bathroom, beaver river?
-- is there always a juicy fish availble? or 
+- increase the speed potion duration by 10 turns
+- 
 
 ------
 Losse eindjes:
-- test damage of cold and heat wand without resistance
+- check new game name feature
+- andere muziek voor pap?
+- terraforming?
+- does the number of rings you can wear match the number of fingers?
+- ik heb nu 2 rings of invisibility
+- is peter jarig? en mam niet? birthday geluid afspelen? bericht schrijven voor Peter?
+
 
 - enable cheats:
 odogodogodog = god mode
@@ -27,5 +25,17 @@ ragna<level#> = teleport
 
 Before release:
 - rename trap tp bom
+- check bathroom river
 - check of lego does damage in the pantry
 - remove the arrow portal in the Pantry
+
+
+check dit:
+Yes, it was a bug, and I've fixed it. Typecheck passes, but I haven't checked it in the game.
+
+Cause: whenever Sas stepped through a door, the code swapped the door tile to door_open. The drawing code shows door_open as the grass sprite, and only door_closed gets the door sprite on a floor or white-tile background. That swap wasn't needed anyway: the player and monsters already walk through door_closed. It happened both on the walk to the horse and, since my last change, whenever Sas walks through a door to catch up with you. That's why the hall doors turned to grass.
+
+Fix in GameScene.ts:
+
+Both places where Sas swapped the door are removed, so doors stay door_closed.
+Existing saves get repaired: when a map is restored from a save, any door_open tile is turned back into door_closed. Your hall maps should show their doors again the next time you enter them.

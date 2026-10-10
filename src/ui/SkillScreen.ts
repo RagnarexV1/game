@@ -21,12 +21,17 @@ export const SKILL_LIST: SkillEntry[] = [
   { id: 'mixing', label: 'Alchemy', icon: '⚗' },
   { id: 'ventriloquism', label: 'Ventriloquism', icon: '♪', active: true },
   { id: 'clothespin_trap', label: 'Clothespin Trap', icon: '*', active: true },
-  { id: 'music', label: 'Music', icon: '♫', active: true },
+  { id: 'cartography', label: 'Cartography', icon: '#', active: true },
+  { id: 'relocation', label: 'Relocation', icon: '~', active: true },
+  { id: 'music', label: 'Music', icon: '♫' },
 ]
+
+// Instruments the Music skill can play
+const INSTRUMENTS = ['clarinet']
 
 export class SkillScreen {
   private container: Phaser.GameObjects.Container | null = null
-  private view: 'list' | 'detail' = 'list'
+  private view: 'list' | 'detail' | 'instruments' = 'list'
   private player: Player | null = null
 
   onActivate: ((skillId: string) => void) | null = null
@@ -64,13 +69,14 @@ export class SkillScreen {
     c.add(bg)
 
     if (this.view === 'list') this.renderList(c)
+    else if (this.view === 'instruments') this.renderInstruments(c)
     else this.renderDetail(c)
 
     this.container = c
   }
 
   private back(): void {
-    if (this.view === 'detail') {
+    if (this.view !== 'list') {
       this.view = 'list'
       this.render()
     } else {
@@ -119,7 +125,7 @@ export class SkillScreen {
           this.onActivate?.(skill.id)
           return
         }
-        this.view = 'detail'
+        this.view = skill.id === 'music' ? 'instruments' : 'detail'
         this.render()
       })
       row.add(hit)
@@ -131,6 +137,47 @@ export class SkillScreen {
       fontSize: '14px', color: LOCKED_COLOR, fontFamily: FONT,
     }).setOrigin(0.5, 0)
     c.add(footer)
+  }
+
+  // Music: pick an instrument to play (only the clarinet exists)
+  private renderInstruments(c: Phaser.GameObjects.Container): void {
+    const scene = this.scene
+    const player = this.player!
+
+    c.add(scene.add.text(GAME_W / 2, 60, 'MUSIC', {
+      fontSize: '32px', color: HEADER_COLOR, fontFamily: FONT, fontStyle: 'bold',
+    }).setOrigin(0.5, 0))
+    c.add(scene.add.text(GAME_W / 2, 108, 'Instruments', {
+      fontSize: '16px', color: LOCKED_COLOR, fontFamily: FONT,
+    }).setOrigin(0.5, 0))
+
+    const startY = 160
+    const instruments = INSTRUMENTS.filter(id => player.inventory.some(it => it.defId === id))
+    if (instruments.length === 0) {
+      c.add(scene.add.text(GAME_W / 2, startY, '(you do not have an instrument)', {
+        fontSize: '16px', color: LOCKED_COLOR, fontFamily: FONT,
+      }).setOrigin(0.5, 0))
+    }
+    instruments.forEach((id, i) => {
+      const y = startY + i * (LINE_H + 12)
+      const label = scene.add.text(GAME_W / 2 - 180, y, this.invSys.getDef(id)?.name ?? id, {
+        fontSize: '20px', color: TEXT_COLOR, fontFamily: FONT,
+      })
+      c.add(label)
+      const hit = scene.add.zone(GAME_W / 2 - 220, y, 440, LINE_H).setOrigin(0, 0).setInteractive()
+      hit.on('pointerover', () => label.setColor('#ffff40'))
+      hit.on('pointerout',  () => label.setColor(TEXT_COLOR))
+      hit.on('pointerdown', (pointer: Phaser.Input.Pointer, lx: number, ly: number, event: { stopPropagation: () => void }) => {
+        event.stopPropagation()
+        this.hide()
+        this.onActivate?.('music')
+      })
+      c.add(hit)
+    })
+
+    c.add(scene.add.text(GAME_W / 2, GAME_H - 40, 'Click an instrument to play it   •   Click background to go back', {
+      fontSize: '14px', color: LOCKED_COLOR, fontFamily: FONT,
+    }).setOrigin(0.5, 0))
   }
 
   private renderDetail(c: Phaser.GameObjects.Container): void {

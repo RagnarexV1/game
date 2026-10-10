@@ -74,17 +74,20 @@ const ITEM_TIER_FACTOR: Record<Tier, Record<Tier, number>> = {
 }
 
 // Monsters all have equal base weight, so their table is gentler.
-const MONSTER_TIER_FACTOR: Record<Tier, Record<Tier, number>> = {
-  1: { 1: 1.0, 2: 0.1, 3: 0 },
-  2: { 1: 0.8, 2: 1.2, 3: 0.15 },
-  3: { 1: 0.5, 2: 1,   3: 1.2 },
+// Tier 4 = endgame monsters: rare, and only in the pools that list them.
+export type MonsterTier = Tier | 4
+
+const MONSTER_TIER_FACTOR: Record<Tier, Record<MonsterTier, number>> = {
+  1: { 1: 1.0, 2: 0.1, 3: 0,    4: 0 },
+  2: { 1: 0.8, 2: 1.2, 3: 0.15, 4: 0.3 },
+  3: { 1: 0.5, 2: 1,   3: 1.2,  4: 0.5 },
 }
 
 export function itemTierFactor(areaTier: Tier, itemTier: Tier): number {
   return ITEM_TIER_FACTOR[areaTier][itemTier]
 }
 
-export function monsterTierFactor(areaTier: Tier, monsterTier: Tier): number {
+export function monsterTierFactor(areaTier: Tier, monsterTier: MonsterTier): number {
   return MONSTER_TIER_FACTOR[areaTier][monsterTier]
 }
 
@@ -118,8 +121,8 @@ const ITEM_TIER_OVERRIDE: Record<string, Tier> = {
   amulet: 3,
   wand: 2,
   wand_displacement: 2,
-  wand_fire: 3,
-  wand_cold: 3,
+  wand_fire: 2,
+  wand_cold: 2,
   wand_evocation: 2,
   wand_tunneling: 2,
 }
@@ -157,6 +160,7 @@ const AFFINITY_BY_ID: Record<string, string[]> = {
   wasknijperbom:  ['bathroom', 'garage'],
   rubberboots:    ['bathroom', 'garage'],
   flying_flippo:  ['loft'],
+  ring_agility:   [],
   propje:         ['loft', 'study'],
   redcape:        ['bedroom'],
   clay:           ['hall'],
@@ -170,13 +174,14 @@ export function itemAffinity(item: ItemDef): string[] {
 
 // ── Monsters ───────────────────────────────────────────────────────────────
 
-export const MONSTER_TIER: Record<string, Tier> = {
+export const MONSTER_TIER: Record<string, MonsterTier> = {
   snail: 1, hagedis: 1, egel: 1, rat: 1, wilddog: 1, wildboar: 1,
   silvervisje: 1, pissebed: 1, spetterpoep: 1, salamander: 1, bat: 1, stinkdier: 1, secitt: 1, dwarf: 1, spirit: 1,
   mier: 1, worm: 1, koe: 1, mol: 1,
   nymph: 2, muddman: 2, lowerdwarf: 2, hamster: 2, ogre: 2, rockgiant: 2,
-  wizard: 2, magician: 2, sorcerer: 2, swordsman: 2, blauwkip: 2, migdnart: 2,
+  wizard: 2, magician: 2, sorcerer: 2, cockatrice: 2, swordsman: 2, blauwkip: 2, migdnart: 2,
   troll: 3, werewolf: 3, schaap: 3,
+  shade: 4, pelgrat: 4, jacchus: 4, draugr: 4,
 }
 
 // Generic hostile pools per area category. NPCs, bosses, set-pieces and
@@ -184,21 +189,40 @@ export const MONSTER_TIER: Record<string, Tier> = {
 export const AREA_MONSTERS: Record<string, string[]> = {
   // Werewolves stay out of the garden pool; the bottom-right cell places its one by hand.
   // Sheep only graze in tier-3 garden cells (see generateForestMap).
-  forest:      ['snail', 'hagedis', 'egel', 'rat', 'wilddog', 'wildboar', 'stinkdier', 'rockgiant', 'troll',
+  forest:      ['snail', 'hagedis', 'egel', 'rat', 'wilddog', 'wildboar', 'stinkdier', 'rockgiant', 'troll', 'ogre',
                 'mier', 'schaap', 'worm', 'koe', 'mol'],
-  bathroom:    ['silvervisje', 'pissebed', 'muddman', 'spetterpoep'],
-  garage:      ['bat', 'pissebed', 'dwarf', 'lowerdwarf'],
+  bathroom:    ['silvervisje', 'pissebed', 'muddman', 'spetterpoep', 'salamander', 'troll', 'swordsman'],
+  garage:      ['bat', 'pissebed', 'dwarf', 'lowerdwarf', 'rockgiant'],
   kitchen:     ['rat', 'secitt', 'hamster', 'swordsman', 'blauwkip'],
-  loft:        ['bat', 'stinkdier', 'hamster', 'werewolf', 'blauwkip'],
+  // Cockatrices only roam from the first floor up: the upper halls, bedrooms and loft
+  // (the ground-floor hall cells scale them out, see generateHallMap).
+  // Endgame monsters: all four in the loft and Peter and the wolf (not the loft stairs),
+  // shade and pelgrat in the bottom row of the lower hall and both upper halls.
+  loft:        ['bat', 'stinkdier', 'hamster', 'werewolf', 'blauwkip', 'rockgiant', 'cockatrice', 'shade', 'pelgrat', 'jacchus', 'draugr'],
   hall: ['bat', 'pissebed', 'dwarf', 'lowerdwarf', 'muddman', 'spirit', 'wizard', 'magician', 'sorcerer', 'ogre',
-         'rat', 'swordsman', 'nymph', 'stinkdier', 'werewolf', 'troll', 'blauwkip', 'migdnart'],
-  bedroom:     ['spirit', 'nymph', 'ogre', 'wizard', 'magician', 'sorcerer', 'troll', 'werewolf', 'blauwkip', 'migdnart'],
+         'rat', 'swordsman', 'nymph', 'stinkdier', 'werewolf', 'troll', 'blauwkip', 'migdnart', 'rockgiant',
+         'cockatrice', 'shade', 'pelgrat'],
+  bedroom:     ['spirit', 'nymph', 'ogre', 'rockgiant', 'wizard', 'magician', 'sorcerer', 'troll', 'werewolf', 'blauwkip', 'migdnart', 'cockatrice'],
+}
+
+// weightScale that keeps the endgame monsters out of a map whose pool lists them.
+export const NO_ENDGAME: Record<string, number> = { shade: 0, pelgrat: 0, jacchus: 0, draugr: 0 }
+
+// Fixed weights that replace the tier factor for a monster in one area category,
+// for monsters that belong there despite their tier.
+export const AREA_MONSTER_WEIGHT: Record<string, Record<string, number>> = {
+  bathroom: { troll: 0.3, swordsman: 0.4 },
+  // The garage is an early area, but a rock giant still lumbers in now and then
+  garage: { rockgiant: 0.15 },
 }
 
 // Garden animals that also stray into every other area's random pool, at
 // GARDEN_STRAY_FACTOR of their normal weight.
 export const GARDEN_STRAYS = ['mier', 'worm', 'koe', 'mol']
 export const GARDEN_STRAY_FACTOR = 0.25
+
+// Every map scatters this many times its base number of random items (extras included).
+export const ITEM_DENSITY = 2 / 3
 
 // Every map holds this many times its base number of generic hostiles.
 export const MONSTER_DENSITY = 1.5

@@ -12,9 +12,6 @@ import terrainData from '../data/terrain.json'
 // of its map only once visited, showing just the tiles explored so far, and
 // the current map is outlined in a slowly blinking white border.
 
-const FONT = 'Georgia, "Times New Roman", serif'
-const INK  = '#2a1608'
-
 const PATCH       = 0x9a6034   // dark-brown areas, as in the original
 const PATCH_EMPTY = 0x7e4a24   // unvisited slot inside a patch
 const GLASS       = 0x2e3a44   // unvisited window in the house
@@ -148,9 +145,6 @@ export class TravellersLog {
     this.drawPatches(g)
     this.drawHouse(g)
 
-    const info = scene.add.text(120, GAME_H - 128, '', { fontSize: '20px', color: INK, fontFamily: FONT, fontStyle: 'italic' })
-    c.add(info)
-
     for (const s of SLOTS) {
       const tiles = s.key === currentKey
         ? this.liveTiles(map)
@@ -170,9 +164,6 @@ export class TravellersLog {
       }
 
       const hit = scene.add.zone(s.x, s.y, s.w, s.h).setOrigin(0, 0).setInteractive()
-      // TESTING: always show name + map key, even for unexplored areas
-      hit.on('pointerover', () => info.setText(`${s.name}  [${s.key}]${visited ? '' : '  (unexplored)'}`))
-      hit.on('pointerout',  () => info.setText(''))
       hit.on('pointerdown', () => this.hide())
       c.add(hit)
     }

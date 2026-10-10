@@ -2,7 +2,7 @@ import type { ItemInstance, ItemDef } from '../types'
 import type { MessageLog } from './MessageLog'
 import itemData from '../data/items.json'
 
-export const REMOTE_CHARGES = 50
+export const REMOTE_CHARGES = 20
 // Chance an eaten speculaas turns out bad (roughly the spawn ratio of speculaas_bad)
 export const BAD_SPECULAAS_CHANCE = 0.5
 const WAND_BASE_CHARGES = 6
@@ -77,7 +77,7 @@ export class InventorySystem {
     const def = this.itemDefs.get(defId)
     if (def?.wandEffect) instance.charges = rollWandCharges()
     // Shurikens always deal their base damage, so every one is alike and they stack
-    if (((def?.type === 'weapon' && def.damage) || (def?.type === 'armor' && def.defense)) && defId !== 'shuriken') {
+    if (((def?.type === 'weapon' && def.damage) || ((def?.type === 'armor' || def?.type === 'ring') && def.defense)) && defId !== 'shuriken') {
       instance.quality = variation()
     }
     if (defId === 'remote') instance.charges = REMOTE_CHARGES

@@ -1,6 +1,6 @@
 import type { MapSystem } from './MapSystem'
 import { isSpecialTile } from './ItemPlacement'
-import { AREA_MONSTERS, GARDEN_STRAYS, GARDEN_STRAY_FACTOR, MONSTER_TIER, areaInfo, monsterTierFactor, pickWeighted, scaleMonsterCount, type Tier } from './SpawnTables'
+import { AREA_MONSTERS, AREA_MONSTER_WEIGHT, GARDEN_STRAYS, GARDEN_STRAY_FACTOR, MONSTER_TIER, areaInfo, monsterTierFactor, pickWeighted, scaleMonsterCount, type Tier } from './SpawnTables'
 
 export interface PlacedMonster {
   x: number
@@ -27,7 +27,7 @@ export function pickAreaMonster(
   ]
     .map(({ id, factor }) => ({
       value: id,
-      weight: monsterTierFactor(tier, MONSTER_TIER[id] ?? 1) * factor * (weightScale[id] ?? 1),
+      weight: (AREA_MONSTER_WEIGHT[category]?.[id] ?? monsterTierFactor(tier, MONSTER_TIER[id] ?? 1)) * factor * (weightScale[id] ?? 1),
     }))
     .filter(p => p.weight > 0)
   if (pool.length === 0) throw new Error(`No monster pool for area '${area}'`)

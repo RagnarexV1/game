@@ -16,6 +16,7 @@ const SKILL_META: Record<string, { label: string; cat: 'skill' | 'power' | 'abil
   music:            { label: 'Music',           cat: 'skill' },
   ventriloquism:    { label: 'Ventriloquism',   cat: 'skill' },
   clothespin_trap:  { label: 'Clothespin Trap', cat: 'skill' },
+  relocation:       { label: 'Relocation',      cat: 'skill' },
   swimming:         { label: 'Swimming',         cat: 'ability' },
   diving:           { label: 'Diving',           cat: 'ability' },
   heat_resistance:  { label: 'Heat',             cat: 'resistance' },
@@ -116,6 +117,9 @@ export class SelfScreen {
     if (player.isTranslucent()) diagnostics.push('Transparent')
     if (player.lycanthropy) diagnostics.push('Lycanthropy')
     if (player.invulnerableTurns > 0) diagnostics.push('Invulnerable')
+    if (player.drunkTurns > 0) diagnostics.push('Confused')
+    if (player.petrifyCountdown > 0) diagnostics.push('Turning to stone')
+    if (player.paralyzedTurns > 0) diagnostics.push('Paralyzed')
 
     addList(12,  diagnostics)
     addList(185, skills)

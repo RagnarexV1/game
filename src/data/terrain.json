@@ -416,6 +416,14 @@
     "transparent": true
   },
   {
+    "id": "keutels",
+    "name": "Droppings",
+    "glyph": ":",
+    "color": "#704020",
+    "walkable": true,
+    "transparent": true
+  },
+  {
     "id": "tapijt3",
     "name": "Bedroom Carpet",
     "glyph": ".",
@@ -889,7 +897,7 @@
   },
   {
     "id": "study_pool",
-    "name": "Pool of Water",
+    "name": "Shallow pool of liquid",
     "glyph": "~",
     "color": "#4080c0",
     "walkable": true,

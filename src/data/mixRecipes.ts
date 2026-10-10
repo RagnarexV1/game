@@ -1,5 +1,5 @@
 export const MIX_RECIPES: Array<{ a: string; b: string; result: string }> = [
-  { a: 'health_potion',      b: 'strength_potion',    result: 'invulnerability_potion' },
+  { a: 'health_potion',      b: 'apple_juice',        result: 'invulnerability_potion' },
   { a: 'speed_potion',       b: 'translucence_potion', result: 'second_life_potion'    },
   { a: 'experience_potion',  b: 'phasing_potion',      result: 'transformation_potion' },
   { a: 'depredation_potion', b: 'blindness_potion',    result: 'music_potion'          },

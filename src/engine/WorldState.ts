@@ -1,9 +1,13 @@
 import { rollRunSeed, setRunSeed, forestCellTier } from './SpawnTables'
 
 export interface CellSnapshot {
-  tiles: Array<{ defId: string; explored: boolean }>
+  tiles: Array<{ defId: string; explored: boolean; mapped?: boolean }>
   monsters: Array<{ defId: string; x: number; y: number; hp: number; message?: string; hasSpoken: boolean; stunTurns: number; eatingFish?: boolean }>
   items: Array<{ x: number; y: number; defId: string; qty: number; charges?: number; quality?: number }>
+  /** Turn the snapshot was taken (for regrowing killed monsters). */
+  turn?: number
+  /** Generic hostiles the map started with. */
+  original?: Array<{ defId: string; x: number; y: number }>
 }
 
 export interface RelicSite {
@@ -47,7 +51,7 @@ const VIAL_AREAS = [
 ]
 const VIAL_SITES = 8
 
-export const TURN_LIMIT = 20000
+export const TURN_LIMIT = 10000
 
 // Tier 2+ maps that can host a Scroll of Transport ('forest' = a tier-3 garden cell).
 const TRANSPORT_AREAS = [

@@ -60,7 +60,7 @@
     "damage": 40,
     "weight": 10,
     "value": 9999,
-    "description": "A god-forged hammer humming with thunder. Legends say only the worthy can wield it."
+    "description": "A god-forged hammer humming with thunder. Legends say only the worthy can wield it. When thrown, it always flies back to your paw."
   },
   {
     "id": "knife",
@@ -83,7 +83,7 @@
     "slot": "launcher",
     "damage": 1,
     "weight": 2,
-    "value": 40,
+    "value": 140,
     "description": "A forked stick with a strong rubber band. Held for shooting, thrown items fly 2 tiles further and hit 2 harder."
   },
   {
@@ -275,6 +275,17 @@
     "weight": 1,
     "value": 15,
     "description": "An unidentified brew. No one knows what it will do."
+  },
+  {
+    "id": "apple_juice",
+    "name": "Apple Juice",
+    "glyph": "!",
+    "color": "#e0c040",
+    "type": "drink",
+    "slot": null,
+    "weight": 1,
+    "value": 60,
+    "description": "Cloudy golden apple juice. It has been standing a while and smells a bit fermented."
   },
   {
     "id": "scroll_teleport",
@@ -552,7 +563,7 @@
   },
   {
     "id": "pannenkoeken",
-    "name": "Pancakes",
+    "name": "Pile of pancakes",
     "glyph": "%",
     "color": "#e0a060",
     "type": "eat",
@@ -835,6 +846,18 @@
     "description": "An icy blue ring. Provides resistance against cold."
   },
   {
+    "id": "ring_agility",
+    "name": "Ring of Agility",
+    "glyph": "=",
+    "color": "#80ff80",
+    "type": "ring",
+    "slot": "ring",
+    "defense": 2,
+    "weight": 0,
+    "value": 150,
+    "description": "A light green ring. You feel nimble enough to dodge blows."
+  },
+  {
     "id": "ring_locus",
     "name": "Ring of Locus Mastery",
     "glyph": "=",
@@ -1092,7 +1115,7 @@
     "slot": null,
     "scrollText": "A thunderous silence falls over the dungeon.",
     "weight": 0,
-    "value": 120,
+    "value": 300,
     "description": "Dark crimson ink on black parchment. Gives the power to wipe an entire species."
   },
   {
@@ -1105,7 +1128,7 @@
     "skillScroll": "clothespin_trap",
     "scrollText": "You learn how to make a Clothespin Trap.",
     "weight": 0,
-    "value": 100,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
   },
   {
@@ -1118,7 +1141,33 @@
     "skillScroll": "ventriloquism",
     "scrollText": "You learn to throw your voice.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
+  },
+  {
+    "id": "scroll_skill_cartography",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "skillScroll": "cartography",
+    "scrollText": "You learn the art of Cartography: you can map out any place you are in.",
+    "weight": 0,
+    "value": 500,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
+  },
+  {
+    "id": "scroll_skill_relocation",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "skillScroll": "relocation",
+    "scrollText": "You learn the art of Relocation: you can teleport at will.",
+    "weight": 0,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
   },
   {
@@ -1131,7 +1180,7 @@
     "factScroll": true,
     "scrollText": "Mespilus germanica, commonly known as the medlar, is a tree in the Rosaceae family and closely related to apples and pears. The fruit cannot be eaten fresh off the tree but must be exposed to frost or stored for weeks until it softens, turns brown, and begins to chemically decay.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1143,7 +1192,7 @@
     "slot": null,
     "factScroll": true,
     "scrollText": "Beavers (Castor fiber) slap their tail on top of water to warn others of danger, this makes a sharp, booming splash that can be startling to predators and even humans.",    "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1156,7 +1205,7 @@
     "factScroll": true,
     "scrollText": "Dinosaurs went extinct at the end of the Cretaceous Period (about 66 million years ago) during a major global event called the Cretaceous–Paleogene extinction event.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1167,9 +1216,9 @@
     "type": "scroll",
     "slot": null,
     "factScroll": true,
-    "scrollText": "Sergei Prokofiev wrote Peter and the Wolf in 1936 for a children's theater in Moscow to help young listeners easily learn the distinct sounds of an orchestra.",
+    "scrollText": "Sergei Prokofiev wrote Peter and the Wolf in 1936 for a children's theater in Moscow to help young listeners easily learn the distinct sounds of an orchestra. The nimble, smooth, and sly tones of the clarinet capture the cautious, creeping movements of a cat.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1182,7 +1231,7 @@
     "factScroll": true,
     "scrollText": "In the lyrics of Jan Engelsman's vocalise voor Cavalcanti, the phrase \"groen is de gong van de zee\" symbolizes the hypnotic, irresistible call of the ocean and an intense, romantic yearning for freedom and adventure.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1195,7 +1244,7 @@
     "factScroll": true,
     "scrollText": "Eric spent many hours making this fantastic game specially for you!",
     "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1208,7 +1257,7 @@
     "factScroll": true,
     "scrollText": "Widget (also known as Widget the World Watcher) is a 1990s American animated television series about a purple alien sent to Earth to protect the planet from environmental polluters like Ratchet. In S45:32 Widget and Mega Brain time travel to the time of the dinosaurs and find out that the dinosaurs died out due to the asteroid polluting the air.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1221,7 +1270,20 @@
     "factScroll": true,
     "scrollText": "Guinea pigs (Cavia porcellus) are social South American rodents. They have a wide 340-degree field of vision and can hear high-frequency sounds up to 50,000–60,000 Hz, well above human limits. They practice coprophagy by eating special soft droppings (caecotrophs) to reabsorb vital B and K vitamins.",
     "weight": 0,
-    "value": 300,
+    "value": 500,
+    "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
+  },
+  {
+    "id": "scroll_fact_jormungand",
+    "name": "Scroll of Knowledge",
+    "glyph": "S",
+    "color": "#40ffff",
+    "type": "scroll",
+    "slot": null,
+    "factScroll": true,
+    "scrollText": "Jormungandr, the Midgard Serpent, is a serpent born of evil during the chaos at the beginning of time. He is lurking in the depths of the seas. He can only be beaten by using Thors hammer Mjollnir, preferably from afar.",
+    "weight": 0,
+    "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a fact."
   },
   {
@@ -1234,7 +1296,7 @@
     "scrollText": "The world lurches and you are elsewhere.",
     "weight": 0,
     "value": 70,
-    "description": "Purple-tinged parchment that hums faintly. Read once to mark a place, read again to return there."
+    "description": "Purple-tinged parchment that hums faintly."
   },
   {
     "id": "scroll_timestop",

@@ -84,6 +84,7 @@ export const TILE_SPRITES: Record<string, string> = {
   vulkaan:              'terrain_vulkaan',
   portal_chaos:         'terrain_portal',
   tapijt3:              'terrain_tapijt3',
+  keutels:              'terrain_keutels',
   muurM:                'terrain_wall_m',
   muur_up_v:            'terrain_wall_up_v',
   muur_down_v:          'terrain_wall_down_v',
@@ -179,6 +180,8 @@ const ITEM_SPRITES: Record<string, string> = {
   scroll_extinction:  'item_scroll',
   scroll_knowledge:   'item_scroll',
   scroll_ventriloquism:   'item_scroll',
+  scroll_skill_cartography: 'item_scroll',
+  scroll_skill_relocation:  'item_scroll',
   scroll_fact_beavers:    'item_scroll',
   scroll_fact_dinosaurs:  'item_scroll',
   scroll_fact_prokofiev:  'item_scroll',
@@ -187,6 +190,7 @@ const ITEM_SPRITES: Record<string, string> = {
   scroll_fact_medlar:     'item_scroll',
   scroll_fact_widget:     'item_scroll',
   scroll_fact_guineapigs: 'item_scroll',
+  scroll_fact_jormungand: 'item_scroll',
   relic_scroll_1:     'item_scroll',
   relic_scroll_2:     'item_scroll',
   relic_scroll_3:     'item_scroll',
@@ -204,6 +208,7 @@ const ITEM_SPRITES: Record<string, string> = {
   music_potion:           'item_potion',
   transformation_potion:  'item_potion',
   mystery_potion:         'item_potion',
+  apple_juice:            'item_potion',
   empty_vial:          'item_emptyvial',
   branch:           'item_branch',
   knife:            'item_knife',
@@ -253,6 +258,7 @@ const ITEM_SPRITES: Record<string, string> = {
   ring_invisibility:  'item_ring',
   ring_cold:          'item_ring',
   ring_locus:         'item_ring',
+  ring_agility:       'item_ring',
   silversword:      'item_silversword',
   wand:             'item_wand',
   wand_displacement: 'item_wand',
@@ -326,6 +332,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   cactus:      'monster_cactus',
   secitt:      'monster_secitt',
   watcher:     'monster_watcher',
+  cockatrice:  'monster_cockatrice',
   wierdfume:   'monster_wierdfume',
   rat:         'monster_rat',
   wilddog:     'monster_wilddog',
@@ -346,6 +353,10 @@ const MONSTER_SPRITES: Record<string, string> = {
   werewolf:    'monster_werewolf',
   stinkdier:   'monster_stinkdier',
   troll:       'monster_troll',
+  shade:       'monster_shade',
+  pelgrat:     'monster_pelgrat',
+  jacchus:     'monster_jacchus',
+  draugr:      'monster_draugr',
 }
 
 type RenderObject = Phaser.GameObjects.GameObject
@@ -695,7 +706,7 @@ export class LocalMapView {
         const needsBathroomBase = tile.defId === 'toilet' || tile.defId === 'wcrol' ||
           tile.defId === 'bath_exit_left' || tile.defId === 'bath_exit_down' || tile.defId === 'bath_exit_up' ||
           tile.defId === 'kraan' || tile.defId === 'bath_exit_upper_hall'
-        const needsTapijt3Base = tile.defId === 'bedroom_exit' || tile.defId === 'flame'
+        const needsTapijt3Base = tile.defId === 'bedroom_exit' || tile.defId === 'flame' || tile.defId === 'keutels'
           || tile.defId === 'bedroom_stairs_down' || tile.defId === 'bedroom_stairs_up'
           || tile.defId === 'bedroom_portal_driveway' || tile.defId === 'driveway_exit_balcony'
           || tile.defId === 'mar_exit_upper_hall'
@@ -710,7 +721,8 @@ export class LocalMapView {
             this.map.getTile(tx, ty + 1)?.defId,
           ]
           const isDoorTile = tile.defId === 'door_closed' || tile.defId === 'exit_bathroom'
-          const baseKey = isBathroomMap && isDoorTile ? 'terrain_tegel_wit'
+          const baseKey = isBathroomMap && tile.defId === 'tree_down' ? 'terrain_water'
+            : isBathroomMap && isDoorTile ? 'terrain_tegel_wit'
             : isBathroomMap ? 'terrain_hall_wall'
             : nbrs4.some(d => d === 'tegel_wit') ? 'terrain_tegel_wit'
             : nbrs4.some(d => d === 'hall_wall') ? 'terrain_hall_wall'
@@ -801,11 +813,12 @@ export class LocalMapView {
     for (const fi of floorItems) {
       const tile = this.map.getTile(fi.x, fi.y)
       if (!tile?.visible) continue
-      if (isHiddenUnderWater(fi.item.defId, tile.defId, player.itemVision)) continue
+      // Submerged items stay hidden here even with Depredation; only the world map shows them
+      if (isHiddenUnderWater(fi.item.defId, tile.defId, false)) continue
       const sx = x + camOffX + fi.x * TILE
       const sy = y + camOffY + fi.y * TILE
 
-      const isOnWater = tile.defId === 'water'
+      const isOnWater = tile.defId === 'water' || tile.defId === 'water_bath'
       const itemDepth = isOnWater ? 0.5 : 2.5
 
       const spriteKey = ITEM_SPRITES[fi.item.defId] ?? INV_SPRITES[fi.item.defId]
@@ -846,7 +859,7 @@ export class LocalMapView {
         : m.defId === 'doppelganger' ? player.spriteKey
         : baseSpriteKey
       if (spriteKey && this.scene.textures.exists(spriteKey)) {
-        const img = this.scene.add.image(sx, sy, spriteKey).setOrigin(0, 0).setDepth(3)
+        const img = this.scene.add.image(sx, sy, spriteKey).setOrigin(0, 0).setDisplaySize(TILE, TILE).setDepth(3)
         img.setMask(this._mask)
         this.pool.push(img)
       } else {
@@ -915,6 +928,8 @@ export class LocalMapView {
       scroll_extinction:   { glyph: '?', color: '#c0c080' },
       scroll_knowledge:    { glyph: '?', color: '#c0c080' },
       scroll_ventriloquism:   { glyph: '?', color: '#40ffff' },
+      scroll_skill_cartography: { glyph: '?', color: '#40ffff' },
+      scroll_skill_relocation:  { glyph: '?', color: '#40ffff' },
       scroll_fact_beavers:    { glyph: '?', color: '#40ffff' },
       scroll_fact_dinosaurs:  { glyph: '?', color: '#40ffff' },
       scroll_fact_prokofiev:  { glyph: '?', color: '#40ffff' },
@@ -923,6 +938,7 @@ export class LocalMapView {
       scroll_fact_medlar:     { glyph: '?', color: '#40ffff' },
       scroll_fact_widget:     { glyph: '?', color: '#40ffff' },
       scroll_fact_guineapigs: { glyph: '?', color: '#40ffff' },
+      scroll_fact_jormungand: { glyph: '?', color: '#40ffff' },
       relic_scroll_1:      { glyph: '?', color: '#ffd080' },
       relic_scroll_2:      { glyph: '?', color: '#ffd080' },
       relic_scroll_3:      { glyph: '?', color: '#ffd080' },
@@ -935,7 +951,7 @@ export class LocalMapView {
   }
 
   private hasTapijt3Neighbor(x: number, y: number): boolean {
-    const carpet = new Set(['tapijt3', 'bedroom_stairs_down', 'bedroom_stairs_up'])
+    const carpet = new Set(['tapijt3', 'keutels', 'bedroom_stairs_down', 'bedroom_stairs_up'])
     return [
       this.map.getTile(x-1,y),   this.map.getTile(x+1,y),
       this.map.getTile(x,y-1),   this.map.getTile(x,y+1),

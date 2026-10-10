@@ -1,17 +1,17 @@
 import type { MapSystem } from './MapSystem'
 import type { ItemDef } from '../types'
 import itemData from '../data/items.json'
-import { areaInfo, itemPower, itemTier, itemAffinity, itemTierFactor, pickWeighted, AFFINITY_BOOST, ITEM_WEIGHT_OVERRIDE, type Tier } from './SpawnTables'
+import { areaInfo, itemPower, itemTier, itemAffinity, itemTierFactor, pickWeighted, AFFINITY_BOOST, ITEM_DENSITY, ITEM_WEIGHT_OVERRIDE, type Tier } from './SpawnTables'
 
 const ITEMS = itemData as ItemDef[]
 
 // Unique/quest items — kept only at their hand-placed spot, never duplicated by random scatter.
 // The Scroll of Transport and the empty vials are placed per game via WorldState.questSites;
 // the Gompie only lies in the garage (and is sold in the pantry).
-export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport', 'gompie', 'empty_vial', 'ring_hastening', 'telephone'])
+export const EXCLUDE_IDS = new Set(['gong', 'gongmallet', 'second_life_potion', 'mystery_potion', 'invulnerability_potion', 'music_potion', 'transformation_potion', 'clarinet', 'pannenkoek', 'scroll_transport', 'gompie', 'empty_vial', 'ring_hastening', 'telephone', 'apple_juice'])
 
-// Items lying at the bottom of bath water stay unseen unless a Potion of
-// Depredation (item vision) reveals them.
+// Items lying at the bottom of bath water stay unseen until it drains. The local
+// map always hides them; the world map shows them under Depredation (item vision).
 const SUBMERGED_IDS = new Set(['ring_hastening'])
 export function isHiddenUnderWater(defId: string, tileDefId: string | undefined, itemVision: boolean): boolean {
   return SUBMERGED_IDS.has(defId) && tileDefId === 'water_bath' && !itemVision
@@ -23,6 +23,8 @@ const MIN_TIER: Record<string, Tier> = {
   // Skill-teaching Scrolls of Knowledge; the fact scrolls turn up anywhere.
   scroll_knowledge:     2,
   scroll_ventriloquism: 2,
+  scroll_skill_cartography: 2,
+  scroll_skill_relocation:  2,
 }
 
 // Items clearly tied to one kind of location — never scattered onto an unrelated map type.
@@ -47,6 +49,16 @@ const RESTRICTED: Record<string, string[]> = {
 // Items that never turn up in random loot on these area categories.
 const FORBIDDEN: Record<string, string[]> = {
   ring_invisibility: ['forest'],
+}
+
+// Shuriken and wands only turn up from the hall onwards, never in the early areas
+// (`allowWands` lifts that for wands on a single map).
+const EARLY_AREAS = ['forest', 'bathroom', 'garage', 'kitchen', 'tub_enclosure']
+function isForbidden(it: ItemDef, category: string, allowWands = false): boolean {
+  if (FORBIDDEN[it.id]?.includes(category)) return true
+  const isWand = it.type === 'wand' && it.id !== 'remote'
+  const hallOnward = it.id === 'shuriken' || (isWand && !allowWands)
+  return hallOnward && EARLY_AREAS.includes(category)
 }
 
 // Plants that only ever grow on grass tiles (never on floor, mud, …).
@@ -79,11 +91,11 @@ function rarityWeight(item: ItemDef): number {
  * Loot table for an area: base rarity × how well the item's tier suits the
  * area's tier × a boost when the item thematically belongs in the area.
  */
-function buildPool(category: string, tier: Tier): Array<{ value: string; weight: number }> {
+function buildPool(category: string, tier: Tier, allowWands = false): Array<{ value: string; weight: number }> {
   return ITEMS
     .filter(it => !it.relic && !EXCLUDE_IDS.has(it.id))
     .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes(category))
-    .filter(it => !FORBIDDEN[it.id]?.includes(category))
+    .filter(it => !isForbidden(it, category, allowWands))
     .filter(it => tier >= (MIN_TIER[it.id] ?? 1))
     .map(it => {
       const affinity = itemAffinity(it).includes(category) ? AFFINITY_BOOST : 1
@@ -140,9 +152,11 @@ export function scatterRandomItems(
   count: number,
   avoid: Array<{ x: number; y: number }> = [],
   tierOverride?: Tier,
+  allowWands = false,
 ): ScatteredItem[] {
   const { category, tier } = areaInfo(area, tierOverride)
-  const pool = buildPool(category, tier)
+  const pool = buildPool(category, tier, allowWands)
+  count = Math.round(count * ITEM_DENSITY)
   if (pool.length === 0 || count <= 0) return []
 
   const avoidSet = new Set(avoid.map(p => `${p.x},${p.y}`))
@@ -169,11 +183,13 @@ export function scatterRandomItems(
       : { x, y, defId, qty: 1 })
   }
 
-  // On top of the regular loot, every map gets some extra food and potions
+  // On top of the regular loot, every map gets some extra food and potions,
+  // and the garden and halls some extra scrolls
   const extras: Array<[Array<{ value: string; weight: number }>, number]> = [
     [buildFoodPool(category), Math.ceil(count / 2)],
     [buildPotionPool(), Math.ceil(count / 3)],
   ]
+  if (category === 'forest' || category === 'hall') extras.push([SCROLL_POOL, Math.ceil(count / 3)])
   for (const [pool, extraCount] of extras) {
     let placed = 0
     attempts = 0
@@ -195,6 +211,16 @@ export function scatterRandomItems(
   }
   return results
 }
+
+// Extra scrolls for the garden and halls; mostly teleportation.
+const SCROLL_POOL: Array<{ value: string; weight: number }> = [
+  { value: 'scroll_teleport', weight: 2 },
+  { value: 'scroll_alliance', weight: 1 },
+  { value: 'scroll_cartography', weight: 1 },
+  { value: 'scroll_timestop', weight: 1 },
+  { value: 'scroll_twelvegates', weight: 1 },
+  { value: 'scroll_lavastrike', weight: 1 },
+]
 
 // Plain potions (the mixed/unique ones stay out); health potions a bit more likely.
 function buildPotionPool(): Array<{ value: string; weight: number }> {

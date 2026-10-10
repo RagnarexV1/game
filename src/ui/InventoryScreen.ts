@@ -375,7 +375,7 @@ export class InventoryScreen {
 
     const isUnpaid = (di: DisplayItem) => this.mode === 'pay' || !!this.unpaidItems?.has(di.item.instanceId)
 
-    // Sort: by category, then equipped first within category, then by name,
+    // Sort: by category, then equipped first within category, then by name and strength,
     // with unpaid copies listed before the paid stack of the same item
     allItems.sort((a, b) => {
       const catDiff = (CATEGORY_ORDER[a.category] ?? 9) - (CATEGORY_ORDER[b.category] ?? 9)
@@ -383,6 +383,9 @@ export class InventoryScreen {
       if (a.equipped !== b.equipped) return a.equipped ? -1 : 1
       const nameDiff = a.def.name.localeCompare(b.def.name)
       if (nameDiff !== 0) return nameDiff
+      // Same item: weakest first (+1, +2, +3, ...)
+      const strDiff = (itemDamage(a.def, a.item) + itemDefense(a.def, a.item)) - (itemDamage(b.def, b.item) + itemDefense(b.def, b.item))
+      if (strDiff !== 0) return strDiff
       return Number(isUnpaid(b)) - Number(isUnpaid(a))
     })
 
@@ -419,8 +422,9 @@ export class InventoryScreen {
       const di = pageItems[i]
       const { item, def, equipped, slot } = di
 
-      // Letters assigned to: non-equipped items in all modes; equipped items in 'remove' mode
-      const getsLetter = !equipped || this.mode === 'remove' || this.mode === 'examine'
+      // Letters assigned to: non-equipped items in all modes; equipped items in the
+      // equip menus (a letter takes them off again) and when examining
+      const getsLetter = !equipped || this.mode === 'remove' || this.mode === 'wear' || this.mode === 'wield' || this.mode === 'examine'
       const letter = getsLetter ? (letters[letterIdx] ?? '?') : ''
       if (getsLetter && letterIdx < letters.length) {
         this.letterToLine.set(letters[letterIdx], i)
@@ -433,7 +437,7 @@ export class InventoryScreen {
       if (def.wandEffect || def.id === 'remote') desc += ` (${item.charges ?? 0})`
       if (def.damage)  desc += ` (+${itemDamage(def, item)} dmg)`
       if (def.defense) desc += ` (-${itemDefense(def, item)} AC)`
-      if (this.mode === 'pay') desc += `  [${itemValue(def, item)}g]`
+      if (this.mode === 'pay') desc += `  [${itemValue(def, item)}c]`
       if (this.mode === 'sell') desc += `  [${sellPrice(itemValue(def, item))}c]`
       if (this.mode === 'pay' && this.payGhosts?.has(item.instanceId)) desc += ' (used)'
       if (this.mode !== 'pay' && this.unpaidItems?.has(item.instanceId)) desc += ' (unpaid)'
@@ -442,11 +446,11 @@ export class InventoryScreen {
       let color: string
 
       if (equipped) {
-        const tag = slot === 'weapon' ? 'held' : slot === 'launcher' ? 'shooting' : (slot as string).startsWith('ring') ? 'ring' : 'worn'
-        text  = this.mode === 'remove'
+        const tag = slot === 'weapon' ? 'held' : slot === 'launcher' ? 'shooting' : 'worn'
+        text  = getsLetter
           ? `${letter}  [${tag}] ${desc}`
           : `   [${tag}] ${desc}`
-        color = '#00c080'
+        color = CATEGORY_COLOR[di.category] ?? '#d0d0d0'
       } else {
         const isSelected = this.mode === 'all' && this.letterToLine.get(letters[this.selectedIdx]) === i
         const isMixSel   = this.mode === 'mix' && this.mixFirstItem?.instanceId === item.instanceId
@@ -527,9 +531,9 @@ export class InventoryScreen {
     else this.header.setText(`INVENTORY  (Cents: ${player.gold})` + pageHint)
 
     // ── Footer ────────────────────────────────────────────────────────────
-    const pageKeys = multi ? '  ◄►=page' : ''
+    const pageKeys = multi ? '  ◄►/Enter=page' : ''
     if (this.mode === 'wear' || this.mode === 'wield' || this.mode === 'remove')
-      this.footer.setText('Click item to equip/remove   ESC to close' + pageKeys)
+      this.footer.setText('Letter/click item to equip/remove   ESC to close' + pageKeys)
     else if (this.mode === 'eat')
       this.footer.setText('Letter/click food to eat   E to close' + pageKeys)
     else if (this.mode === 'drink')
@@ -584,8 +588,16 @@ export class InventoryScreen {
     if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
       this.changePage(-1); return true
     }
+    // Enter flips to the next page, wrapping back to the first after the last
+    if (event.key === 'Enter') {
+      if (this.totalPages > 1) {
+        this.currentPage = (this.currentPage + 1) % this.totalPages
+        this.changePage(0)
+      }
+      return true
+    }
 
-    if (this.mode !== 'all' && this.mode !== 'throw' && this.mode !== 'zap' && this.mode !== 'use' && this.mode !== 'remove' && this.mode !== 'drop' && this.mode !== 'examine' && this.mode !== 'mix' && this.mode !== 'pay' && this.mode !== 'sell'
+    if (this.mode !== 'all' && this.mode !== 'throw' && this.mode !== 'zap' && this.mode !== 'use' && this.mode !== 'remove' && this.mode !== 'wear' && this.mode !== 'wield' && this.mode !== 'drop' && this.mode !== 'examine' && this.mode !== 'mix' && this.mode !== 'pay' && this.mode !== 'sell'
       && this.mode !== 'eat' && this.mode !== 'drink' && this.mode !== 'read') return true
 
     const letterLineIdx = this.letterToLine.get(event.key)
@@ -600,9 +612,9 @@ export class InventoryScreen {
         if (this.mode === 'zap'   && this.onZap)     { this.onZap(data.item, this.currentPlayer);   return true }
         if (this.mode === 'use'   && this.onUse)     { this.onUse(data.item, this.currentPlayer);   return true }
         if (this.mode === 'drop'  && this.onDrop)    { this.onDrop(data.item, this.currentPlayer);  return true }
-        if (this.mode === 'remove' && data.slot)     {
-          this.eqSys.unequip(this.currentPlayer.inventory, this.currentPlayer.equipment, data.slot, this.currentPlayer)
-          this.refresh(this.currentPlayer)
+        // Same as clicking: equip, or take off what is already worn/held
+        if (this.mode === 'remove' || this.mode === 'wear' || this.mode === 'wield') {
+          this.handleLineClick(letterLineIdx)
           return true
         }
         if (this.mode === 'examine') {

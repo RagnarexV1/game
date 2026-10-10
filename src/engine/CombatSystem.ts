@@ -22,6 +22,15 @@ export function playerHitChance(player: Player, monster: Monster): number {
   return clampPct(45 + player.str / 10 + player.luck / 10 + player.level * 2 - 2 * monster.ac)
 }
 
+// Armor protection (10 - descending AC) counts fully down to AC 0, then with
+// diminishing returns so very low AC can't make the player near-immune.
+// Soft cap: effective protection approaches 40.
+function effectiveProtection(ac: number): number {
+  const p = 10 - ac
+  if (p <= 10) return p
+  return 10 + (30 * (p - 10)) / (p + 10)
+}
+
 export class CombatSystem {
   constructor(private log: MessageLog) {}
 
@@ -67,16 +76,18 @@ export class CombatSystem {
     }
 
     // player.getAC() is descending (lower = more protection, 10 = unarmored)
-    const hitChance = clampPct(50 + monster.str / 7 + (player.getAC() - 10))
+    const protection = effectiveProtection(player.getAC())
+    const hitChance = clampPct(50 + monster.str / 7 - protection)
 
-    if (Math.random() * 100 >= hitChance) {
+    // A kamikaze pigeon never misses its dive either
+    if (monster.aiType !== 'kamikaze' && Math.random() * 100 >= hitChance) {
       this.log.add(`The ${monster.name} misses you.`, '#a0a0a0')
       return { hit: false, damage: 0, killed: false }
     }
 
     const factor = 1 + Math.random() * 0.5 // 1.00-1.50
     const damageBase = roll(monster.str) + Math.ceil(monster.str / 2)
-    const damage = Math.max(1, Math.round(damageBase - (10 - player.getAC()) * factor))
+    const damage = Math.max(1, Math.round(damageBase - protection * factor))
     player.hp -= damage
     this.log.add(`The ${monster.name} hits you for ${damage} damage.`, '#ff4040')
     // Werewolf bites carry the curse silently — only the self screen reveals it

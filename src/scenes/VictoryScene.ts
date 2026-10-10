@@ -27,7 +27,7 @@ const MARCH_POOL = [
   'monster_swordsman', 'monster_wizard', 'monster_worm', 'monster_lorkest', 'monster_qivuit',
   'monster_jormungand', 'monster_vis', 'monster_squid', 'monster_silvervisje', 'monster_pissebed',
   'monster_bat', 'monster_lowerdwarf', 'monster_cactus', 'monster_car', 'monster_guardian',
-  'monster_summoner', 'monster_secitt', 'monster_watcher', 'monster_wierdfume', 'monster_rat',
+  'monster_summoner', 'monster_secitt', 'monster_watcher', 'monster_cockatrice', 'monster_wierdfume', 'monster_rat',
   'monster_wilddog', 'monster_wildboar', 'monster_ogre', 'monster_spirit', 'monster_muddman',
   'monster_nymph', 'monster_cat', 'monster_wolf', 'monster_werewolf', 'monster_troll',
   'monster_rockgiant', 'monster_salamander', 'monster_spetterpoep',
@@ -151,8 +151,11 @@ export class VictoryScene extends Phaser.Scene {
     super({ key: 'VictoryScene' })
   }
 
-  init(data: { score?: number }): void {
+  init(data: { score?: number; music?: Phaser.Sound.BaseSound | null }): void {
     this.score = data?.score ?? 0
+    // The level's music keeps playing during the credits and stops when we leave
+    const music = data?.music ?? null
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => music?.destroy())
     this.waves = []
     this.waveTimer = 0
     this.orbits = []
@@ -269,19 +272,12 @@ export class VictoryScene extends Phaser.Scene {
       lineSpacing: 10,
     }).setOrigin(0.5, 0).setDepth(20)
 
-    // Return portal — clickable terrain_portal sprite in bottom-left corner
-    const portalX = 48
-    const portalY = GAME_H - 56
-
-    this.add.text(portalX, portalY - 34, 'RETURN', {
+    // Clickable RETURN text in the bottom-left corner
+    this.add.text(48, GAME_H - 56, 'RETURN', {
       fontSize: '14px',
       color: '#80c0ff',
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0.5).setDepth(5)
-
-    this.add.image(portalX, portalY, 'terrain_portal')
-      .setOrigin(0.5, 0.5)
-      .setDepth(5)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => { this.sound.stopAll(); this.scene.start('GameScene') })
 

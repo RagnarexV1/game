@@ -164,7 +164,7 @@ export class WorldMapView {
     this.itemPool = []
     for (const fi of floorItems) {
       const tile = this.map.getTile(fi.x, fi.y)
-      const revealed = player.itemVision || (torchlightOnly ? tile?.visible : tile?.explored)
+      const revealed = player.itemVision || (torchlightOnly ? tile?.visible : tile?.explored && !tile.mapped)
       if (!revealed) continue
       if (isHiddenUnderWater(fi.item.defId, tile?.defId, player.itemVision)) continue
       const spriteKey = ITEM_TYPE_SPRITES[fi.item.defId] ?? 'inv_null'
