@@ -430,8 +430,45 @@ export function generateBathroomTopMap(map: MapSystem): SpawnPoints {
   }
   for (let y = prevTop - 1; y <= prevTop + 2; y++) map.setTile(riverEndX + 1, y, 'tree_down')
 
+  // Three creeks rise from fallen trees lying on the bottom brown strip (left, centre, right).
+  // Each zigzags upward from one tile wide, slowly broadening to seven, where another fallen
+  // tree spans it and it starts over narrow, sometimes forking in two. The trees are the bridges.
+  const creekRng = spawnRng(212)
+  const CREEK_ROWS = 6
+  const setWater = (x: number, y: number) => {
+    if (map.getTile(x, y)?.defId === 'tegel_wit') map.setTile(x, y, 'water_bath')
+  }
+  const setTree = (x: number, y: number) => {
+    const d = map.getTile(x, y)?.defId
+    if (d === 'tegel_wit' || d === 'tegel_bruin' || d === 'water_bath') map.setTile(x, y, 'tree_down')
+  }
+  const clampCx = (cx: number) => Math.max(5, Math.min(W - 6, cx))
+  const growCreek = (cx: number, treeY: number, dir: number): void => {
+    for (let x = cx - 3; x <= cx + 3; x++) setTree(x, treeY)
+    // Keep the top two interior rows (and the toilets) dry
+    if (treeY - CREEK_ROWS - 1 < 3) return
+    const forks = creekRng() < (treeY < H - 2 ? 0.7 : 0.35)
+      ? [{ cx: clampCx(cx - 2), dir: -1 }, { cx: clampCx(cx + 2), dir: 1 }]
+      : [{ cx, dir }]
+    for (const fork of forks) {
+      // Each section leans one way and the next leans back: the zigzag
+      let c = fork.cx
+      for (let i = 0; i < CREEK_ROWS; i++) {
+        const w = 1 + Math.round(i * 6 / (CREEK_ROWS - 1))
+        // No sideways step off the one-wide source, so the water stays connected
+        if (i > 1) c = clampCx(c + fork.dir)
+        const left = c - Math.floor((w - 1) / 2)
+        for (let x = left; x < left + w; x++) setWater(x, treeY - 1 - i)
+      }
+      growCreek(c, treeY - CREEK_ROWS - 1, -fork.dir)
+    }
+  }
+  for (const cx of [10, Math.floor(W / 2), W - 11])
+    growCreek(cx, H - 2, creekRng() < 0.5 ? -1 : 1)
+
   // Arrivals without a specific entry (e.g. the garden test portal) land by the top door
   const player = { x: Math.floor(W / 2), y: 1 }
+  bridgeWaterPockets(map, player)
   const fixedMonsters = [
     { x: 25, y: 6,  defId: 'klopper' },
   ]
@@ -491,6 +528,46 @@ export function generateBathroomBottomMap(map: MapSystem): SpawnPoints {
   const scattered = scatterRandomItems(map, rng, 'bathroom', 4, [player, ...monsters, stopItem])
 
   return { player, monsters, items: [stopItem, ring, ...scattered] }
+}
+
+// Lays fallen trees across bath water wherever it cuts off a dry patch, until every walkable
+// tile can be reached from `start` without diagonal steps.
+function bridgeWaterPockets(map: MapSystem, start: { x: number; y: number }): void {
+  const W = map.width, H = map.height
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+  const key = (x: number, y: number) => y * W + x
+  for (;;) {
+    const reached = new Set<number>([key(start.x, start.y)])
+    const queue = [start]
+    for (let head = 0; head < queue.length; head++) {
+      const { x, y } = queue[head]
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy
+        if (!map.isInBounds(nx, ny) || reached.has(key(nx, ny)) || !map.isWalkable(nx, ny)) continue
+        reached.add(key(nx, ny))
+        queue.push({ x: nx, y: ny })
+      }
+    }
+
+    // Wade out from the reached area through water to the nearest cut-off dry tile
+    const prev = new Map<number, number>()
+    const wade: Array<{ x: number; y: number }> = []
+    for (const k of reached) { prev.set(k, -1); wade.push({ x: k % W, y: Math.floor(k / W) }) }
+    let found = -1
+    for (let head = 0; head < wade.length && found < 0; head++) {
+      const { x, y } = wade[head]
+      for (const [dx, dy] of DIRS) {
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= W || ny < 0 || ny >= H || prev.has(key(nx, ny))) continue
+        prev.set(key(nx, ny), key(x, y))
+        if (map.isWalkable(nx, ny)) { found = key(nx, ny); break }
+        if (map.getTile(nx, ny)?.defId === 'water_bath') wade.push({ x: nx, y: ny })
+      }
+    }
+    if (found < 0) return
+    for (let k = prev.get(found)!; k >= 0 && !reached.has(k); k = prev.get(k)!)
+      map.setTile(k % W, Math.floor(k / W), 'tree_down')
+  }
 }
 
 // Tiles in a box around a spawn point, to keep set-piece monsters off the player's doorstep.

@@ -79,6 +79,8 @@ export class Player {
     ring4:  null,
     ring5:  null,
     ring6:  null,
+    ring7:  null,
+    ring8:  null,
   }
   skills: Set<string> = new Set()
   // Fact Scrolls of Knowledge already read (by item id)

@@ -4,7 +4,7 @@ import { TurnManager } from '../engine/TurnManager'
 import { MessageLog } from '../engine/MessageLog'
 import { CombatSystem, playerHitChance } from '../engine/CombatSystem'
 import { InventorySystem, REMOTE_CHARGES, BAD_SPECULAAS_CHANCE, itemDamage, itemValue, rollWandCharges } from '../engine/InventorySystem'
-import { EquipmentSystem } from '../engine/EquipmentSystem'
+import { EquipmentSystem, BASE_FINGERS } from '../engine/EquipmentSystem'
 import { SaveSystem } from '../engine/SaveSystem'
 import type { GameSaveData } from '../engine/SaveSystem'
 import { LeaderboardSystem } from '../engine/LeaderboardSystem'
@@ -2579,8 +2579,13 @@ export class GameScene extends Phaser.Scene {
               this.player.gender = this.player.gender === 'male' ? 'female' : 'male'
               this.messageLog.add(`The weird fumes warp your form. You are now ${this.player.gender}!`, '#80ff40')
             } else if (roll === 1 && this.player.extraFingers < 2) {
+              // Bitten-off fingers grow back first, then extra ones sprout
+              const regrow = this.player.extraFingers < 0
               this.player.extraFingers++
-              this.messageLog.add(`The weird fumes mutate you. You grow an extra finger! (${6 + this.player.extraFingers} fingers total)`, '#80ff40')
+              const total = BASE_FINGERS + this.player.extraFingers
+              this.messageLog.add(regrow
+                ? `The weird fumes mend you. A lost finger grows back! (${total} fingers total)`
+                : `The weird fumes mutate you. You grow an extra finger! (${total} fingers total)`, '#80ff40')
             } else if (roll === 2 && this.player.extraEyes < 1) {
               this.player.extraEyes++
               this.player.drunkTurns = Math.max(this.player.drunkTurns, 20)
@@ -2968,6 +2973,17 @@ export class GameScene extends Phaser.Scene {
         if (!this.player.isAlive()) this.lastKilledBy = 'cactus spines'
       }
       if (result.killed) this.removeMonster(monster)
+      this.endPlayerTurn()
+      return
+    }
+
+    // The blocking horse shadows the player's column along its own row: any step
+    // into that row (e.g. diagonally past it) has the horse sidestep into the way.
+    const blocker = this.monsters.find(m => m.defId === 'paard' && m.aiType !== 'follow' && m.isAlive())
+    if (blocker && ny === blocker.y && nx !== blocker.x && this.mapSystem.isWalkable(nx, ny) &&
+        !Monster.isTransitionTile(this.mapSystem.getTile(nx, ny)?.defId ?? '')) {
+      blocker.x = nx
+      this.messageLog.add('The horse steps in front of you, blocking your way!', '#c08040')
       this.endPlayerTurn()
       return
     }
@@ -4826,10 +4842,19 @@ export class GameScene extends Phaser.Scene {
       this.player.x = prev.x
       this.player.y = prev.y
     } else {
-      const side = [-1, 0, 1].map(dx => ({ x: horse.x + dx, y })).find(p => free(p.x, p.y))
-      if (!side) return
-      this.player.x = side.x
-      this.player.y = side.y
+      // Nearest free tile on the player's side of the horse's row, never in a wall
+      const dir = y - horse.y
+      let spot: { x: number; y: number } | undefined
+      for (let r = 1; r <= 6 && !spot; r++)
+        for (let dy = 1; dy <= r && !spot; dy++)
+          for (let dx = 0; dx <= r && !spot; dx++)
+            for (const sx of dx === 0 ? [0] : [-dx, dx]) {
+              const p = { x: horse.x + sx, y: horse.y + dir * dy }
+              if (Math.max(dx, dy) === r && free(p.x, p.y)) { spot = p; break }
+            }
+      if (!spot) return
+      this.player.x = spot.x
+      this.player.y = spot.y
     }
     this.updateFOV()
   }
@@ -5479,6 +5504,7 @@ export class GameScene extends Phaser.Scene {
     const result = this.combat.monsterAttacks(monster, this.player)
     if (result.hit && !result.killed) {
       if (monster.defId === 'shade') this.shadeRotArmour(monster)
+      if (monster.defId === 'hamster' && Math.random() < 0.1) this.hamsterBiteFinger(monster)
     }
     if (!this.player.isAlive()) this.lastKilledBy = monster.name
     this.statsPanel.update(this.player, this.turnManager.getTurn())
@@ -5494,6 +5520,19 @@ export class GameScene extends Phaser.Scene {
     const item = worn[Math.floor(Math.random() * worn.length)]
     item.quality = Math.max(0.2, (item.quality ?? 1) - 0.15)
     this.messageLog.add(`The ${m.name}'s touch rots your ${this.inventory.getItemName(item)}!`, '#a080c0')
+  }
+
+  // A hamster bites off one of the player's fingers; a ring worn on it falls to the ground.
+  private hamsterBiteFinger(m: Monster): void {
+    if (BASE_FINGERS + this.player.extraFingers <= 0) return
+    const ring = this.equipment.loseFinger(this.player.equipment, this.player)
+    const left = BASE_FINGERS + this.player.extraFingers
+    if (ring) {
+      this.floorItems.push(new FloorItem(this.player.x, this.player.y, ring))
+      this.messageLog.add(`The ${m.name} bites off one of your fingers! Your ${this.inventory.getItemName(ring)} falls to the ground. (${left} fingers left)`, '#ff4040')
+    } else {
+      this.messageLog.add(`The ${m.name} bites off one of your fingers! (${left} fingers left)`, '#ff4040')
+    }
   }
 
   // A pelgrat sucks all the charges out of one of the player's wands, without needing to hit.

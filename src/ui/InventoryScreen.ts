@@ -1,7 +1,7 @@
 import Phaser from 'phaser'
 import type { Player } from '../entities/Player'
 import { itemDamage, itemDefense, itemValue, type InventorySystem } from '../engine/InventorySystem'
-import type { EquipmentSystem } from '../engine/EquipmentSystem'
+import { RING_SLOTS, type EquipmentSystem } from '../engine/EquipmentSystem'
 import type { MessageLog } from '../engine/MessageLog'
 import type { ItemInstance, EquipmentSlots } from '../types'
 import {
@@ -318,7 +318,7 @@ export class InventoryScreen {
     const inv   = player.inventory
     const equip = player.equipment
 
-    const ringSlots:   (keyof EquipmentSlots)[] = ['ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'ring6']
+    const ringSlots:   (keyof EquipmentSlots)[] = [...RING_SLOTS]
     const armorSlots:  (keyof EquipmentSlots)[] = ['body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]
     const weaponSlots: (keyof EquipmentSlots)[] = ['weapon', 'launcher']
     const allSlots:    (keyof EquipmentSlots)[] = ['weapon', 'launcher', 'body', 'head', 'feet', 'hand', 'arms', 'leg', 'neck', 'amulet', 'shield', 'cape', ...ringSlots]

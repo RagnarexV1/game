@@ -93,6 +93,9 @@ export interface EquipmentSlots {
   ring4: ItemInstance | null
   ring5: ItemInstance | null
   ring6: ItemInstance | null
+  // Extra ring fingers from mutation (absent in older saves)
+  ring7?: ItemInstance | null
+  ring8?: ItemInstance | null
 }
 
 export interface ItemInstance {
