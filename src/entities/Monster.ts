@@ -213,7 +213,7 @@ export class Monster {
     'portal_upper_hall_left', 'portal_upper_hall_right',
     'upper_hall_exit_chaos', 'upper_hall_exit_bathroom', 'upper_hall_exit_study', 'upper_hall_exit_mar',
     'bath_exit_upper_hall', 'chaos_exit_upper_hall', 'study_exit_upper_hall', 'mar_exit_upper_hall',
-    'loft_stairs_exit_down', 'loft_stairs_exit_up', 'hall_exit_driveway',
+    'hall_exit_driveway',
   ])
 
   // Arrows, portals and stairs: monsters never step onto them, so they can't

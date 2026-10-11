@@ -230,7 +230,7 @@ function buildPotionPool(): Array<{ value: string; weight: number }> {
 }
 
 // Simple starter weapons and armour that turn up extra in the garden cells.
-const BASIC_GEAR = ['branch', 'tuinschaar', 'wasknijper', 'leather_armor', 'helmet', 'bracers', 'gorget', 'tuinhandschoen', 'rubberboots']
+const BASIC_GEAR = ['branch', 'tuinschaar', 'wasknijper', 'leather_armor', 'helmet', 'bracers', 'gorget', 'tuinhandschoen', 'rubberboots', 'leatherboots']
 
 /** Places `count` basic weapons/armour on random walkable, non-special tiles. */
 export function scatterBasicGear(

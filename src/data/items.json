@@ -1370,6 +1370,18 @@
     "description": "Sturdy green rubber boots. Prevents you from slipping in the mud."
   },
   {
+    "id": "leatherboots",
+    "name": "Leather Boots",
+    "glyph": "b",
+    "color": "#a06030",
+    "type": "armor",
+    "slot": "feet",
+    "defense": 2,
+    "weight": 2,
+    "value": 35,
+    "description": "Sturdy brown leather boots. Good protection, but the smooth soles still slip in the mud."
+  },
+  {
     "id": "gong",
     "name": "Ancient Gong",
     "glyph": "G",

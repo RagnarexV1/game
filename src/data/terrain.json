@@ -792,22 +792,6 @@
     "transparent": true
   },
   {
-    "id": "loft_stairs_exit_down",
-    "name": "Stairs Down to Study",
-    "glyph": "v",
-    "color": "#9060a0",
-    "walkable": true,
-    "transparent": true
-  },
-  {
-    "id": "loft_stairs_exit_up",
-    "name": "Stairs Up to Loft",
-    "glyph": "^",
-    "color": "#9060a0",
-    "walkable": true,
-    "transparent": true
-  },
-  {
     "id": "loft_water",
     "name": "Loft Puddle",
     "glyph": "~",
@@ -916,6 +900,78 @@
     "name": "Pool of Yellow Water",
     "glyph": "~",
     "color": "#c0c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_health",
+    "name": "Pool of Red Water",
+    "glyph": "~",
+    "color": "#c04040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_speed",
+    "name": "Pool of Yellow Water",
+    "glyph": "~",
+    "color": "#c0c040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_phasing",
+    "name": "Shallow pool of liquid",
+    "glyph": "~",
+    "color": "#4080c0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_depredation",
+    "name": "Pool of Brown Water",
+    "glyph": "~",
+    "color": "#806040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_strength",
+    "name": "Pool of Red Water",
+    "glyph": "~",
+    "color": "#c04040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_experience",
+    "name": "Pool of Green Water",
+    "glyph": "~",
+    "color": "#40c060",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_blindness",
+    "name": "Pool of Brown Water",
+    "glyph": "~",
+    "color": "#806040",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_translucence",
+    "name": "Shallow pool of liquid",
+    "glyph": "~",
+    "color": "#4080c0",
+    "walkable": true,
+    "transparent": true
+  },
+  {
+    "id": "study_pool_lycanthropy",
+    "name": "Pool of Brown Water",
+    "glyph": "~",
+    "color": "#806040",
     "walkable": true,
     "transparent": true
   },

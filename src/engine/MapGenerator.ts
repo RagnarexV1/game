@@ -806,9 +806,14 @@ export function generateLoftMap(map: MapSystem): SpawnPoints {
 
   // Lego bricks all over the loft floor — watch your step
   const legoItems: Array<{x: number; y: number; defId: string; qty: number}> = []
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 90; i++) {
     const pos = pickFloor(playerPos.x, playerPos.y, 3)
     if (pos) legoItems.push({x: pos.x, y: pos.y, defId: ['lego1', 'lego2', 'lego3'][i % 3], qty: 1})
+  }
+  // Clothespins left lying around
+  for (let i = 0; i < 6; i++) {
+    const pos = pickFloor(playerPos.x, playerPos.y, 3)
+    if (pos) legoItems.push({x: pos.x, y: pos.y, defId: 'wasknijper', qty: 1})
   }
   // One of the game's three apple juices
   const appleJuicePos = pickFloor(playerPos.x, playerPos.y, 4)
@@ -988,6 +993,14 @@ export function generateLoft3Map(map: MapSystem, gardenExitOpen = false): SpawnP
     for (let x = xMin; x <= xMax; x++)
       legoItems.push({x, y, defId: legoDefs[legoIdx++ % 3], qty: 1})
 
+  // A Mirror Shield somewhere outside the hexagon
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const pos = pickFloor(44, 17, 4)
+    if (!pos || legoItems.some(l => l.x === pos.x && l.y === pos.y)) continue
+    legoItems.push({x: pos.x, y: pos.y, defId: 'mirrorshield', qty: 1})
+    break
+  }
+
   const SPECIAL_TILES3 = new Set(['loft_wall', 'loft3_exit', 'loft3_exit_down', 'loft_water', 'loft_tree'])
   // Peter starts on his track around the hexagon (GameScene makes him run it)
   const monsters: Array<{x: number; y: number; defId: string}> = [{...loop[0], defId: 'peter'}]
@@ -1162,6 +1175,24 @@ export function generateHallMap(
         scatterAvoid.push({ x: rx, y: ry })
   }
   const scattered = scatterRandomItems(map, srng, 'hall', 6, scatterAvoid)
+
+  // Left-centre cell: a sealed secret chamber in the empty far west, five tiles clear of
+  // the leftmost room, with no door or path. Built last so no relic or loot lands inside.
+  if (ucx === 0 && ucy === Math.floor(ugrid / 2)) {
+    const cx1 = 2, cx2 = 8, cy1 = 4, cy2 = 13
+    for (let y = cy1 - 1; y <= cy2 + 1; y++)
+      for (let x = cx1 - 1; x <= cx2 + 1; x++) {
+        const left = x === cx1 - 1, right = x === cx2 + 1, top = y === cy1 - 1, bottom = y === cy2 + 1
+        map.setTile(x, y,
+          top && left ? 'wall_corner_tl' : top && right ? 'wall_corner_tr'
+          : bottom && left ? 'wall_corner_bl' : bottom && right ? 'wall_corner_br'
+          : top ? 'wall_up' : bottom ? 'wall_down' : left ? 'wall_left' : right ? 'wall_right' : 'floor')
+      }
+    const hoard = ['sinaasappel', 'boterham', 'stroopwafels', 'speculaas', 'banaan', 'wasknijper']
+    for (let y = cy1; y <= cy2; y++)
+      for (let x = cx1; x <= cx2; x++)
+        scattered.push({ x, y, defId: hoard[Math.floor(srng() * hoard.length)], qty: 1 })
+  }
 
   return { player: entryPos, monsters, items: [...items, ...scattered] }
 }
@@ -1990,6 +2021,19 @@ export function generateKitchenMap(map: MapSystem, relicItem?: string | null): S
   return { player, monsters, items: [...specialItems, ...scattered] }
 }
 
+// Each study pool fills an empty vial with its own potion
+export const STUDY_POOL_POTIONS: Record<string, string> = {
+  study_pool_health:       'health_potion',
+  study_pool_speed:        'speed_potion',
+  study_pool_phasing:      'phasing_potion',
+  study_pool_depredation:  'depredation_potion',
+  study_pool_strength:     'strength_potion',
+  study_pool_experience:   'experience_potion',
+  study_pool_blindness:    'blindness_potion',
+  study_pool_translucence: 'translucence_potion',
+  study_pool_lycanthropy:  'lycanthropy_potion',
+}
+
 export function generateStudyMap(map: MapSystem, relicItem?: string | null): SpawnPoints {
   const W = map.width
   const H = map.height
@@ -2021,16 +2065,18 @@ export function generateStudyMap(map: MapSystem, relicItem?: string | null): Spa
 
   // Organic pools grown via BFS blob expansion from seed points
   const rng = seededRng(99)
+  // One pool per basic (non-mixed) potion — see STUDY_POOL_POTIONS. All seeds stay clear
+  // of the tetra water below, which would otherwise swallow a pool.
   const poolSeeds: Array<[number, number, string, number]> = [
-    [10,  4, 'study_pool',        9],
-    [35,  8, 'study_pool',        8],
-    [62, 12, 'study_pool',       10],
-    [17, 15, 'study_pool_green',  7],
-    [50,  5, 'study_pool_green', 11],
-    [70, 10, 'study_pool_green',  8],
-    [15, 10, 'study_pool_yellow', 9],
-    [45, 16, 'study_pool_yellow', 6],
-    [65,  3, 'study_pool_yellow',10],
+    [10,  4, 'study_pool_health',        9],
+    [35,  8, 'study_pool_phasing',       8],
+    [62, 12, 'study_pool_depredation',  10],
+    [17, 15, 'study_pool_experience',    7],
+    [50,  5, 'study_pool_strength',     11],
+    [70, 10, 'study_pool_translucence',  8],
+    [15, 10, 'study_pool_speed',         9],
+    [29,  4, 'study_pool_blindness',     8],
+    [65,  3, 'study_pool_lycanthropy',  10],
   ]
   const DIRS4 = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]
   for (const [sx, sy, pType, target] of poolSeeds) {
@@ -2101,6 +2147,28 @@ export function generateStudyMap(map: MapSystem, relicItem?: string | null): Spa
       { x: 12,  y: 12, defId: 'cactus' },
       { x: 40,  y: 13, defId: 'klopper' },
   ]
+  // Cactus hedges, mostly diagonal: [startX, startY, dx, dy, length]. A hedge never
+  // crosses a pool or the water — it stops at the first tile that isn't carpet.
+  const cactusLines: Array<[number, number, number, number, number]> = [
+    [ 2,  6,  1,  1, 5], [ 6,  2,  1,  1, 4], [ 4, 17,  1, -1, 4], [21,  2,  1,  1, 5],
+    [24, 11,  1, -1, 4], [13,  7,  1, -1, 4], [32, 10,  1,  1, 3], [38,  6,  1, -1, 3],
+    [44,  7,  1,  1, 4], [55,  8,  1, -1, 5], [57,  2,  1,  1, 4], [60, 17,  1, -1, 4],
+    [66,  6,  1,  1, 5], [74,  5, -1,  1, 4], [72, 17,  1, -1, 4], [76,  9,  0,  1, 3],
+    [ 8, 10,  1,  0, 3], [45, 11,  1,  0, 4],
+  ]
+  // Keep the arrival spot, the vials and both exits free
+  const keepClear = [player, { x: 1, y: H - 2 }, { x: W - 2, y: H - 2 }, { x: midX - 2, y: 3 }, { x: midX + 2, y: 3 }]
+  const taken = new Set(monsters.map(m => `${m.x},${m.y}`))
+  for (const [sx, sy, dx, dy, len] of cactusLines) {
+    for (let i = 0; i < len; i++) {
+      const x = sx + dx * i, y = sy + dy * i
+      if (x < 1 || x >= W - 1 || y < 1 || y >= H - 1) break
+      if (map.getTile(x, y)?.defId !== 'carpet') break
+      if (taken.has(`${x},${y}`) || keepClear.some(p => Math.abs(p.x - x) <= 1 && Math.abs(p.y - y) <= 1)) continue
+      taken.add(`${x},${y}`)
+      monsters.push({ x, y, defId: 'cactus' })
+    }
+  }
   const specialItems: SpawnPoints['items'] = [
     { x: midX - 2, y: 3, defId: 'empty_vial', qty: 1 },
     { x: midX + 2, y: 3, defId: 'empty_vial', qty: 1 },
@@ -2110,63 +2178,6 @@ export function generateStudyMap(map: MapSystem, relicItem?: string | null): Spa
   const scattered = scatterRandomItems(map, spawnRng(199), 'study', 5, [player, ...specialItems, ...monsters])
 
   return { player, monsters, items: [...specialItems, ...scattered] }
-}
-
-// Switchback stairwell between the study (bottom) and the loft (top).
-// Five 2-tile-high flights stacked bottom→top, joined by 2×2 landings that
-// alternate right/left ends, so the climb zig-zags up the whole map.
-export function generateLoftStairsMap(map: MapSystem): SpawnPoints {
-  const W = map.width
-  const H = map.height
-
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      map.setTile(x, y, 'stairs_wall')
-
-  const L = 2, R = W - 3                             // flight x-span: 2..77
-  const flightTops = [H - 3, H - 7, H - 11, H - 15, 1] // 17, 13, 9, 5, 1
-  for (const fy of flightTops)
-    for (let y = fy; y <= fy + 1; y++)
-      for (let x = L; x <= R; x++)
-        map.setTile(x, y, 'carpet')
-
-  // Landings between consecutive flights: right, left, right, left
-  for (let i = 0; i < flightTops.length - 1; i++) {
-    const lx = i % 2 === 0 ? R - 1 : L
-    for (let y = flightTops[i + 1] + 2; y < flightTops[i]; y++) {
-      map.setTile(lx,     y, 'carpet')
-      map.setTile(lx + 1, y, 'carpet')
-    }
-  }
-
-  // Bottom arrows (back down to the study) under the first flight's left end;
-  // top arrows (up to the loft) above the last flight's right end.
-  map.setTile(L,     H - 1, 'loft_stairs_exit_down')
-  map.setTile(L + 1, H - 1, 'loft_stairs_exit_down')
-  map.setTile(R - 1, 0,     'loft_stairs_exit_up')
-  map.setTile(R,     0,     'loft_stairs_exit_up')
-
-  const player = { x: L, y: H - 2 }
-  const top    = { x: R, y: 1 }
-
-  const srng = spawnRng(74)
-  const monsters: SpawnPoints['monsters'] = []
-  const hostiles = scaleMonsterCount(4, srng)
-  let attempts = 0
-  while (monsters.length < hostiles && attempts < 500) {
-    attempts++
-    const tx = 1 + Math.floor(srng() * (W - 2))
-    const ty = 1 + Math.floor(srng() * (H - 2))
-    if (map.getTile(tx, ty)?.defId !== 'carpet') continue
-    if (Math.abs(tx - player.x) < 8 && Math.abs(ty - player.y) < 3) continue
-    if (Math.abs(tx - top.x) < 8 && Math.abs(ty - top.y) < 3) continue
-    if (monsters.some(m => m.x === tx && m.y === ty)) continue
-    monsters.push({ x: tx, y: ty, defId: pickAreaMonster('loft_stairs', srng, undefined, NO_ENDGAME) })
-  }
-
-  const scattered = scatterRandomItems(map, srng, 'loft_stairs', 2, [player, top, ...monsters])
-
-  return { player, monsters, items: scattered }
 }
 
 export function generatePantryMap(map: MapSystem): SpawnPoints {
@@ -2191,7 +2202,6 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
   }
 
   const midX = Math.floor(W / 2)
-  map.setTile(midX, 0, 'pantry_exit')
 
   const player = { x: midX, y: 2 }
 
@@ -2206,7 +2216,7 @@ export function generatePantryMap(map: MapSystem): SpawnPoints {
     ['banaan', 'sinaasappel', 'pannenkoeken', 'boterham', 'stroopwafels', 'speculaas', 'sprits', 'dropje', 'mispel'],
     ['flying_flippo', 'branch', 'knife', 'bijl', 'tuinschaar', 'katana', 'mace', 'silversword', 'wasknijper', 'shuriken'],
     ['scroll_teleport', 'scroll_alliance', 'scroll_cartography', 'scroll_timestop', 'scroll_twelvegates', 'scroll_lavastrike', 'scroll_knowledge'],
-    ['leather_armor', 'chain_mail', 'mirrorshield', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape'],
+    ['leather_armor', 'chain_mail', 'mirrorshield', 'tuinhandschoen', 'bracers', 'gorget', 'helmet', 'redcape', 'leatherboots'],
     ['ring_famine', 'ring_cold', 'ring_invisibility', 'ring_locus'],
     ['pickaxe', 'kruk', 'lego1', 'lego2', 'lego3', 'stop', 'remote', 'gompie'],
     ['ericgras'],

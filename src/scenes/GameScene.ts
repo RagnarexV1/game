@@ -9,7 +9,7 @@ import { SaveSystem } from '../engine/SaveSystem'
 import type { GameSaveData } from '../engine/SaveSystem'
 import { LeaderboardSystem } from '../engine/LeaderboardSystem'
 import type { LeaderboardEntry } from '../engine/LeaderboardSystem'
-import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateHallMap, generateChaosMap, mutateChaosMap, chaosPartyArea, chaosPartyRing, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateTubEnclosureMap, generateLoftMap, generateLoft3Map, generateStudyMap, generateLoftStairsMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map, generateDrivewayMap, generateUpperHallMap, peterPatrolLoop, openLoft3GardenExit, type SpawnPoints } from '../engine/MapGenerator'
+import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateHallMap, generateChaosMap, mutateChaosMap, chaosPartyArea, chaosPartyRing, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateTubEnclosureMap, generateLoftMap, generateLoft3Map, generateStudyMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map, generateDrivewayMap, generateUpperHallMap, peterPatrolLoop, openLoft3GardenExit, STUDY_POOL_POTIONS, type SpawnPoints } from '../engine/MapGenerator'
 import { WorldState, type ClarinetLocation, type CellSnapshot } from '../engine/WorldState'
 import { placeSingleItemRandomly, isSpecialTile, pickAreaItem, EXCLUDE_IDS, isHiddenUnderWater } from '../engine/ItemPlacement'
 import { AREA_MONSTERS, GARDEN_STRAYS, areaInfo } from '../engine/SpawnTables'
@@ -55,7 +55,7 @@ const WATER_TILES = new Set(['water', 'loft_water', 'water_bath'])
 const OWN_TRAP_CHANCE = 0.1
 
 // Each juicy fish given to Lex buys this many extra turns; a warning shows every interval.
-const LEX_FISH_BONUS_TURNS = 300
+const LEX_FISH_BONUS_TURNS = 2000
 const TIME_WARNING_INTERVAL = 2500
 const SUMMON_INTERVAL = 5
 // Killed generic hostiles drift back onto a map you left; after this many turns away all are back
@@ -225,6 +225,10 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.inputBlocked = false
     this.nameScreenActive = false
+    // The scene instance is reused on restart, so cheats must not leak into the new game
+    this.godMode = false
+    this.cheatItemIds = []
+    this.cheatSkillIds = []
     this.phoneOverlay = null
     this.phoneHangUpReady = false
     this.phoneSound = null
@@ -297,7 +301,7 @@ export class GameScene extends Phaser.Scene {
 
   private updateMusic(area: string | null): void {
     const inForest   = area === null
-    const inLoft     = area === 'loft' || area === 'loft3' || area === 'loft_stairs'
+    const inLoft     = area === 'loft' || area === 'loft3'
     const inHall     = area === 'hall' || area === 'upper_hall_left' || area === 'upper_hall_right'
     const inBathroom = area === 'bathroom_top' || area === 'bathroom_bottom'
     const inBedroom  = area === 'bedroom' || area === 'bedroom_lower'
@@ -521,7 +525,7 @@ export class GameScene extends Phaser.Scene {
       bedroom1: 'bedroom', bedroom2: 'bedroom_lower',
       upperhall1: 'upper_hall_left', upperhall2: 'upper_hall_right',
       ericsbedroom: 'chaos', kitchen: 'kitchen', stairs: 'stairs', tub: 'tub_enclosure',
-      loft: 'loft', peterandthewolf: 'loft3', atticstairs: 'loft_stairs', study: 'study',
+      loft: 'loft', peterandthewolf: 'loft3', atticstairs: 'stairs', study: 'study',
       pantry: 'pantry', driveway: 'driveway', pond: 'pond1', caves: 'pond2', depths: 'pond3',
     }
     for (const [name, area] of Object.entries(AREAS)) {
@@ -531,7 +535,7 @@ export class GameScene extends Phaser.Scene {
           this.worldState.savedPlayerX = this.player.x
           this.worldState.savedPlayerY = this.player.y
         }
-        if (area === 'stairs') this.stairsOrigin = 'hall'
+        if (area === 'stairs') this.stairsOrigin = name === 'atticstairs' ? 'study' : 'hall'
         this.transitionToArea(area)
       }
     }
@@ -1244,7 +1248,7 @@ export class GameScene extends Phaser.Scene {
     this.endPlayerTurn()
   }
 
-  private transitionToArea(area: 'bathroom_top' | 'bathroom_bottom' | 'garage_top' | 'garage_bottom' | 'hall' | 'chaos' | 'bedroom' | 'bedroom_lower' | 'stairs' | 'kitchen' | 'tub_enclosure' | 'loft' | 'loft3' | 'study' | 'loft_stairs' | 'pantry' | 'pond1' | 'pond2' | 'pond3' | 'driveway' | 'upper_hall_left' | 'upper_hall_right', fromDir?: 'down' | 'up', entryCoord?: number, exactEntry?: { x: number; y: number }): void {
+  private transitionToArea(area: 'bathroom_top' | 'bathroom_bottom' | 'garage_top' | 'garage_bottom' | 'hall' | 'chaos' | 'bedroom' | 'bedroom_lower' | 'stairs' | 'kitchen' | 'tub_enclosure' | 'loft' | 'loft3' | 'study' | 'pantry' | 'pond1' | 'pond2' | 'pond3' | 'driveway' | 'upper_hall_left' | 'upper_hall_right', fromDir?: 'down' | 'up', entryCoord?: number, exactEntry?: { x: number; y: number }): void {
     this.player.itemVision = false
     this.ericChamberEntered = false
     this.traderUnpaid.clear()
@@ -1279,7 +1283,6 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft'                  ? generateLoftMap(this.mapSystem)
       : area === 'loft3'                 ? generateLoft3Map(this.mapSystem, this.worldState.peterWarned)
       : area === 'study'                 ? generateStudyMap(this.mapSystem, this.worldState.relicIdFor('study'))
-      : area === 'loft_stairs'           ? generateLoftStairsMap(this.mapSystem)
       : area === 'pantry'               ? generatePantryMap(this.mapSystem)
       : area === 'pond1'                ? generatePond1Map(this.mapSystem)
       : area === 'pond2'                ? generatePond2Map(this.mapSystem)
@@ -1313,9 +1316,9 @@ export class GameScene extends Phaser.Scene {
       : prevArea === 'stairs' && area === 'loft'             ? this.findTile('portal_stairs')
       : prevArea === 'driveway' && area === 'hall'           ? this.besideNearestBorderTile('hall_exit_driveway', this.player.x)
       : undefined
-    // The study meets the upper hall on a different edge: any free tile on the same x/y will do.
-    // Mar's room always puts you beside its down arrow in the bottom-left corner.
-    const looseLink = !!link && link.room === 'study'
+    // The study meets the upper hall on a different edge: any free tile on the same x/y will do
+    // in the hall. Entering the study always lands just above its bottom-left arrow.
+    const looseLink = !!link && link.room === 'study' && area !== 'study'
     const entry = this.applyDugEntry() ?? this.alignEdgeEntry(exactEntry ?? upperHallEntry
       ?? ((fromDir !== undefined && entryCoord !== undefined)
         ? this.firstEntryTile(fromDir, entryCoord)
@@ -1340,7 +1343,6 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft'                  ? 'You climb up into the loft.'
       : area === 'loft3'                 ? 'You venture deeper into the loft.'
       : area === 'study'                 ? 'You enter the study room.'
-      : area === 'loft_stairs'           ? 'You step into the stairwell between the study and the loft.'
       : area === 'pantry'               ? 'You step into the pantry.'
       : area === 'pond1'                ? 'You enter the pond.'
       : area === 'pond2'                ? 'You swim deeper into the underwater caves.'
@@ -1349,7 +1351,7 @@ export class GameScene extends Phaser.Scene {
       : (area === 'upper_hall_left' || area === 'upper_hall_right') ? 'You walk along the upstairs hall.'
       : area === 'hall'          ? 'You enter the hall.'
       :                                     'You enter a new area.'
-    this.messageLog.add(msg, area === 'chaos' ? '#ff40ff' : (area === 'bedroom' || area === 'bedroom_lower') ? '#ff80ff' : area === 'stairs' ? '#ffaa00' : area === 'kitchen' ? '#e0c080' : area === 'tub_enclosure' ? '#404080' : (area === 'loft' || area === 'loft3' || area === 'loft_stairs') ? '#40c040' : (area === 'pond1' || area === 'pond2' || area === 'pond3') ? '#103060' : '#80c0ff')
+    this.messageLog.add(msg, area === 'chaos' ? '#ff40ff' : (area === 'bedroom' || area === 'bedroom_lower') ? '#ff80ff' : area === 'stairs' ? '#ffaa00' : area === 'kitchen' ? '#e0c080' : area === 'tub_enclosure' ? '#404080' : (area === 'loft' || area === 'loft3') ? '#40c040' : (area === 'pond1' || area === 'pond2' || area === 'pond3') ? '#103060' : '#80c0ff')
     const realm = area === 'bathroom_top' ? 'Bathroom'
       : area === 'bathroom_bottom'        ? 'Bathroom'
       : area === 'garage_top'            ? 'Garage'
@@ -1362,7 +1364,6 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft'               ? 'Loft'
       : area === 'loft3'              ? 'Peter and the Wolf'
       : area === 'study'             ? 'Study Room'
-      : area === 'loft_stairs'       ? 'Loft Stairs'
       : area === 'pantry'           ? 'Pantry'
       : area === 'pond1'            ? 'Pond'
       : area === 'pond2'            ? 'Underwater Caves'
@@ -1400,6 +1401,8 @@ export class GameScene extends Phaser.Scene {
   private forestKey(): string { return `forest_${this.worldState.cx}_${this.worldState.cy}` }
   private hallKey(): string { return `hall_${this.worldState.ucx}_${this.worldState.ucy}` }
   private areaKey(area: string): string {
+    // The study ⇄ loft staircase is its own copy of the rainbow stairs
+    if (area === 'stairs' && (this.stairsOrigin === 'study' || this.stairsOrigin === 'loft')) return 'area_stairs_upper'
     return area === 'hall' ? this.hallKey() : `area_${area}`
   }
   private currentMapKey(): string {
@@ -1421,7 +1424,6 @@ export class GameScene extends Phaser.Scene {
       : area === 'loft'                   ? generateLoftMap(this.mapSystem)
       : area === 'loft3'                  ? generateLoft3Map(this.mapSystem, this.worldState.peterWarned)
       : area === 'study'                  ? generateStudyMap(this.mapSystem, this.worldState.relicIdFor('study'))
-      : area === 'loft_stairs'            ? generateLoftStairsMap(this.mapSystem)
       : area === 'pantry'                 ? generatePantryMap(this.mapSystem)
       : area === 'pond1'                  ? generatePond1Map(this.mapSystem)
       : area === 'pond2'                  ? generatePond2Map(this.mapSystem)
@@ -1439,7 +1441,7 @@ export class GameScene extends Phaser.Scene {
       hall: 'Hall', chaos: "Eric's bedroom",
       bedroom: "Mar's bedroom", bedroom_lower: "Mar's bedroom",
       stairs: 'Stairs', kitchen: 'Kitchen', tub_enclosure: 'Tub Enclosure',
-      loft: 'Loft', loft3: 'Peter and the Wolf', study: 'Study Room', loft_stairs: 'Loft Stairs',
+      loft: 'Loft', loft3: 'Peter and the Wolf', study: 'Study Room',
       pantry: 'Pantry', pond1: 'Pond', pond2: 'Underwater Caves', pond3: 'Pond Depths',
       driveway: 'Driveway',
       upper_hall_left: 'Upper Hall', upper_hall_right: 'Upper Hall',
@@ -1668,8 +1670,10 @@ export class GameScene extends Phaser.Scene {
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const tile = this.mapSystem.getTile(x, y)!
-        // Older saves: Sas's walk once swapped doors for door_open, which drew as grass
-        tile.defId = snap.tiles[i].defId === 'door_open' ? 'door_closed' : snap.tiles[i].defId
+        // Older saves: Sas's walk once swapped doors for door_open, which drew as grass;
+        // the pantry once had an exit arrow (now you leave by reading the scroll again)
+        const saved = snap.tiles[i].defId
+        tile.defId = saved === 'door_open' ? 'door_closed' : saved === 'pantry_exit' ? 'muur_up_t' : saved
         tile.explored = snap.tiles[i].explored
         tile.mapped = snap.tiles[i].mapped
         i++
@@ -1883,7 +1887,7 @@ export class GameScene extends Phaser.Scene {
         case 'panic':     this.panicOverlay ? this.hidePanic() : this.showPanic(); break
         case 'settings':  this.showSettingsPanel(); break
         case 'quit':      this.showQuitConfirm(); break
-        case 'copyright': this.messageLog.add('RAGNAREX version 1.0 (c) Copyright 2026 by E. Wessels', '#ffff80'); break
+        case 'copyright': this.messageLog.add("Copyright: Ragnarok (c) 1992 Norsehelm Productions. Ragnarex 2026 Eric to celebrate Peter's birthday!", '#ffff80'); break
         case 'dig':       this.startDig(); break
         case 'self':      this.selfScreen.show(this.player, this.inventory); break
         case 'skill':     this.skillScreen.show(this.player); break
@@ -2095,8 +2099,8 @@ export class GameScene extends Phaser.Scene {
         const gain = 100
         player.speed += gain
         player.speedPotionBonus += gain
-        player.speedTurns = 30
-        this.messageLog.add(`Your feet move like the wind! (Speed ${player.speed} for 30 turns)`, '#ffff40')
+        player.speedTurns = 40
+        this.messageLog.add(`Your feet move like the wind! (Speed ${player.speed} for 40 turns)`, '#ffff40')
       } else if (item.defId === 'phasing_potion') {
         player.phasingTurns = 20
         this.messageLog.add('You feel briefly out of phase with reality.', '#8080ff')
@@ -2267,10 +2271,11 @@ export class GameScene extends Phaser.Scene {
 
       if (item.defId === 'empty_vial') {
         const tile = this.mapSystem.getTile(player.x, player.y)
+        // Old saves still have the three generic pools, which give a random basic potion
         const studyPools = ['study_pool', 'study_pool_green', 'study_pool_yellow']
-        if (tile && studyPools.includes(tile.defId)) {
+        if (tile && (STUDY_POOL_POTIONS[tile.defId] || studyPools.includes(tile.defId))) {
           const BASIC_POTIONS = ['health_potion', 'speed_potion', 'phasing_potion', 'depredation_potion', 'strength_potion', 'experience_potion', 'blindness_potion', 'translucence_potion']
-          const resultId = BASIC_POTIONS[Math.floor(Math.random() * BASIC_POTIONS.length)]
+          const resultId = STUDY_POOL_POTIONS[tile.defId] ?? BASIC_POTIONS[Math.floor(Math.random() * BASIC_POTIONS.length)]
           this.removeUnpaidAware(item, player)
           this.inventory.addToInventory(player.inventory, this.inventory.createInstance(resultId))
           const resultDef = this.inventory.getDef(resultId)
@@ -2365,7 +2370,11 @@ export class GameScene extends Phaser.Scene {
         // Poisoning the horse still ends its quest, but for far fewer points
         const reward = item.defId === 'petergras' ? 100 : 500
         player.gainXP(reward)
-        this.messageLog.add(`Quest complete! (+${reward} XP)`, '#40ff80')
+        // Mom's quest has two parts (orange and vase), each worth half
+        const hpBonus = quest.npcId === 'mam' ? 10 : 20
+        player.maxHp += hpBonus
+        player.hp = Math.min(player.hp + hpBonus, player.maxHp)
+        this.messageLog.add(`Quest complete! (+${reward} XP, Max HP +${hpBonus})`, '#40ff80')
       }
 
       // Eric teaches swimming and diving when given the widget
@@ -2894,13 +2903,18 @@ export class GameScene extends Phaser.Scene {
           this.worldState.peterWarned = true
           this.messageLog.add('You tell Peter that Lex and Sas are arriving early!', '#80ff80')
           this.messageLog.add('You fulfill your quest by telling Peter the news.', '#80ff80')
-          this.inventory.addToInventory(this.player.inventory, this.inventory.createInstance('gongmallet'))
           this.messageLog.add('Peter: "Here, use these Gong mallets to sound the magical Green Gong. You will find it in the pond, but watch out for Jormungand! Quick!"', '#80ff80')
           this.messageLog.add('Peter: "I opened the window, it is the quickest way down!"', '#80ff80')
+          this.inventory.addToInventory(this.player.inventory, this.inventory.createInstance('gongmallet'))
+          this.player.maxHp += 20
+          this.player.hp = Math.min(this.player.hp + 20, this.player.maxHp)
+          this.messageLog.add('Quest complete! (Max HP +20)', '#40ff80')
           openLoft3GardenExit(this.mapSystem)
         } else {
           this.messageLog.add('Peter: "Quick, to the pond! The Green Gong!"', '#80ff80')
         }
+        if (!this.player.hasSkill('swimming') || !this.player.hasSkill('diving'))
+          this.messageLog.add('Peter: "You need to be able to dive. If you help Eric, he can maybe teach you how to hold your breath."', '#80ff80')
         this.endPlayerTurn()
         return
       }
@@ -3251,19 +3265,6 @@ export class GameScene extends Phaser.Scene {
       this.worldState.savedPlayerX = this.player.x
       this.worldState.savedPlayerY = this.player.y
       this.transitionToArea('study')
-      return true
-    }
-    // Study ⇄ loft stairwell: study bottom arrow → stairs bottom; stairs top arrows ⇄ loft top arrows
-    if (tile?.defId === 'study_exit') {
-      this.transitionToArea('loft_stairs', undefined, undefined, { x: 2, y: MAP_H - 2 })
-      return true
-    }
-    if (tile?.defId === 'loft_stairs_exit_down') {
-      this.transitionToArea('study', undefined, undefined, { x: Math.floor(MAP_W / 2), y: MAP_H - 2 })
-      return true
-    }
-    if (tile?.defId === 'loft_stairs_exit_up') {
-      this.transitionToArea('loft', undefined, undefined, { x: this.player.x === MAP_W - 4 ? 44 : 45, y: 1 })
       return true
     }
     // Loft maze top arrows ⇄ Peter and the Wolf's bottom arrows
@@ -5471,6 +5472,10 @@ export class GameScene extends Phaser.Scene {
       this.statsPanel.update(this.player, this.turnManager.getTurn())
       return
     }
+    if (this.godMode) {
+      this.messageLog.add(`The ${monster.name}'s attack has no effect on you!`, '#ffff80')
+      return
+    }
     const result = this.combat.monsterAttacks(monster, this.player)
     if (result.hit && !result.killed) {
       if (monster.defId === 'shade') this.shadeRotArmour(monster)
@@ -5916,7 +5921,9 @@ export class GameScene extends Phaser.Scene {
     const ws = data.worldState
     this.worldState.cx = ws.cx; this.worldState.cy = ws.cy
     this.worldState.ucx = ws.ucx; this.worldState.ucy = ws.ucy
-    this.worldState.currentArea = ws.currentArea
+    // Older saves: the carpet stairwell between study and loft is gone; resume in the study
+    const fromLoftStairs = ws.currentArea === 'loft_stairs'
+    this.worldState.currentArea = fromLoftStairs ? 'study' : ws.currentArea
     this.worldState.savedCx = ws.savedCx; this.worldState.savedCy = ws.savedCy
     this.worldState.savedPlayerX = ws.savedPlayerX; this.worldState.savedPlayerY = ws.savedPlayerY
     this.worldState.mamHasOrange = ws.mamHasOrange; this.worldState.mamHasVase = ws.mamHasVase; this.worldState.widgetFound = ws.widgetFound ?? false
@@ -5942,9 +5949,17 @@ export class GameScene extends Phaser.Scene {
 
     this.worldState.cellSnapshots.clear()
     for (const [k, v] of Object.entries(data.cellSnapshots)) this.worldState.cellSnapshots.set(k, v)
+    this.worldState.cellSnapshots.delete('area_loft_stairs')
 
     this.mapSystem.reset()
-    this.tryRestoreFromSnapshot(data.currentMapKey)
+    if (fromLoftStairs) {
+      const study = generateStudyMap(this.mapSystem, this.worldState.relicIdFor('study'))
+      if (!this.tryRestoreFromSnapshot('area_study')) this.spawnMapEntities(study.monsters, study.items)
+      this.player.x = MAP_W - 2
+      this.player.y = MAP_H - 2
+    } else {
+      this.tryRestoreFromSnapshot(data.currentMapKey)
+    }
     this.localMapView.groundDecorations = []
     this.setupEricsBedroom(false)
 
@@ -5958,11 +5973,11 @@ export class GameScene extends Phaser.Scene {
       garage_top: 'Garage', garage_bottom: 'Garage',
       hall: 'Hall', chaos: "Eric's bedroom",
       bedroom: "Mar's bedroom", bedroom_lower: "Mar's bedroom",
-      stairs: 'Stairs', kitchen: 'Kitchen', loft_stairs: 'Loft Stairs',
+      stairs: 'Stairs', kitchen: 'Kitchen',
       driveway: 'Driveway',
       upper_hall_left: 'Upper Hall', upper_hall_right: 'Upper Hall',
     }
-    const realm = ws.currentArea ? (areaRealm[ws.currentArea] ?? ws.currentArea) : 'Garden'
+    const realm = this.worldState.currentArea ? (areaRealm[this.worldState.currentArea] ?? this.worldState.currentArea) : 'Garden'
 
     this.updateFOV()
     this.worldMapView.render(this.player, this.monsters, this.floorItems, ws.currentArea === 'garage_top' || ws.currentArea === 'garage_bottom', ws.currentArea === 'stairs')
@@ -5970,7 +5985,7 @@ export class GameScene extends Phaser.Scene {
     this.statsPanel.update(this.player, this.turnManager.getTurn())
     this.statsPanel.setRealm(realm)
     this.stopAllMusic()
-    this.updateMusic(ws.currentArea ?? null)
+    this.updateMusic(this.worldState.currentArea)
     this.messageLog.add('Game restored. Welcome back, ' + p.name + '!', '#50c0ff')
     this.inputBlocked = false
     this.scheduleWerewolfMove()
@@ -6237,7 +6252,7 @@ export class GameScene extends Phaser.Scene {
       bathroom_top: 'Bathroom', bathroom_bottom: 'Bathroom',
       garage_top: 'Garage', garage_bottom: 'Lower Garage',
       hall: 'Hall', chaos: "Eric's bedroom",
-      bedroom: "Mar's Bedroom", bedroom_lower: "Mar's Bedroom", stairs: 'Rainbow Stairs', loft_stairs: 'Loft Stairs',
+      bedroom: "Mar's Bedroom", bedroom_lower: "Mar's Bedroom", stairs: 'Rainbow Stairs',
       driveway: 'Driveway',
       upper_hall_left: 'Upper Hall', upper_hall_right: 'Upper Hall',
       pond1: 'Pond', pond2: 'Pond', pond3: 'Pond',
@@ -6300,7 +6315,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private gameOver(cause?: string): void {
-    if (this.godMode) {
+    // God mode only cheats death; giving up and running out of time still end the game
+    if (this.godMode && cause !== 'Gave up' && cause !== 'Ran out of time') {
       this.player.hp = this.player.maxHp
       this.messageLog.add(`[God mode] Death prevented${cause ? ` (${cause})` : ''}.`, '#ffff80')
       this.statsPanel.update(this.player, this.turnManager.getTurn())
@@ -6349,7 +6365,8 @@ export class GameScene extends Phaser.Scene {
     const playerScore = this.player.exp
     const playerName  = this.player.name
     const playerCause = cause ?? 'Unknown'
-    const playerIdx   = entries.findIndex(
+    // Last match: the stable sort puts this run after older identical runs
+    const playerIdx   = entries.findLastIndex(
       e => e.score === playerScore && e.name === playerName && e.cause === playerCause
     )
 

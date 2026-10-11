@@ -87,6 +87,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image('stairs_blue',         'assets/terrain/rainbow_blue.png')
     this.load.image('terrain_water_green',  'assets/terrain/waterGreen.png')
     this.load.image('terrain_water_yellow', 'assets/terrain/waterYellow.png')
+    this.load.image('terrain_water_red',    'assets/terrain/waterRed.png')
+    this.load.image('terrain_water_brown',  'assets/terrain/waterBrown.png')
 
     // Player
     this.load.image('player',       'assets/player/rex5.png')
@@ -210,6 +212,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('item_gorget',          'assets/items/gorget.png')
     this.load.image('item_helmet',          'assets/items/helmet.png')
     this.load.image('item_rubberboots',     'assets/items/rubberboots.png')
+    this.load.image('item_leatherboots',    'assets/items/leatherboots.png')
     this.load.image('item_katana',          'assets/items/katana.png')
     this.load.image('item_mace',            'assets/items/mace.png')
     this.load.image('item_pickaxe',         'assets/items/pickaxe.png')

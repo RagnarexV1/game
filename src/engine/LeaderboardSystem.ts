@@ -11,17 +11,18 @@ export interface LeaderboardEntry {
 }
 
 export class LeaderboardSystem {
+  // Saves only the top MAX_ENTRIES, but returns the full sorted list so a
+  // low-scoring new entry can still be shown with its rank.
   addEntry(entry: LeaderboardEntry): LeaderboardEntry[] {
     const entries = this.getEntries()
     entries.push(entry)
     entries.sort((a, b) => b.score - a.score)
-    const top = entries.slice(0, MAX_ENTRIES)
     try {
-      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(top))
+      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
     } catch {
       // ignore storage errors
     }
-    return top
+    return entries
   }
 
   getEntries(): LeaderboardEntry[] {

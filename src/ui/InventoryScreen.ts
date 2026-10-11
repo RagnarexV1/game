@@ -435,7 +435,8 @@ export class InventoryScreen {
       if (di.count > 1) desc += ` (${di.count})`
       else if (item.quantity > 1) desc += ` (${item.quantity})`
       if (def.wandEffect || def.id === 'remote') desc += ` (${item.charges ?? 0})`
-      if (def.damage)  desc += ` (+${itemDamage(def, item)} dmg)`
+      // A banana's damage is its explosion when thrown, not a weapon bonus
+      if (def.damage && def.id !== 'banaan')  desc += ` (+${itemDamage(def, item)} dmg)`
       if (def.defense) desc += ` (-${itemDefense(def, item)} AC)`
       if (this.mode === 'pay') desc += `  [${itemValue(def, item)}c]`
       if (this.mode === 'sell') desc += `  [${sellPrice(itemValue(def, item))}c]`

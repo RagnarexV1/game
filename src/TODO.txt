@@ -4,7 +4,7 @@
 
 nieuw:
 
-- increase the speed potion duration by 10 turns
+- in the upper bathroom, about the water tiles, make this adjustment: keep the current water, but create 3 horizontal sections of fallen trees of 7 tiles broad, on top of the bottom brown tiles. one left, center and right. then from there, make a zigzag water river that starts with 1 water tile broad and slowly broadens to 7 again. then draw a fallen tree line accross and start over with 1 water tile. let these rivers branch off. you can walk over the fallen trees so you can still reach all areas.
 - 
 
 ------
@@ -24,10 +24,14 @@ peterisdom = all skills
 ragna<level#> = teleport
 
 Before release:
+- able to save? via cheat?
 - rename trap tp bom
 - check bathroom river
 - check of lego does damage in the pantry
 - remove the arrow portal in the Pantry
+
+
+- in the hall of defeat, make a starting version for when a fresh player first plays this game. Show one record (currently the second one) where player Eric finishes the game. Then show 4 more records between score 12000 and 0 (you can empty the current records). use these Player names: 
 
 
 check dit:

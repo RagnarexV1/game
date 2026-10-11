@@ -27,21 +27,23 @@ export interface ClarinetLocation {
 }
 
 // Named areas eligible to host a randomly-placed relic (or the clarinet's grid).
-// Excludes bathroom, loft ("Peter and the Wolf"), the pond levels, and the tub
-// enclosure (cellar), whose only special item is the second life potion.
+// Excludes bathroom, loft ("Peter and the Wolf"), the pond levels, the tub
+// enclosure (cellar), whose only special item is the second life potion, and
+// Mar's bedroom, where the fragments are handed in.
 const RELIC_AREAS = [
   'forest', 'garage_top', 'garage_bottom', 'hall',
-  'chaos', 'bedroom', 'bedroom_lower', 'kitchen', 'study',
+  'chaos', 'kitchen', 'study',
 ]
 
 // Rolled once per game: the blue vase lands in one of these, each stamp on any
-// indoor map except the loft, pantry and tub enclosure (cellar). 'garage' picks
+// indoor map except the loft, pantry, tub enclosure (cellar) and study. Neither
+// lands where it's handed in (Mom's kitchen, Dad's study). 'garage' picks
 // the top or bottom level; 'forest' picks a tier-3 garden cell; 'garden' any garden
 // cell but the start; 'hall' a random hall cell.
-const VASE_AREAS = ['garage', 'forest', 'garden', 'kitchen', 'hall']
+const VASE_AREAS = ['garage', 'forest', 'garden', 'hall']
 const STAMP_AREAS = [
   'bathroom_top', 'bathroom_bottom', 'garage_top', 'garage_bottom',
-  'hall', 'bedroom', 'bedroom_lower', 'kitchen', 'study',
+  'hall', 'bedroom', 'bedroom_lower', 'kitchen',
 ]
 
 // Empty vials spread over these maps, on top of the study's and kitchen's own (~15 in total).

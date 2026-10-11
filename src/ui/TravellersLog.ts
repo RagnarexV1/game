@@ -80,7 +80,7 @@ const SLOTS: Slot[] = [
   // On the grey paving left of the driveway
   slot('area_tub_enclosure',   'Tub Enclosure',         260, 712),
   slot('area_stairs',          'Stairs',                HALL.x + GW + 8 + (GW - 128) / 2, HALL.y + 3 * (GH + 8) + 28),
-  slot('area_loft_stairs',     'Loft Stairs',           110, 190),
+  slot('area_stairs_upper',    'Upper Stairs',          110, 190),
   slot('area_pond1',           'Pond',                  POND.x,       POND.y),
   slot('area_pond2',           'Underwater Caves',      POND.x + 140, POND.y),
   slot('area_pond3',           'Pond Depths',           POND.x + 140, POND.y + 42),
@@ -297,7 +297,7 @@ export class TravellersLog {
     const uh = SLOTS.find(sl => sl.key === 'area_upper_hall_left')!
     this.patch(g, uh.x - pad, uh.y - 10, 2 * uh.w + 8 + 2 * pad, uh.h + 20)
     // Single special levels
-    for (const key of ['area_chaos', 'area_kitchen', 'area_stairs', 'area_loft_stairs']) {
+    for (const key of ['area_chaos', 'area_kitchen', 'area_stairs', 'area_stairs_upper']) {
       const s = SLOTS.find(sl => sl.key === key)!
       this.patch(g, s.x - pad, s.y - 10, s.w + 2 * pad, s.h + 20)
     }

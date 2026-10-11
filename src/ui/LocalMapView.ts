@@ -138,13 +138,20 @@ export const TILE_SPRITES: Record<string, string> = {
   portal_study:         'terrain_portal',
   study_exit:           'terrain_next_down',
   loft_exit_stairs:     'terrain_next_up',
-  loft_stairs_exit_down: 'terrain_next_down',
-  loft_stairs_exit_up:  'terrain_next_up',
   portal_pantry:        'terrain_portal',
   pantry_exit:          'terrain_next_up',
   study_pool:           'terrain_water',
   study_pool_green:     'terrain_water_green',
   study_pool_yellow:    'terrain_water_yellow',
+  study_pool_health:    'terrain_water_red',
+  study_pool_speed:     'terrain_water_yellow',
+  study_pool_phasing:   'terrain_water',
+  study_pool_depredation:'terrain_water_brown',
+  study_pool_strength:  'terrain_water_red',
+  study_pool_experience:'terrain_water_green',
+  study_pool_blindness: 'terrain_water_brown',
+  study_pool_translucence:'terrain_water',
+  study_pool_lycanthropy:'terrain_water_brown',
   driveway:                 'terrain_driveway',
   garage_portal_driveway:   'terrain_portal',
   hall_portal_driveway:     'terrain_portal',
@@ -248,6 +255,7 @@ const ITEM_SPRITES: Record<string, string> = {
   gorget:           'item_gorget',
   helmet:           'item_helmet',
   rubberboots:      'item_rubberboots',
+  leatherboots:     'item_leatherboots',
   katana:           'item_katana',
   mace:             'item_mace',
   pickaxe:          'item_pickaxe',
@@ -711,7 +719,7 @@ export class LocalMapView {
           || tile.defId === 'bedroom_portal_driveway' || tile.defId === 'driveway_exit_balcony'
           || tile.defId === 'mar_exit_upper_hall'
         const needsLoftBase = (tile.defId === 'portal_stairs' && inLoft) || tile.defId === 'loft_exit' || tile.defId === 'loft_exit_stairs' || tile.defId === 'loft_tree' || tile.defId === 'loft3_exit' || tile.defId === 'loft3_exit_down'
-        const needsCarpetBase = tile.defId === 'study_exit' || tile.defId === 'study_exit_upper_hall' || tile.defId === 'loft_stairs_exit_down' || tile.defId === 'loft_stairs_exit_up'
+        const needsCarpetBase = tile.defId === 'study_exit' || tile.defId === 'study_exit_upper_hall'
 
         if (needsGrassBase) {
           const nbrs4 = [
