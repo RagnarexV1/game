@@ -37,8 +37,9 @@ function getItemCategory(defId: string, type: string): string {
   return type
 }
 
-/** What Eric the trader pays for an item: half of what he asks for it. */
-export function sellPrice(value: number | undefined): number {
+/** What Eric the trader pays for an item: half of what he asks for it (Petergrass: the same). */
+export function sellPrice(value: number | undefined, defId?: string): number {
+  if (defId === 'petergras') return value ?? 0
   return Math.floor((value ?? 0) / 2)
 }
 
@@ -439,7 +440,7 @@ export class InventoryScreen {
       if (def.damage && def.id !== 'banaan')  desc += ` (+${itemDamage(def, item)} dmg)`
       if (def.defense) desc += ` (-${itemDefense(def, item)} AC)`
       if (this.mode === 'pay') desc += `  [${itemValue(def, item)}c]`
-      if (this.mode === 'sell') desc += `  [${sellPrice(itemValue(def, item))}c]`
+      if (this.mode === 'sell') desc += `  [${sellPrice(itemValue(def, item), item.defId)}c]`
       if (this.mode === 'pay' && this.payGhosts?.has(item.instanceId)) desc += ' (used)'
       if (this.mode !== 'pay' && this.unpaidItems?.has(item.instanceId)) desc += ' (unpaid)'
 

@@ -1,5 +1,7 @@
 import Phaser from 'phaser'
 import { GAME_W, GAME_H } from '../ui/Layout'
+import { drawHallOfDefeat } from '../ui/HallOfDefeat'
+import type { LeaderboardEntry } from '../engine/LeaderboardSystem'
 
 const BG_SPRITES = [
   'terrain_grass',
@@ -146,13 +148,20 @@ export class VictoryScene extends Phaser.Scene {
   private groups: MonsterGroup[] = []
   private credits!: Phaser.GameObjects.Text
   private score = 0
+  private entries: LeaderboardEntry[] = []
+  private playerIdx = -1
+  // Closing the credits shows the leaderboard as a Hall of Victory
+  private hallShown = false
 
   constructor() {
     super({ key: 'VictoryScene' })
   }
 
-  init(data: { score?: number; music?: Phaser.Sound.BaseSound | null }): void {
+  init(data: { score?: number; music?: Phaser.Sound.BaseSound | null; entries?: LeaderboardEntry[]; playerIdx?: number }): void {
     this.score = data?.score ?? 0
+    this.entries = data?.entries ?? []
+    this.playerIdx = data?.playerIdx ?? -1
+    this.hallShown = false
     // The level's music keeps playing during the credits and stops when we leave
     const music = data?.music ?? null
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => music?.destroy())
@@ -279,7 +288,7 @@ export class VictoryScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0.5).setDepth(5)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => { this.sound.stopAll(); this.scene.start('GameScene') })
+      .on('pointerdown', () => this.closeCredits())
 
     this.add.text(cx, GAME_H - 24, 'Press R to return to start', {
       fontSize: '18px',
@@ -287,10 +296,35 @@ export class VictoryScene extends Phaser.Scene {
       fontFamily: 'monospace',
     }).setOrigin(0.5, 0.5).setDepth(10)
 
-    this.input.keyboard!.on('keydown-R', () => { this.sound.stopAll(); this.scene.start('GameScene') })
+    this.input.keyboard!.on('keydown-R', () => this.closeCredits())
+  }
+
+  // First close: the Hall of Victory with the birthday song. Second close: back to the start.
+  private closeCredits(): void {
+    if (this.hallShown) { this.sound.stopAll(); this.scene.start('GameScene'); return }
+    this.hallShown = true
+    this.sound.stopAll()
+    this.time.removeAllEvents()
+    this.tweens.killAll()
+    this.children.removeAll(true)
+    this.waves = []
+    this.orbits = []
+    this.groups = []
+
+    const birthday = this.sound.add('music_birthday', { loop: true, volume: 0.5 })
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => birthday.destroy())
+    birthday.play()
+
+    drawHallOfDefeat(this, this.entries, this.playerIdx, 'HALL OF VICTORY', '#40ff80')
+    this.add.text(GAME_W / 2, GAME_H - 50, 'Press R to return to start', {
+      fontSize: '30px', color: '#40ff80', fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(202)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => this.closeCredits())
   }
 
   update(_time: number, delta: number): void {
+    if (this.hallShown) return
     const dt = delta / 1000
     const cx = GAME_W / 2
     const cy = GAME_H / 2

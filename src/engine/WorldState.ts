@@ -53,7 +53,8 @@ const VIAL_AREAS = [
 ]
 const VIAL_SITES = 8
 
-export const TURN_LIMIT = 10000
+export const TURN_LIMIT = 13000
+export const SAVE_INTERVAL = 1000
 
 // Tier 2+ maps that can host a Scroll of Transport ('forest' = a tier-3 garden cell).
 const TRANSPORT_AREAS = [
@@ -222,6 +223,8 @@ export class WorldState {
   // The game should be finished within TURN_LIMIT turns; distracting Lex adds bonus turns.
   bonusTurns = 0
   get turnLimit(): number { return TURN_LIMIT + this.bonusTurns }
+  // Turn of the last save; saving is only allowed again SAVE_INTERVAL turns later.
+  lastSaveTurn: number | null = null
 
   hasRight() { return this.cx < this.GRID - 1 }
   hasLeft()  { return this.cx > 0 }

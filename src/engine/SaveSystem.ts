@@ -52,6 +52,7 @@ export interface WorldStateSave {
   runSeed?: number
   clarinetLocation?: ClarinetLocation | null
   bonusTurns?: number
+  lastSaveTurn?: number | null
   stampsGiven?: number
   fragmentsGiven?: number
   secondLifeMixed?: boolean

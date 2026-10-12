@@ -215,13 +215,13 @@ export function generateForestMap(
 
   const srng = spawnRng(world.seed)
   const tier = forestCellTier(cx, cy)
-  // The starting cell is too gentle for rock giants (and keeps cows out); mid-garden cells see fewer heavy brutes.
+  // The starting cell keeps cows out; mid-garden cells see fewer heavy brutes.
   // Late (tier-3) cells lean on the giants and trolls, with fewer small critters.
-  // Sheep only graze in tier-3 cells.
+  // Sheep and rock giants only turn up in tier-3 cells.
   const weightScale: Record<string, number> =
     cx === 0 && cy === 0 ? { rockgiant: 0, ogre: 0, schaap: 0, koe: 0 } :
-    tier === 2 ? { rockgiant: 0.4, troll: 0.4, ogre: 0.4, schaap: 0 } :
-    tier === 1 ? { ogre: 0, schaap: 0 } :
+    tier === 2 ? { rockgiant: 0, troll: 0.4, ogre: 0.4, schaap: 0 } :
+    tier === 1 ? { rockgiant: 0, ogre: 0, schaap: 0 } :
     { rockgiant: 3, troll: 2.5, ogre: 2.5, snail: 0.3, rat: 0.3, wilddog: 0.3, mier: 0.3, worm: 0.3 }
   const randomMonsters = spawnRandomMonsters(map, srng, 'forest', cellData?.randomMonsters ?? 6, {
     tierOverride: tier,
@@ -1196,8 +1196,12 @@ export function generateHallMap(
   // Spawn crypt monsters in rooms 1+ (rolled per game from the hall pool).
   // Shade and pelgrat only haunt the bottom row of hall cells.
   const srng = spawnRng(seed)
-  // No cockatrices on the ground floor; they only roam from the first floor up
-  const hallScale = { ...(ucy === ugrid - 1 ? {} : NO_ENDGAME), cockatrice: 0 }
+  // No cockatrices on the ground floor; they only roam from the first floor up.
+  // Rock giants only lurk in the tier-3 (bottom-right) hall cell.
+  const hallScale = {
+    ...(ucy === ugrid - 1 ? {} : NO_ENDGAME), cockatrice: 0,
+    ...(forestCellTier(ucx, ucy) === 3 ? {} : { rockgiant: 0 }),
+  }
   const monsters: Array<{ x: number; y: number; defId: string }> = []
   const items: Array<{ x: number; y: number; defId: string }> = []
   for (let ri = 1; ri < rooms.length; ri++) {
@@ -1256,7 +1260,7 @@ export function generateHallMap(
   // Left-centre cell: a sealed secret chamber in the empty far west, five tiles clear of
   // the leftmost room, with no door or path. Built last so no relic or loot lands inside.
   if (ucx === 0 && ucy === Math.floor(ugrid / 2)) {
-    const cx1 = 2, cx2 = 8, cy1 = 4, cy2 = 13
+    const cx1 = 2, cx2 = 8, cy1 = 6, cy2 = 10
     for (let y = cy1 - 1; y <= cy2 + 1; y++)
       for (let x = cx1 - 1; x <= cx2 + 1; x++) {
         const left = x === cx1 - 1, right = x === cx2 + 1, top = y === cy1 - 1, bottom = y === cy2 + 1

@@ -20,7 +20,7 @@ interface SkillEntry {
 export const SKILL_LIST: SkillEntry[] = [
   { id: 'mixing', label: 'Alchemy', icon: '⚗' },
   { id: 'ventriloquism', label: 'Ventriloquism', icon: '♪', active: true },
-  { id: 'clothespin_trap', label: 'Clothespin Trap', icon: '*', active: true },
+  { id: 'clothespin_trap', label: 'Clothespin Bomb', icon: '*', active: true },
   { id: 'cartography', label: 'Cartography', icon: '#', active: true },
   { id: 'relocation', label: 'Relocation', icon: '~', active: true },
   { id: 'music', label: 'Music', icon: '♫' },

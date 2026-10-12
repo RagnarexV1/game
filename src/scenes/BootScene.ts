@@ -290,16 +290,11 @@ export class BootScene extends Phaser.Scene {
     // Column C
     this.load.image('btn_eat',    'assets/ui/btn_eat.png')
     this.load.image('btn_throw',  'assets/ui/btn_throw.png')
-    this.load.image('btn_shoot',  'assets/ui/btn_shoot.png')
     this.load.image('btn_pay',    'assets/ui/btn_pay.png')
     this.load.image('btn_sell',   'assets/ui/btn_sell.png')
     this.load.image('btn_dig',    'assets/ui/btn_dig.png')
 
     // Column D+E rows
-    this.load.image('btn_panic_quit',   'assets/ui/btn_panic_quit.png')
-    this.load.image('btn_call_name',    'assets/ui/btn_call_name.png')
-    this.load.image('btn_npc_attack',   'assets/ui/btn_npc_attack.png')
-    this.load.image('btn_skill_power',  'assets/ui/btn_skill_power.png')
     this.load.image('btn_discoveries',  'assets/ui/btn_discoveries.png')
     this.load.image('btn_useitem',      'assets/ui/btn_useitem.png')
     this.load.image('btn_playback',     'assets/ui/btn_playback.png')
@@ -311,20 +306,7 @@ export class BootScene extends Phaser.Scene {
 
     // UI
     this.load.image('ui_defeat', 'assets/ui/defeat.png')
-    this.load.image('ui_eat', 'assets/ui/spr_eat.png')
-    this.load.image('ui_drink', 'assets/ui/spr_drink.png')
-    this.load.image('ui_read', 'assets/ui/spr_read.png')
-    this.load.image('ui_pack', 'assets/ui/spr_pack.png')
-    this.load.image('ui_quit', 'assets/ui/spr_quit.png')
-    this.load.image('ui_wear', 'assets/ui/spr_wear.png')
-    this.load.image('ui_wield', 'assets/ui/spr_wield.png')
-    this.load.image('ui_self', 'assets/ui/spr_self.png')
     this.load.image('ui_self_screen', 'assets/ui/self.png')
-    this.load.image('ui_settings', 'assets/ui/spr_settings.png')
-    this.load.image('ui_look', 'assets/ui/spr_look.png')
-    this.load.image('ui_mix', 'assets/ui/spr_mix.png')
-    this.load.image('ui_throw', 'assets/ui/spr_throw.png')
-    this.load.image('ui_stop', 'assets/ui/spr_stop.png')
 
     // Inventory category icons
     this.load.image('inv_weapon',  'assets/inv/invWeapon.png')
@@ -355,7 +337,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('music_bathroom', 'assets/sound/snd_trololo_8bit2.mp3')
     this.load.audio('music_bedroom',  'assets/sound/spring_song_drums.mp3')
     this.load.audio('music_pond',     'assets/sound/Groen-is-de-gong.mp3')
-    this.load.audio('music_stairs',   'assets/sound/bananen_no_drum.wav')
+    this.load.audio('music_stairs',   'assets/sound/bananen_no_drum.mp3')
     this.load.audio('music_defeat',   'assets/sound/funeral_march.mp3')
     this.load.audio('music_birthday', 'assets/sound/birthday.mp3')
     this.load.audio('sfx_clarinet_worse', 'assets/sound/clarinet_worse.mp3')

@@ -97,7 +97,7 @@ export function itemPower(item: ItemDef): number {
     (item.defense ?? 0) * 4 +
     Math.max(0, item.healAmount ?? 0) * 0.5 +
     (item.speedBonus ?? 0) * 0.5 +
-    (item.value ?? 0) * 0.3
+    Math.max(0, item.value ?? 0) * 0.3
 }
 
 // Base-weight overrides for staples that should stay common despite their value.
@@ -186,6 +186,7 @@ export const MONSTER_TIER: Record<string, MonsterTier> = {
 
 // Generic hostile pools per area category. NPCs, bosses, set-pieces and
 // decorative monsters stay hand-placed in the map generators / mapSpawns.json.
+// Rock giants roam the garage, loft and upper halls, but only the tier-3 garden and ground-floor hall cells.
 export const AREA_MONSTERS: Record<string, string[]> = {
   // Werewolves stay out of the garden pool; the bottom-right cell places its one by hand.
   // Sheep only graze in tier-3 garden cells (see generateForestMap).
@@ -202,7 +203,7 @@ export const AREA_MONSTERS: Record<string, string[]> = {
   hall: ['bat', 'pissebed', 'dwarf', 'lowerdwarf', 'muddman', 'spirit', 'wizard', 'magician', 'sorcerer', 'ogre',
          'rat', 'swordsman', 'nymph', 'stinkdier', 'werewolf', 'troll', 'blauwkip', 'migdnart', 'rockgiant',
          'cockatrice', 'shade', 'pelgrat'],
-  bedroom:     ['spirit', 'nymph', 'ogre', 'rockgiant', 'wizard', 'magician', 'sorcerer', 'troll', 'werewolf', 'blauwkip', 'migdnart', 'cockatrice'],
+  bedroom:     ['spirit', 'nymph', 'ogre', 'wizard', 'magician', 'sorcerer', 'troll', 'werewolf', 'blauwkip', 'migdnart', 'cockatrice'],
 }
 
 // weightScale that keeps the endgame monsters out of a map whose pool lists them.

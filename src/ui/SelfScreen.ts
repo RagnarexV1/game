@@ -15,7 +15,7 @@ const SKILL_META: Record<string, { label: string; cat: 'skill' | 'power' | 'abil
   cartography:      { label: 'Cartography',     cat: 'skill' },
   music:            { label: 'Music',           cat: 'skill' },
   ventriloquism:    { label: 'Ventriloquism',   cat: 'skill' },
-  clothespin_trap:  { label: 'Clothespin Trap', cat: 'skill' },
+  clothespin_trap:  { label: 'Clothespin Bomb', cat: 'skill' },
   relocation:       { label: 'Relocation',      cat: 'skill' },
   swimming:         { label: 'Swimming',         cat: 'ability' },
   diving:           { label: 'Diving',           cat: 'ability' },

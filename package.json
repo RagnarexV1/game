@@ -6,13 +6,46 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "phaser": "^4.1.0",
+    "tslib": "^2.8.1",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
   },
-  "dependencies": {
-    "phaser": "^4.1.0"
+  "main": "electron/main.cjs",
+  "description": "Ragnarex",
+  "author": "ericwessels",
+  "build": {
+    "appId": "nl.analyze.ragnarex",
+    "productName": "Ragnarex",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.pdn",
+      "electron/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    }
   }
 }

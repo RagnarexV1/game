@@ -20,7 +20,7 @@
     "foodAmount": 2,
     "healAmount": 1,
     "weight": 0,
-    "value": 1,
+    "value": 2,
     "description": "They are edible."
   },
   {
@@ -46,7 +46,7 @@
     "slot": "weapon",
     "damage": 2,
     "weight": 1,
-    "value": 1,
+    "value": 2,
     "description": "A weak tree branch. Better than nothing."
   },
   {
@@ -59,7 +59,7 @@
     "relic": true,
     "damage": 40,
     "weight": 10,
-    "value": 9999,
+    "value": 1000,
     "description": "A god-forged hammer humming with thunder. Legends say only the worthy can wield it. When thrown, it always flies back to your paw."
   },
   {
@@ -141,7 +141,7 @@
     "type": "drink",
     "slot": null,
     "weight": 1,
-    "value": 25,
+    "value": 35,
     "description": "A fizzing yellow liquid. Your feet feel lighter."
   },
   {
@@ -152,7 +152,7 @@
     "type": "drink",
     "slot": null,
     "weight": 1,
-    "value": 30,
+    "value": 40,
     "description": "A shimmering liquid that seems to bend light."
   },
   {
@@ -163,7 +163,7 @@
     "type": "drink",
     "slot": null,
     "weight": 1,
-    "value": 5,
+    "value": 35,
     "description": "A murky black liquid. You feel weakened."
   },
   {
@@ -185,7 +185,7 @@
     "type": "drink",
     "slot": null,
     "weight": 1,
-    "value": 40,
+    "value": 45,
     "description": "Glowing green. Wisdom flows into your mind."
   },
   {
@@ -349,7 +349,7 @@
     "healAmount": 10,
     "eatMessage": "You devour the Ericgrass (tm) like a real Brachiosaurus.",
     "weight": 100,
-    "value": 100,
+    "value": 20,
     "description": "A firm healthy and especially nutricious grass."
   },
   {
@@ -363,7 +363,7 @@
     "eatMessage": "Your health takes a big hit. Any other animal would have been killed.",
     "healAmount": -20,
     "weight": 0,
-    "value": 0,
+    "value": -10,
     "description": "A fragile looking grass, definitely unhealthy to eat."
   },
   {
@@ -447,7 +447,7 @@
   },
   {
     "id": "wasknijperbom",
-    "name": "Clothespin Trap",
+    "name": "Clothespin Bomb",
     "glyph": "*",
     "color": "#ff8000",
     "type": "weapon",
@@ -1126,7 +1126,7 @@
     "type": "scroll",
     "slot": null,
     "skillScroll": "clothespin_trap",
-    "scrollText": "You learn how to make a Clothespin Trap.",
+    "scrollText": "You learn how to make a Clothespin Bomb.",
     "weight": 0,
     "value": 500,
     "description": "Shimmering cyan text on fine parchment. Teaches you a skill."
@@ -1342,7 +1342,7 @@
     "slot": null,
     "scrollText": "Twelve doorways open before you. Choose wisely.",
     "weight": 0,
-    "value": 200,
+    "value": 10,
     "description": "Ancient parchment etched with twelve arched portals. Opens a gateway for monsters."
   },
   {

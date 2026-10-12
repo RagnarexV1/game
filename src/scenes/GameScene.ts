@@ -8,9 +8,9 @@ import { EquipmentSystem, BASE_FINGERS } from '../engine/EquipmentSystem'
 import { SaveSystem } from '../engine/SaveSystem'
 import type { GameSaveData } from '../engine/SaveSystem'
 import { LeaderboardSystem } from '../engine/LeaderboardSystem'
-import type { LeaderboardEntry } from '../engine/LeaderboardSystem'
+import { drawHallOfDefeat, findRunIndex } from '../ui/HallOfDefeat'
 import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateHallMap, generateChaosMap, mutateChaosMap, chaosPartyArea, chaosPartyRing, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateTubEnclosureMap, generateLoftMap, generateLoft3Map, generateStudyMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map, generateDrivewayMap, generateUpperHallMap, peterPatrolLoop, openLoft3GardenExit, STUDY_POOL_POTIONS, type SpawnPoints } from '../engine/MapGenerator'
-import { WorldState, type ClarinetLocation, type CellSnapshot } from '../engine/WorldState'
+import { WorldState, SAVE_INTERVAL, type ClarinetLocation, type CellSnapshot } from '../engine/WorldState'
 import { placeSingleItemRandomly, isSpecialTile, pickAreaItem, EXCLUDE_IDS, isHiddenUnderWater } from '../engine/ItemPlacement'
 import { AREA_MONSTERS, GARDEN_STRAYS, areaInfo } from '../engine/SpawnTables'
 import { Player } from '../entities/Player'
@@ -51,7 +51,7 @@ const LEGO_DAMAGE = 10
 const GAZE_CHANCE = 0.25
 // Deep water: only divers, or anyone floating on a Gompie, can move over it
 const WATER_TILES = new Set(['water', 'loft_water', 'water_bath'])
-// Chance that you spring your own Clothespin Trap when stepping on it (anyone else always does)
+// Chance that you spring your own Clothespin Bomb when stepping on it (anyone else always does)
 const OWN_TRAP_CHANCE = 0.1
 
 // Each juicy fish given to Lex buys this many extra turns; a warning shows every interval.
@@ -147,6 +147,8 @@ export class GameScene extends Phaser.Scene {
   private lastKilledBy: string | null = null
   private bathroomFlooded = false
   private bathroomDrained = false
+  // Where the bath stopper was picked up; the hole fills with water once the player steps off it
+  private stopperHole: { x: number; y: number } | null = null
 
   private readonly QUEST_TARGETS: Record<string, { npcId: string; message: string }> = {
     relic_scroll_1: { npcId: 'mar_bedroom', message: 'Mar takes the ancient fragment, eyes wide with wonder.' },
@@ -488,7 +490,7 @@ export class GameScene extends Phaser.Scene {
     this.player.onLevelUp = (level) => this.messageLog.add(`You are now a level ${level} plush!`, '#40ff80')
     this.turnManager.addActor(this.player)
 
-    for (const defId of ['boterham', 'health_potion']) {
+    for (const defId of ['boterham', 'health_potion', 'sinaasappel']) {
       this.player.inventory.push(this.inventory.createInstance(defId))
     }
     if (TEST_ALL_ITEMS) this.addAllItems()
@@ -508,6 +510,8 @@ export class GameScene extends Phaser.Scene {
 
   // Secret quest-screen codes: the two toggles, plus ragna<map> warps.
   // 3x3 maps number their cells 1-9 row by row; 2x1 maps are 1 (top/left) and 2.
+  // No code may be a prefix of another (ragnaloft vs ragnaloft1): matching fires as
+  // soon as the typed text ends with a code, so the longer one would be unreachable.
   private cheatActions(): Record<string, () => void> {
     const actions: Record<string, () => void> = {
       odogodogodog: () => this.toggleCheat('god'),
@@ -524,9 +528,11 @@ export class GameScene extends Phaser.Scene {
       garage1: 'garage_top', garage2: 'garage_bottom',
       bedroom1: 'bedroom', bedroom2: 'bedroom_lower',
       upperhall1: 'upper_hall_left', upperhall2: 'upper_hall_right',
-      ericsbedroom: 'chaos', kitchen: 'kitchen', stairs: 'stairs', tub: 'tub_enclosure',
-      loft: 'loft', peterandthewolf: 'loft3', atticstairs: 'stairs', study: 'study',
-      pantry: 'pantry', driveway: 'driveway', pond: 'pond1', caves: 'pond2', depths: 'pond3',
+      ericsbedroom: 'chaos', kitchen: 'kitchen', tub: 'tub_enclosure',
+      stairs1: 'stairs', stairs2: 'stairs', atticstairs: 'stairs',
+      loft1: 'loft', loft2: 'loft3', peterandthewolf: 'loft3', study: 'study',
+      pantry: 'pantry', driveway: 'driveway',
+      pond1: 'pond1', pond2: 'pond2', pond3: 'pond3', caves: 'pond2', depths: 'pond3',
     }
     for (const [name, area] of Object.entries(AREAS)) {
       actions[`ragna${name}`] = () => {
@@ -535,7 +541,7 @@ export class GameScene extends Phaser.Scene {
           this.worldState.savedPlayerX = this.player.x
           this.worldState.savedPlayerY = this.player.y
         }
-        if (area === 'stairs') this.stairsOrigin = name === 'atticstairs' ? 'study' : 'hall'
+        if (area === 'stairs') this.stairsOrigin = name === 'stairs1' ? 'hall' : 'study'
         this.transitionToArea(area)
       }
     }
@@ -1269,6 +1275,7 @@ export class GameScene extends Phaser.Scene {
     else this.worldState.currentArea = area
     this.bathroomFlooded = false
     this.bathroomDrained = false
+    this.stopperHole = null
 
     const result = area === 'bathroom_top'  ? generateBathroomTopMap(this.mapSystem)
       : area === 'bathroom_bottom'          ? generateBathroomBottomMap(this.mapSystem)
@@ -1708,6 +1715,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private floodBathroom(): void {
+    const hole = this.stopperHole
+    if (hole && !(this.player.x === hole.x && this.player.y === hole.y) && !this.getMonsterAt(hole.x, hole.y)) {
+      this.stopperHole = null
+      if (this.mapSystem.getTile(hole.x, hole.y)?.defId === 'tegel_wit') this.mapSystem.setTile(hole.x, hole.y, 'water_bath')
+    }
     let tapExists = false
     for (let y = 0; y < MAP_H && !tapExists; y++)
       for (let x = 0; x < MAP_W && !tapExists; x++)
@@ -2477,7 +2489,10 @@ export class GameScene extends Phaser.Scene {
       player.gold -= price
       this.traderUnpaid.delete(item.instanceId)
       this.traderUnpaidGhosts.delete(item.instanceId)
-      this.messageLog.add(`You pay ${price}c for the ${def?.name ?? item.defId}.`, '#ffd080')
+      // Items with a negative price (Petergrass): Eric pays you to take them
+      this.messageLog.add(price < 0
+        ? `Eric pays you ${-price}c to take the ${def?.name ?? item.defId}.`
+        : `You pay ${price}c for the ${def?.name ?? item.defId}.`, '#ffd080')
       this.checkTraderDoor()
       if (this.traderUnpaid.size === 0) {
         this.inventoryScreen.hide()
@@ -2491,6 +2506,13 @@ export class GameScene extends Phaser.Scene {
     // where it's for sale again at the full price
     this.inventoryScreen.onSell = (item, player) => {
       const def = this.inventory.getDef(item.defId)
+      // Items with a negative price (Petergrass) cost money to get rid of
+      const fee = -sellPrice(itemValue(def, item), item.defId)
+      if (fee > player.gold) {
+        this.messageLog.add(`Not enough cents! Eric charges ${fee}c to take the ${def?.name ?? item.defId}.`, '#ff8040')
+        this.inventoryScreen.refresh(player)
+        return
+      }
       let sold = item
       if (item.quantity > 1) {
         item.quantity--
@@ -2499,10 +2521,12 @@ export class GameScene extends Phaser.Scene {
       } else {
         this.inventory.removeFromInventory(player.inventory, item.instanceId)
       }
-      const price = sellPrice(itemValue(def, sold))
+      const price = sellPrice(itemValue(def, sold), sold.defId)
       player.gold += price
       this.floorItems.push(new FloorItem(player.x, player.y, sold))
-      this.messageLog.add(`You sell the ${def?.name ?? item.defId} to Eric for ${price}c.`, '#ffd080')
+      this.messageLog.add(price < 0
+        ? `You pay Eric ${-price}c to take the ${def?.name ?? item.defId}.`
+        : `You sell the ${def?.name ?? item.defId} to Eric for ${price}c.`, '#ffd080')
       this.inventoryScreen.refresh(player)
       this.endPlayerTurn()
     }
@@ -3572,6 +3596,8 @@ export class GameScene extends Phaser.Scene {
         inTraderChamber ? null : existing => !this.traderUnpaid.has(existing.instanceId))
     }
     this.floorItems.splice(this.floorItems.indexOf(fi), 1)
+    if (fi.item.defId === 'stop' && this.worldState.currentArea === 'bathroom_bottom')
+      this.stopperHole = { x: this.player.x, y: this.player.y }
     if (fi.item.defId === 'gong') {
       this.messageLog.add('The gong BOOMS! A wave of power washes over the world!', '#ffd700')
       this.time.delayedCall(1200, () => this.triggerVictory())
@@ -4187,7 +4213,7 @@ export class GameScene extends Phaser.Scene {
     let landY = this.player.y
     // Hit messages are held back so they follow the "You throw ..." line
     const hitMsgs: Array<[string, string]> = []
-    // A thrown Clothespin Trap snaps shut on the first monster it hits and is used up
+    // A thrown Clothespin Bomb explodes on the first monster it hits and is used up
     let trapSprung = false
 
     for (let i = 1; i <= maxDist; i++) {
@@ -4241,7 +4267,7 @@ export class GameScene extends Phaser.Scene {
     if (trapSprung) {
       this.messageLog.add(`You throw the ${def.name}.`, '#c0c0c0')
       for (const [m, c] of hitMsgs) this.messageLog.add(m, c)
-      this.messageLog.add(`The ${def.name} snaps shut and falls apart.`, '#a0a0a0')
+      this.messageLog.add(`The ${def.name} explodes!`, '#a0a0a0')
       this.localMapView.animateThrow(item.defId, this.player.x, this.player.y, landX, landY, () => this.endPlayerTurn())
       return
     }
@@ -4725,10 +4751,10 @@ export class GameScene extends Phaser.Scene {
       return
     }
     if (count < 2) {
-      this.messageLog.add('You need at least two Clothespins to rig a trap.', '#808080')
+      this.messageLog.add('You need at least two Clothespins to rig a bomb.', '#808080')
       return
     }
-    // One trap takes two clothespins
+    // One bomb takes two clothespins
     let need = 2
     for (const pin of pins) {
       if (need === 0) break
@@ -4738,7 +4764,7 @@ export class GameScene extends Phaser.Scene {
       else this.removeUnpaidAware(pin, this.player)
     }
     this.inventory.addToInventory(inv, this.inventory.createInstance('wasknijperbom'))
-    this.messageLog.add('You carefully rig two Clothespins into a Clothespin Trap.', '#ffd080')
+    this.messageLog.add('You carefully rig two Clothespins into a Clothespin Bomb.', '#ffd080')
     this.endPlayerTurn()
   }
 
@@ -4763,7 +4789,7 @@ export class GameScene extends Phaser.Scene {
     this.dadInSight = seen
   }
 
-  // A Clothespin Trap lying on the floor snaps shut on whoever steps onto it and
+  // A Clothespin Bomb lying on the floor explodes under whoever steps onto it and
   // is used up. Monsters always spring it; you know it's there, so only 10% of the time.
   private checkClothespinTraps(): void {
     const playerTile = `${this.currentMapKey()}:${this.player.x},${this.player.y}`
@@ -4785,11 +4811,11 @@ export class GameScene extends Phaser.Scene {
     if (underPlayer && Math.random() < OWN_TRAP_CHANCE) {
       spring(underPlayer)
       if (this.isInvulnerable()) {
-        this.messageLog.add('The Clothespin Trap snaps shut on you, but you feel nothing.', '#ffff80')
+        this.messageLog.add('The Clothespin Bomb explodes under you, but you feel nothing.', '#ffff80')
       } else {
         this.player.hp = Math.max(0, this.player.hp - dmg)
-        this.messageLog.add(`Oops! You step on your own Clothespin Trap! (-${dmg} HP)`, '#ff8000')
-        if (!this.player.isAlive()) this.lastKilledBy = 'a Clothespin Trap'
+        this.messageLog.add(`Oops! You step on your own Clothespin Bomb! (-${dmg} HP)`, '#ff8000')
+        if (!this.player.isAlive()) this.lastKilledBy = 'a Clothespin Bomb'
       }
     }
 
@@ -4800,7 +4826,7 @@ export class GameScene extends Phaser.Scene {
       if (!trap) continue
       spring(trap)
       m.hp = Math.max(0, m.hp - dmg)
-      this.messageLog.add(`The Clothespin Trap snaps shut on the ${m.name}! (${dmg} dmg)`, '#ff8000')
+      this.messageLog.add(`The Clothespin Bomb explodes under the ${m.name}! (${dmg} dmg)`, '#ff8000')
       if (!m.isAlive()) {
         this.player.gainXP(m.xpValue)
         this.removeMonster(m)
@@ -5695,9 +5721,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private removeMonster(monster: Monster): void {
-    // A slain draugr springs back to life 5-10 turns later
+    // A slain draugr springs back to life 15-30 turns later
     const revive = monster.defId === 'draugr' && !monster.isAlive()
-      ? { defId: monster.defId, turn: this.turnManager.getTurn() + 5 + Math.floor(Math.random() * 6) }
+      ? { defId: monster.defId, turn: this.turnManager.getTurn() + 15 + Math.floor(Math.random() * 16) }
       : undefined
     this.corpses.push({ x: monster.x, y: monster.y, revive })
     this.turnManager.removeActor(monster.id)
@@ -5901,6 +5927,7 @@ export class GameScene extends Phaser.Scene {
         runSeed: this.worldState.runSeed,
         clarinetLocation: this.worldState.clarinetLocation,
         bonusTurns: this.worldState.bonusTurns,
+        lastSaveTurn: this.worldState.lastSaveTurn,
         stampsGiven: this.worldState.stampsGiven,
         fragmentsGiven: this.worldState.fragmentsGiven,
         secondLifeMixed: this.worldState.secondLifeMixed,
@@ -5982,6 +6009,7 @@ export class GameScene extends Phaser.Scene {
     if (ws.runSeed !== undefined) this.worldState.runSeed = ws.runSeed
     this.worldState.clarinetLocation = ws.clarinetLocation ?? null
     this.worldState.bonusTurns = ws.bonusTurns ?? 0
+    this.worldState.lastSaveTurn = ws.lastSaveTurn ?? null
     this.worldState.stampsGiven = ws.stampsGiven ?? 0
     this.worldState.fragmentsGiven = ws.fragmentsGiven ?? 0
     this.worldState.secondLifeMixed = ws.secondLifeMixed ?? false
@@ -6255,6 +6283,14 @@ export class GameScene extends Phaser.Scene {
 
     const save = () => {
       cleanup()
+      const turn = this.turnManager.getTurn()
+      const last = this.worldState.lastSaveTurn
+      if (last !== null && turn - last < SAVE_INTERVAL) {
+        this.messageLog.add(`You saved only moments ago, try again over ${SAVE_INTERVAL - (turn - last)} turns.`, '#ff8040')
+        this.inputBlocked = false
+        return
+      }
+      this.worldState.lastSaveTurn = turn
       this.saveSystem.saveGame(this.collectSaveData())
       this.messageLog.add('Game saved! Your journey continues another day.', '#50c0ff')
       this.inputBlocked = false
@@ -6273,7 +6309,9 @@ export class GameScene extends Phaser.Scene {
 
   private triggerVictory(): void {
     this.inputBlocked = true
-    this.recordLeaderboardEntry('Victory - saved the world!')
+    const cause = 'Victory - saved the world!'
+    const entries = this.recordLeaderboardEntry(cause)
+    const playerIdx = findRunIndex(entries, { name: this.player.name, score: this.player.exp, cause })
     // The level's music plays on through the credits: hand it over to the
     // VictoryScene (which destroys it on exit) so our shutdown doesn't kill it.
     const tracks = ['forestMusic', 'loftMusic', 'hallMusic', 'bathroomMusic', 'bedroomMusic',
@@ -6282,7 +6320,7 @@ export class GameScene extends Phaser.Scene {
     for (const key of tracks) {
       if (this[key]?.isPlaying) { music = this[key]; this[key] = null; break }
     }
-    this.scene.start('VictoryScene', { score: this.player.exp, music })
+    this.scene.start('VictoryScene', { score: this.player.exp, music, entries, playerIdx })
   }
 
   // Adds the current run to the Hall of Defeat and returns the updated entries.
@@ -6311,7 +6349,7 @@ export class GameScene extends Phaser.Scene {
     })
   }
 
-  // Turns left before time runs out (10000 + bonus turns from distracting Lex).
+  // Turns left before time runs out (TURN_LIMIT + bonus turns from distracting Lex).
   private turnsLeft(): number {
     return this.worldState.turnLimit - this.turnManager.getTurn()
   }
@@ -6368,77 +6406,10 @@ export class GameScene extends Phaser.Scene {
     this.player.blindTurns = 0
     this.localMapView.clearBlind()
 
-    const entries = this.recordLeaderboardEntry(cause ?? 'Unknown')
-
-    // Full-screen defeat image
-    this.add.image(GAME_W / 2, GAME_H / 2, 'ui_defeat')
-      .setDisplaySize(GAME_W, GAME_H)
-      .setDepth(200)
-
-    // Dark overlay for text legibility
-    this.add.graphics()
-      .fillStyle(0x000000, 0.55)
-      .fillRect(0, 0, GAME_W, GAME_H)
-      .setDepth(201)
-
-    // Leaderboard title
-    this.add.text(GAME_W / 2, 60, 'HALL OF DEFEAT', {
-      fontSize: '40px', color: '#c8a000', fontFamily: 'monospace', fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(202)
-
-    // Column positions
-    const CX = { rank: 220, score: 390, name: 415, world: 650, hp: 870, cause: 970 }
-    const col = (x: number, y: number, text: string, color: string, rightAlign = false) =>
-      this.add.text(x, y, text, { fontSize: '22px', color, fontFamily: 'monospace' })
-        .setOrigin(rightAlign ? 1 : 0, 0).setDepth(202)
-
-    // Column headers
-    col(CX.rank,  120, '#',     '#888888')
-    col(CX.score, 120, 'SCORE', '#888888', true)
-    col(CX.name,  120, 'NAME',  '#888888')
-    col(CX.world, 120, 'WORLD', '#888888')
-    col(CX.hp,    120, 'HP',    '#888888')
-    col(CX.cause, 120, 'CAUSE', '#888888')
-
-    // Entries — top 15, or top 10 + dots + player context
-    const playerScore = this.player.exp
-    const playerName  = this.player.name
     const playerCause = cause ?? 'Unknown'
-    // Last match: the stable sort puts this run after older identical runs
-    const playerIdx   = entries.findLastIndex(
-      e => e.score === playerScore && e.name === playerName && e.cause === playerCause
-    )
-
-    type DisplayRow = { entry: LeaderboardEntry; rank: number } | 'dots'
-    const rows: DisplayRow[] = []
-
-    if (playerIdx < 15) {
-      entries.slice(0, 15).forEach((e, i) => rows.push({ entry: e, rank: i + 1 }))
-    } else {
-      entries.slice(0, 10).forEach((e, i) => rows.push({ entry: e, rank: i + 1 }))
-      rows.push('dots')
-      const start = Math.max(10, playerIdx - 2)
-      const end   = Math.min(entries.length - 1, playerIdx + 2)
-      for (let i = start; i <= end; i++) rows.push({ entry: entries[i], rank: i + 1 })
-    }
-
-    rows.forEach((row, i) => {
-      const y = 158 + i * 36
-      if (row === 'dots') { col(CX.rank, y, '...', '#888888'); return }
-      const { entry: e, rank } = row
-      const isPlayer = rank === playerIdx + 1
-      const style = isPlayer ? 'bold' : 'normal'
-      const tint = (c: string) => isPlayer ? '#ff4040' : c
-      const addText = (x: number, text: string, color: string, rightAlign = false) =>
-        this.add.text(x, y, text, { fontSize: '22px', color: tint(color), fontFamily: 'monospace', fontStyle: style })
-          .setOrigin(rightAlign ? 1 : 0, 0).setDepth(202)
-      addText(CX.rank,  `#${rank}`,           '#e0e0e0')
-      addText(CX.score, String(e.score),      '#ffcc00', true)
-      addText(CX.name,  e.name,               '#e0e0e0')
-      addText(CX.world, e.level,              '#80c0ff')
-      addText(CX.hp,    `${e.hp}/${e.maxHp}`, '#ff8080')
-      addText(CX.cause, e.cause ?? '—',       '#c0c080')
-    })
+    const entries = this.recordLeaderboardEntry(playerCause)
+    const playerIdx = findRunIndex(entries, { name: this.player.name, score: this.player.exp, cause: playerCause })
+    drawHallOfDefeat(this, entries, playerIdx, 'HALL OF DEFEAT', '#ff4040')
 
     // Restart prompt
     this.add.text(GAME_W / 2, GAME_H - 50, 'Press R to try again', {
