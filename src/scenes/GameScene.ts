@@ -67,6 +67,11 @@ const TEST_ALL_ITEMS = false
 
 // Start screen splash shows once per page load (not on restart after victory/death)
 let startScreenShown = false
+// Songs of the garden's playlist, in order
+const GARDEN_PLAYLIST = ['music_forest', 'music_garden_lemon', 'music_garden_roof', 'music_garden_octopus']
+
+// Intro + garden splash play before the first new game of a page load only
+let introShown = false
 
 // Last name/sex typed on the adventurer screen, prefilled on the next new game
 const LAST_ADVENTURER_KEY = 'ragnarex_last_adventurer'
@@ -219,6 +224,7 @@ export class GameScene extends Phaser.Scene {
   private musicVolume = 0.5
   private sfxVolume = 0.5
   private nameScreenActive = false
+  private startMenuActive = false
 
   constructor() {
     super({ key: 'GameScene' })
@@ -259,7 +265,6 @@ export class GameScene extends Phaser.Scene {
     this.messageLog.add("Welcome to Ragnarex!", '#00ffff')
     this.messageLog.add("Arrow keys=move/attack  Enter=pickup  I=Inventory  P=Drop  W=Wear  V=Remove  H=Wield  T=Throw  R=Read  E=Eat  D=Drink  U=Use  Z=Zap  .=wait", '#808080')
 
-    this.forestMusic   = this.sound.add('music_forest',   { loop: true, volume: 0.5 })
     this.loftMusic     = this.sound.add('music_garden',   { loop: true, volume: 0.5 })
     this.hallMusic     = this.sound.add('music_hall',     { loop: true, volume: 0.5 })
     this.bathroomMusic = this.sound.add('music_bathroom', { loop: true, volume: 0.5 })
@@ -276,29 +281,48 @@ export class GameScene extends Phaser.Scene {
       this.forestMusic = this.loftMusic = this.hallMusic = this.bathroomMusic = this.bedroomMusic = this.birthdayMusic = null
       this.pondMusic = this.stairsMusic = this.defeatMusic = this.phoneSound = this.smurfSound = null
     })
-    const afterStart = () => {
-      this.updateMusic(null)
-      if (this.saveSystem.hasGame()) this.showContinueDialog()
-      else this.showNameScreen()
-    }
+    // Start screen (once per page load) → restore menu. Restarts after death/victory land on the menu.
+    this.startMenuActive = false
+    this.inputBlocked = true
     if (!startScreenShown) {
       startScreenShown = true
-      // Start screen → intro (falling sound on dismiss) → garden splash → game.
-      // Deferred so the key that dismisses one splash doesn't also hit the next screen.
-      this.showLocationOverlay('start', () => this.time.delayedCall(0, () =>
-        this.showLocationOverlay('intro', () => {
-          const fall = this.sound.add('snd_falling')
-          fall.once('complete', () => fall.destroy())
-          fall.play()
-          const fallMs = (fall.duration || 1.5) * 1000
-          this.time.delayedCall(0, () => {
-            this.showLocationOverlay('garden', () => this.time.delayedCall(0, afterStart))
-            this.tumbleRexOntoOverlay(fallMs)
-          })
-        })))
+      this.showLocationOverlay('start', () => this.showStartMenu())
     } else {
-      afterStart()
+      this.showStartMenu()
     }
+  }
+
+  // New game: intro (falling sound on dismiss) → garden splash → adventurer screen.
+  // Deferred so the key that dismisses one splash doesn't also hit the next screen.
+  private startNewGame(): void {
+    const begin = () => { this.updateMusic(null); this.showNameScreen() }
+    if (introShown) { begin(); return }
+    introShown = true
+    this.showLocationOverlay('intro', () => {
+      const fall = this.sound.add('snd_falling')
+      fall.once('complete', () => fall.destroy())
+      fall.play()
+      const fallMs = (fall.duration || 1.5) * 1000
+      this.time.delayedCall(0, () => {
+        this.showLocationOverlay('garden', () => this.time.delayedCall(0, begin))
+        this.tumbleRexOntoOverlay(fallMs)
+      })
+    })
+  }
+
+  // The garden plays its playlist one song after another, cycling; the current
+  // song is kept in the world state so an interruption resumes the list there.
+  private playGardenTrack(): void {
+    const i = this.worldState.gardenTrack % GARDEN_PLAYLIST.length
+    this.forestMusic?.destroy()
+    const track = this.sound.add(GARDEN_PLAYLIST[i], { volume: this.musicVolume })
+    this.forestMusic = track
+    track.once(Phaser.Sound.Events.COMPLETE, () => {
+      if (this.forestMusic !== track) return
+      this.worldState.gardenTrack = (i + 1) % GARDEN_PLAYLIST.length
+      this.playGardenTrack()
+    })
+    track.play()
   }
 
   private updateMusic(area: string | null): void {
@@ -311,7 +335,7 @@ export class GameScene extends Phaser.Scene {
     const inStairs   = area === 'stairs'
     // Widget's birthday party in Eric's bedroom
     const inParty    = area === 'chaos' && this.worldState.widgetFound
-    if (!this.forestMusic?.isPlaying   && inForest)   this.forestMusic?.play()
+    if (!this.forestMusic?.isPlaying   && inForest)   this.playGardenTrack()
     if (!this.loftMusic?.isPlaying     && inLoft)     this.loftMusic?.play()
     // The hall stays silent for the rest of the game once the horse has died
     if (!this.hallMusic?.isPlaying     && inHall && !this.worldState.horseDead) this.hallMusic?.play()
@@ -2656,8 +2680,8 @@ export class GameScene extends Phaser.Scene {
         return
       }
 
-      // Adventurer screen owns the keyboard while typing a name
-      if (this.nameScreenActive) return
+      // Adventurer screen and restore menu own the keyboard while open
+      if (this.nameScreenActive || this.startMenuActive) return
 
       if (event.key === 'V') {
         event.preventDefault()
@@ -5917,6 +5941,7 @@ export class GameScene extends Phaser.Scene {
         deadHorseSite: this.worldState.deadHorseSite,
         sasMourned: this.worldState.sasMourned,
         horseFed: this.worldState.horseFed,
+        gardenTrack: this.worldState.gardenTrack,
         stairsOrigin: this.stairsOrigin,
         extinctRaces: [...this.worldState.extinctRaces],
         dugExits: [...this.worldState.dugExits],
@@ -5998,6 +6023,7 @@ export class GameScene extends Phaser.Scene {
     this.worldState.deadHorseSite = ws.deadHorseSite ?? null
     this.worldState.sasMourned = ws.sasMourned ?? false
     this.worldState.horseFed = ws.horseFed ?? false
+    this.worldState.gardenTrack = ws.gardenTrack ?? 0
     this.stairsOrigin = ws.stairsOrigin ?? null
     this.worldState.extinctRaces = new Set(ws.extinctRaces ?? [])
     this.worldState.dugExits = new Set(ws.dugExits ?? [])
@@ -6125,41 +6151,133 @@ export class GameScene extends Phaser.Scene {
     render()
   }
 
-  private showContinueDialog(): void {
+  // Restore Game? menu: continue the local save, load a downloaded save file, or start over.
+  private showStartMenu(): void {
     this.inputBlocked = true
-    const bx = GAME_W / 2, by = GAME_H / 2
-    const box = this.add.graphics()
-      .fillStyle(0x1a1a1a, 0.95).fillRect(bx - 260, by - 80, 520, 160).setDepth(500)
-    const title = this.add.text(bx, by - 35, 'Continue saved game?', {
-      fontSize: '26px', color: '#ffffff', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(501)
-    const contBtn = this.add.text(bx - 110, by + 30, '[C]  Continue', {
-      fontSize: '24px', color: '#50c0ff', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true })
-    const newBtn = this.add.text(bx + 110, by + 30, '[N]  New game', {
-      fontSize: '24px', color: '#ffaa44', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true })
-    const cleanup = () => {
-      box.destroy(); title.destroy(); contBtn.destroy(); newBtn.destroy()
-      this.input.keyboard!.off('keydown-C', cont)
-      this.input.keyboard!.off('keydown-N', newGame)
-      this.input.keyboard!.off('keydown-ESC', newGame)
+    this.startMenuActive = true
+    // restore.png is 640x480 stretched to the game
+    const sx = GAME_W / 640, sy = GAME_H / 480
+    const D = 1100
+    const bg = this.textures.exists('loc_restore')
+      ? this.add.image(0, 0, 'loc_restore').setOrigin(0, 0).setDisplaySize(GAME_W, GAME_H)
+      : this.add.rectangle(0, 0, GAME_W, GAME_H, 0xb0b0b0).setOrigin(0, 0)
+    bg.setDepth(D).setInteractive()  // swallow clicks on the map underneath
+    const status = this.add.text(320 * sx, 380 * sy, '', {
+      fontSize: `${Math.round(16 * sy)}px`, color: '#800000', fontFamily: 'Georgia, "Times New Roman", serif',
+    }).setOrigin(0.5).setDepth(D + 1)
+
+    const bw = 280 * sx, bh = 36 * sy
+    const contBtn = this.makeMenuButton(320 * sx, 180 * sy, bw, bh, 'Continue last save', D + 1)
+    const fileBtn = this.makeMenuButton(320 * sx, 240 * sy, bw, bh, 'Restore from file', D + 1)
+    const newBtn  = this.makeMenuButton(320 * sx, 300 * sy, bw, bh, 'New game', D + 1)
+    contBtn.setEnabled(this.saveSystem.hasGame())
+
+    const close = () => {
+      off()
+      for (const b of [contBtn, fileBtn, newBtn]) b.destroy()
+      bg.destroy(); status.destroy()
+      this.startMenuActive = false
     }
-    const cont = () => {
-      cleanup()
-      const save = this.saveSystem.loadGame()
-      if (save) this.restoreFromSave(save)
-      else this.inputBlocked = false
+    const resume = (save: GameSaveData | null, error: string) => {
+      if (!save) { status.setText(error); return }
+      close()
+      this.restoreFromSave(save)
     }
-    const newGame = () => {
-      cleanup()
-      this.saveSystem.deleteGame()
-      this.showNameScreen()
+    const off = this.attachMenuKeys([
+      { btn: contBtn, key: 'c', action: () => resume(this.saveSystem.loadGame(), 'The local save could not be read.') },
+      { btn: fileBtn, key: 'r', action: () => this.pickSaveFile(raw =>
+          resume(this.saveSystem.importGame(raw), 'That file is not a Ragnarex save.')) },
+      { btn: newBtn,  key: 'n', action: () => { close(); this.startNewGame() } },
+    ])
+  }
+
+  // White, black-bordered menu button with a grey bevel; inverted when selected
+  private makeMenuButton(cx: number, cy: number, w: number, h: number, label: string, depth: number) {
+    const g = this.add.graphics().setDepth(depth)
+    const text = this.add.text(cx, cy, label.toUpperCase(), {
+      fontSize: `${Math.round(h * 0.5)}px`, color: '#000000', fontStyle: 'bold',
+      fontFamily: 'Georgia, "Times New Roman", serif',
+    }).setOrigin(0.5).setDepth(depth + 1)
+    const zone = this.add.zone(cx, cy, w, h).setDepth(depth + 2).setInteractive({ useHandCursor: true })
+    let selected = false, enabled = true
+    const draw = () => {
+      const x = cx - w / 2, y = cy - h / 2, hl = selected && enabled
+      g.clear()
+        .fillStyle(0x000000).fillRect(x, y, w, h)
+        .fillStyle(hl ? 0x000000 : 0xffffff).fillRect(x + 2, y + 2, w - 4, h - 4)
+      if (!hl) g.fillStyle(0x909090).fillRect(x + 2, y + h - 5, w - 4, 3).fillRect(x + w - 5, y + 2, 3, h - 4)
+      text.setColor(!enabled ? '#a0a0a0' : hl ? '#ffffff' : '#000000')
     }
-    contBtn.on('pointerdown', cont); newBtn.on('pointerdown', newGame)
-    this.input.keyboard!.on('keydown-C', cont)
-    this.input.keyboard!.on('keydown-N', newGame)
-    this.input.keyboard!.on('keydown-ESC', newGame)
+    draw()
+    return {
+      zone,
+      get enabled() { return enabled },
+      setEnabled(v: boolean) { enabled = v; draw() },
+      setSelected(v: boolean) { selected = v; draw() },
+      destroy() { g.destroy(); text.destroy(); zone.destroy() },
+    }
+  }
+
+  // Click/hover, Up/Down + Enter and hotkeys for a column of menu buttons. Returns the detach function.
+  private attachMenuKeys(
+    items: { btn: ReturnType<GameScene['makeMenuButton']>; key: string; action: () => void }[],
+    onEsc?: () => void,
+  ): () => void {
+    let sel = Math.max(0, items.findIndex(i => i.btn.enabled))
+    const paint = () => items.forEach((it, i) => it.btn.setSelected(i === sel))
+    const activate = (i: number) => { if (items[i]?.btn.enabled) items[i].action() }
+    items.forEach((it, i) => {
+      it.btn.zone.on('pointerover', () => { if (it.btn.enabled) { sel = i; paint() } })
+      it.btn.zone.on('pointerup', () => activate(i))
+    })
+    const move = (d: number) => {
+      for (let n = 1; n <= items.length; n++) {
+        const j = (sel + d * n + items.length * n) % items.length
+        if (items[j].btn.enabled) { sel = j; break }
+      }
+      paint()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+      if (e.key === 'ArrowUp') move(-1)
+      else if (e.key === 'ArrowDown') move(1)
+      else if (e.key === 'Enter' || e.key === ' ') activate(sel)
+      else if (e.key === 'Escape') onEsc?.()
+      else {
+        const i = items.findIndex(it => it.key === e.key.toLowerCase())
+        if (i >= 0) activate(i)
+      }
+    }
+    // Deferred so the key that opened the menu doesn't also pick an option
+    let attached = false, detached = false
+    this.time.delayedCall(0, () => { if (!detached) { attached = true; this.input.keyboard!.on('keydown', onKey) } })
+    paint()
+    return () => { detached = true; if (attached) this.input.keyboard!.off('keydown', onKey) }
+  }
+
+  // Opens the browser's file picker and hands back the chosen file's text
+  private pickSaveFile(onLoad: (raw: string) => void): void {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (file) file.text().then(onLoad, () => onLoad(''))
+    }
+    input.click()
+  }
+
+  // Downloads the local save as a .json backup the restore menu can load again
+  private downloadSave(): void {
+    const raw = this.saveSystem.exportGame()
+    if (!raw) return
+    const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }))
+    const name = this.player.name.replace(/[^\w-]+/g, '_') || 'hero'
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ragnarex-${name}-turn${this.worldState.lastSaveTurn ?? this.turnManager.getTurn()}.json`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   private playSfx(key: string): void {
@@ -6252,59 +6370,58 @@ export class GameScene extends Phaser.Scene {
 
     const bx = GAME_W / 2
     const by = GAME_H / 2
-    const box = this.add.graphics()
-      .fillStyle(0x1a1a1a, 0.95)
-      .fillRect(bx - 320, by - 120, 640, 250)
-      .setDepth(500)
+    const pw = 640, ph = 340
+    const box = this.add.graphics().setDepth(500)
+      .fillStyle(0x000000).fillRect(bx - pw / 2, by - ph / 2, pw, ph)
+      .fillStyle(0xb0b0b0).fillRect(bx - pw / 2 + 3, by - ph / 2 + 3, pw - 6, ph - 6)
+    const blocker = this.add.zone(0, 0, GAME_W, GAME_H).setOrigin(0, 0).setDepth(499).setInteractive()
 
-    const title = this.add.text(bx, by - 70, 'Give up and face defeat?', {
-      fontSize: '28px', color: '#ffffff', fontFamily: 'monospace',
+    const title = this.add.text(bx, by - 115, 'Give up and face defeat?', {
+      fontSize: '28px', color: '#000000', fontStyle: 'bold', align: 'center',
+      fontFamily: 'Georgia, "Times New Roman", serif',
     }).setOrigin(0.5).setDepth(501)
 
-    const saveBtn = this.add.text(bx, by - 15, '[S]  Save & continue later', {
-      fontSize: '24px', color: '#50c0ff', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true })
+    const bw = 380, bh = 50
+    let buttons: ReturnType<GameScene['makeMenuButton']>[] = []
+    let off = () => {}
+    const clearButtons = () => { off(); for (const b of buttons) b.destroy(); buttons = [] }
+    const closeAll = () => { clearButtons(); box.destroy(); blocker.destroy(); title.destroy() }
+    const resume = () => { closeAll(); this.inputBlocked = false }
 
-    const yesBtn = this.add.text(bx - 140, by + 55, '[Y]  Yes, I give up', {
-      fontSize: '24px', color: '#ff5050', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true })
-
-    const noBtn = this.add.text(bx + 140, by + 55, '[N]  Keep fighting', {
-      fontSize: '24px', color: '#50c050', fontFamily: 'monospace',
-    }).setOrigin(0.5).setDepth(501).setInteractive({ useHandCursor: true })
-
-    const cleanup = () => {
-      box.destroy(); title.destroy(); saveBtn.destroy(); yesBtn.destroy(); noBtn.destroy()
-      this.input.keyboard!.off('keydown-S', save)
-      this.input.keyboard!.off('keydown-Y', yes)
-      this.input.keyboard!.off('keydown-N', no)
-      this.input.keyboard!.off('keydown-ESC', no)
-    }
-
+    // Save → "saved" page with a download button for a backup file
     const save = () => {
-      cleanup()
+      clearButtons()
       const turn = this.turnManager.getTurn()
       const last = this.worldState.lastSaveTurn
       if (last !== null && turn - last < SAVE_INTERVAL) {
-        this.messageLog.add(`You saved only moments ago, try again over ${SAVE_INTERVAL - (turn - last)} turns.`, '#ff8040')
-        this.inputBlocked = false
-        return
+        const wait = SAVE_INTERVAL - (turn - last)
+        title.setText(`You saved only moments ago.\nTry again in ${wait} turns.`)
+        this.messageLog.add(`You saved only moments ago, try again over ${wait} turns.`, '#ff8040')
+      } else {
+        this.worldState.lastSaveTurn = turn
+        this.saveSystem.saveGame(this.collectSaveData())
+        title.setText('Game saved locally.')
+        this.messageLog.add('Game saved!', '#50c0ff')
       }
-      this.worldState.lastSaveTurn = turn
-      this.saveSystem.saveGame(this.collectSaveData())
-      this.messageLog.add('Game saved! Your journey continues another day.', '#50c0ff')
-      this.inputBlocked = false
+      const dlBtn   = this.makeMenuButton(bx, by - 5,  bw, bh, 'Download save file', 501)
+      const contBtn = this.makeMenuButton(bx, by + 75, bw, bh, 'Continue', 501)
+      dlBtn.setEnabled(this.saveSystem.hasGame())
+      buttons = [dlBtn, contBtn]
+      off = this.attachMenuKeys([
+        { btn: dlBtn,   key: 'd', action: () => this.downloadSave() },
+        { btn: contBtn, key: 'c', action: resume },
+      ], resume)
     }
-    const yes = () => { cleanup(); this.gameOver(`Gave up`) }
-    const no  = () => { cleanup(); this.inputBlocked = false }
 
-    saveBtn.on('pointerdown', save)
-    yesBtn.on('pointerdown', yes)
-    noBtn.on('pointerdown', no)
-    this.input.keyboard!.on('keydown-S', save)
-    this.input.keyboard!.on('keydown-Y',   yes)
-    this.input.keyboard!.on('keydown-N',   no)
-    this.input.keyboard!.on('keydown-ESC', no)
+    const saveBtn = this.makeMenuButton(bx, by - 35,  bw, bh, 'Save & continue later', 501)
+    const noBtn   = this.makeMenuButton(bx, by + 35,  bw, bh, 'Keep fighting', 501)
+    const yesBtn  = this.makeMenuButton(bx, by + 105, bw, bh, 'Yes, I give up', 501)
+    buttons = [saveBtn, noBtn, yesBtn]
+    off = this.attachMenuKeys([
+      { btn: saveBtn, key: 's', action: save },
+      { btn: noBtn,   key: 'n', action: resume },
+      { btn: yesBtn,  key: 'y', action: () => { closeAll(); this.gameOver('Gave up') } },
+    ], resume)
   }
 
   private triggerVictory(): void {

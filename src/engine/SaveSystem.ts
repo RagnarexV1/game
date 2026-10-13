@@ -42,6 +42,7 @@ export interface WorldStateSave {
   deadHorseSite?: { key: string; x: number; y: number } | null
   sasMourned?: boolean
   horseFed?: boolean
+  gardenTrack?: number
   stairsOrigin?: string | null
   extinctRaces?: string[]
   dugExits?: string[]
@@ -119,9 +120,32 @@ export class SaveSystem {
   loadGame(): GameSaveData | null {
     try {
       const raw = localStorage.getItem(GAME_SAVE_KEY)
-      if (!raw) return null
+      return raw ? this.parseGame(raw) : null
+    } catch {
+      return null
+    }
+  }
+
+  // Raw JSON of the local save, for downloading as a backup file
+  exportGame(): string | null {
+    try {
+      return localStorage.getItem(GAME_SAVE_KEY)
+    } catch {
+      return null
+    }
+  }
+
+  // Validates a save file's contents and makes it the local save; null if it isn't a valid save
+  importGame(raw: string): GameSaveData | null {
+    const data = this.parseGame(raw)
+    if (data) this.saveGame(data)
+    return data
+  }
+
+  private parseGame(raw: string): GameSaveData | null {
+    try {
       const data = JSON.parse(migrateAreaIds(raw)) as GameSaveData
-      if (data.version !== 2) return null
+      if (data?.version !== 2 || !data.player || !data.worldState) return null
       return data
     } catch {
       return null

@@ -213,6 +213,8 @@ export class WorldState {
   sasMourned = false
   // Given the Ericgras: the horse follows the player and stops blocking the hall
   horseFed     = false
+  // Which song of the garden playlist is playing, so the list picks up there after an interruption
+  gardenTrack  = 0
   get horseQuestDone(): boolean { return this.horseDead || this.horseFed }
   // Quest items handed over so far (Dad wants all 3 stamps, Mar all 3 fragments)
   stampsGiven    = 0

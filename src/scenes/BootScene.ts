@@ -268,6 +268,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('loc_tub_enclosure', 'assets/locations/tub_enclosure.png')
     this.load.image('loc_intro',       'assets/locations/loft_intro.png')
     this.load.image('loc_name',        'assets/locations/name.png')
+    this.load.image('loc_restore',     'assets/locations/restore.png')
     this.load.image('loc_study',       'assets/locations/study.webp')
     this.load.image('loc_pantry',      'assets/locations/pantry.png')
     this.load.image('loc_pond',        'assets/locations/gong.webp')
@@ -332,6 +333,9 @@ export class BootScene extends Phaser.Scene {
 
     this.load.audio('snd_falling',     'assets/sound/snd_falling.mp3')
     this.load.audio('music_forest',   'assets/sound/a-forest-the-cure-8-bit.mp3')
+    this.load.audio('music_garden_lemon',   'assets/sound/Lemon-Tree small.mp3')
+    this.load.audio('music_garden_roof',    'assets/sound/Roof garden.mp3')
+    this.load.audio('music_garden_octopus', 'assets/sound/Octopus garden.mp3')
     this.load.audio('music_garden',   'assets/sound/Peter-En-De-Wolf.mp3')
     this.load.audio('music_hall',     'assets/sound/Paard-loop.mp3')
     this.load.audio('music_bathroom', 'assets/sound/snd_trololo_8bit2.mp3')
