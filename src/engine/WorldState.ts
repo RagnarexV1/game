@@ -53,7 +53,7 @@ const VIAL_AREAS = [
 ]
 const VIAL_SITES = 8
 
-export const TURN_LIMIT = 13000
+export const TURN_LIMIT = 30000
 export const SAVE_INTERVAL = 1000
 
 // Tier 2+ maps that can host a Scroll of Transport ('forest' = a tier-3 garden cell).

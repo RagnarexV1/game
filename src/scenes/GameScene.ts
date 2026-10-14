@@ -1660,6 +1660,41 @@ export class GameScene extends Phaser.Scene {
     this.worldState.cellSnapshots.set(key, { tiles, monsters, items, turn: this.turnManager.getTurn(), original: this.mapOriginalMonsters })
   }
 
+  // Repairs saves where a relic scroll fragment got lost: not carried, not handed
+  // to Mar and on no saved map. Each missing one goes back on its site's map;
+  // a site whose map was never generated yet will spawn it there as usual.
+  private restoreLostFragments(): void {
+    const ids = ['relic_scroll_1', 'relic_scroll_2', 'relic_scroll_3']
+    const snaps = [...this.worldState.cellSnapshots.values()]
+    const found = new Set(ids.filter(id =>
+      this.player.inventory.some(it => it.defId === id) ||
+      snaps.some(s => s.items.some(it => it.defId === id))))
+    let need = ids.length - found.size - this.worldState.fragmentsGiven
+    for (const id of ids) {
+      if (need <= 0) break
+      if (found.has(id)) continue
+      const site = this.worldState.relicSites[id]
+      if (!site) continue
+      const key = site.area === 'forest' ? `forest_${site.cx}_${site.cy}`
+        : site.area === 'hall' ? `hall_${site.cx}_${site.cy}` : `area_${site.area}`
+      const snap = this.worldState.cellSnapshots.get(key)
+      if (!snap) continue
+      const free: Array<{ x: number; y: number }> = []
+      for (let y = 0; y < MAP_H; y++)
+        for (let x = 0; x < MAP_W; x++) {
+          const defId = snap.tiles[y * MAP_W + x]?.defId
+          if (!defId || !this.mapSystem.getDef(defId)?.walkable || isSpecialTile(defId)) continue
+          if (snap.items.some(it => it.x === x && it.y === y)) continue
+          free.push({ x, y })
+        }
+      if (free.length === 0) continue
+      const spot = free[Math.floor(Math.random() * free.length)]
+      snap.items.push({ ...spot, defId: id, qty: 1 })
+      need--
+      console.info(`Restored lost ${id} to ${key} at ${spot.x},${spot.y}`)
+    }
+  }
+
   // Generic hostiles killed here since the map was first seen come back
   // gradually: each one returns with a chance that grows with the turns spent
   // away, reaching certainty after MONSTER_REGROW_TURNS.
@@ -6043,6 +6078,7 @@ export class GameScene extends Phaser.Scene {
     this.worldState.cellSnapshots.clear()
     for (const [k, v] of Object.entries(data.cellSnapshots)) this.worldState.cellSnapshots.set(k, v)
     this.worldState.cellSnapshots.delete('area_loft_stairs')
+    this.restoreLostFragments()
 
     this.mapSystem.reset()
     if (fromLoftStairs) {
