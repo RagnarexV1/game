@@ -56,6 +56,8 @@ export interface WorldStateSave {
   lastSaveTurn?: number | null
   stampsGiven?: number
   fragmentsGiven?: number
+  trexPending?: number
+  lexFishTurn?: number | null
   secondLifeMixed?: boolean
 }
 

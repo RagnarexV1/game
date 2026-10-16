@@ -48,6 +48,7 @@ const GROUP_DEFS: Array<{ y: number; dir: 1 | -1; speed: number; startOffset: nu
 const CREDITS: Array<[string, string | null]> = [
   ['RAGNAREX', null],
   ['A game by', 'Eric'],
+  ['Made specially for Peter his birthday', 'nul'],
   ['', null],
   ['- PRODUCTION -', null],
   ['Executive Producer', 'Eric'],

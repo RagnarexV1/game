@@ -1031,5 +1031,19 @@
     "xpValue": 300,
     "aiType": "chase",
     "description": "The most powerful of the undead. Struck down, it springs back from death."
+  },
+  {
+    "id": "trex",
+    "name": "T-Rex",
+    "glyph": "R",
+    "color": "#a06030",
+    "hp": 200,
+    "maxHp": 200,
+    "str": 62,
+    "ac": 14,
+    "speed": 2,
+    "xpValue": 350,
+    "aiType": "chase",
+    "description": "Someone magically called them back from extinction, you wonder who."
   }
 ]

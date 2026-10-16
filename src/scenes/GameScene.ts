@@ -10,7 +10,7 @@ import type { GameSaveData } from '../engine/SaveSystem'
 import { LeaderboardSystem } from '../engine/LeaderboardSystem'
 import { drawHallOfDefeat, findRunIndex } from '../ui/HallOfDefeat'
 import { generateForestMap, generateBathroomTopMap, generateBathroomBottomMap, generateGarageTopMap, generateGarageBottomMap, generateHallMap, generateChaosMap, mutateChaosMap, chaosPartyArea, chaosPartyRing, generateBedroomMap, generateBedroomLowerMap, generateKitchenMap, generateTubEnclosureMap, generateLoftMap, generateLoft3Map, generateStudyMap, generatePantryMap, generatePond1Map, generatePond2Map, generatePond3Map, generateDrivewayMap, generateUpperHallMap, peterPatrolLoop, openLoft3GardenExit, STUDY_POOL_POTIONS, type SpawnPoints } from '../engine/MapGenerator'
-import { WorldState, SAVE_INTERVAL, type ClarinetLocation, type CellSnapshot } from '../engine/WorldState'
+import { WorldState, SAVE_INTERVAL, type ClarinetLocation, type CellSnapshot, type RelicSite } from '../engine/WorldState'
 import { placeSingleItemRandomly, isSpecialTile, pickAreaItem, EXCLUDE_IDS, isHiddenUnderWater } from '../engine/ItemPlacement'
 import { AREA_MONSTERS, GARDEN_STRAYS, areaInfo } from '../engine/SpawnTables'
 import { Player } from '../entities/Player'
@@ -56,10 +56,16 @@ const OWN_TRAP_CHANCE = 0.1
 
 // Each juicy fish given to Lex buys this many extra turns; a warning shows every interval.
 const LEX_FISH_BONUS_TURNS = 2000
+// Turns after grabbing a juicy fish until Lex has eaten it and wants another
+const LEX_FISH_EAT_TURNS = 2000
 const TIME_WARNING_INTERVAL = 2500
 const SUMMON_INTERVAL = 5
 // Killed generic hostiles drift back onto a map you left; after this many turns away all are back
 const MONSTER_REGROW_TURNS = 3000
+// Where Scrolls of Extinction call the T-Rexes back, and how many per scroll
+const TREX_CELL = { cx: 1, cy: 0 }
+const TREX_COUNT = 4
+
 const GENERIC_MONSTERS = new Set([...Object.values(AREA_MONSTERS).flat(), ...GARDEN_STRAYS])
 
 // TESTING: put one of every item from items.json in the player's inventory on a new game. Set to false before release.
@@ -648,6 +654,13 @@ export class GameScene extends Phaser.Scene {
 
     allMonsters.push(...this.salamanderSpots(occupied()))
 
+    if (siteArea === 'forest' && cx === TREX_CELL.cx && cy === TREX_CELL.cy) {
+      for (; ws.trexPending > 0; ws.trexPending--) {
+        const placed = placeSingleItemRandomly(this.mapSystem, Math.random, 'trex', occupied())
+        if (placed) allMonsters.push({ x: placed.x, y: placed.y, defId: 'trex' })
+      }
+    }
+
     // A clump of clay lies somewhere on every map with a petrifying monster
     if (allMonsters.some(m => m.defId === 'watcher' || m.defId === 'cockatrice') && !allItems.some(i => i.defId === 'clay')) {
       const clay = placeSingleItemRandomly(this.mapSystem, Math.random, 'clay', occupied())
@@ -1048,23 +1061,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   // Lex can't resist a juicy fish lying on his map: he walks to the nearest one
-  // and, once on it, gets distracted just as if it had been handed to him. The
-  // fish stays at his feet while he eats and is gone once the distraction ends.
+  // and, once on it, gets distracted just as if it had been handed to him. He
+  // stays with the fish at his feet until finishLexFish ends the meal.
   private lexSeekFish(lex: Monster): boolean {
+    if (lex.eatingFish) {
+      // Saves from before the meal was timed start counting now
+      this.worldState.lexFishTurn ??= this.turnManager.getTurn()
+      return true
+    }
     const fish = this.floorItems.filter(fi => fi.item.defId === 'lekkervisje')
     const here = fish.find(fi => fi.x === lex.x && fi.y === lex.y)
-    if (lex.eatingFish) {
-      lex.eatingFish = false
-      if (here) {
-        this.floorItems.splice(this.floorItems.indexOf(here), 1)
-        this.messageLog.add('Lex finishes the juicy fish.', '#c0c0c0')
-        return true
-      }
-    }
     if (fish.length === 0) return this.lexFollowSas(lex)
     if (here) {
       lex.eatingFish = true
       lex.stunTurns = 100
+      this.worldState.lexFishTurn = this.turnManager.getTurn()
       this.worldState.bonusTurns += LEX_FISH_BONUS_TURNS
       this.messageLog.add(this.QUEST_TARGETS.lekkervisje.message, '#ffd080')
       this.messageLog.add(`Lex won't budge for a while. You gain ${LEX_FISH_BONUS_TURNS} extra turns! (${this.turnsLeft()} turns left)`, '#40ff80')
@@ -1074,6 +1085,24 @@ export class GameScene extends Phaser.Scene {
     const nearest = fish.reduce((a, b) => dist(b) < dist(a) ? b : a)
     lex.stepToward(nearest.x, nearest.y)
     return true
+  }
+
+  // LEX_FISH_EAT_TURNS after Lex grabbed his juicy fish it is gone, wherever he
+  // is, and he is ready for a new one.
+  private finishLexFish(): void {
+    const start = this.worldState.lexFishTurn
+    if (start === null || this.turnManager.getTurn() - start < LEX_FISH_EAT_TURNS) return
+    this.worldState.lexFishTurn = null
+    for (const lex of this.monsters.filter(m => m.defId === 'lex' && m.eatingFish)) {
+      lex.eatingFish = false
+      this.floorItems = this.floorItems.filter(fi => !(fi.item.defId === 'lekkervisje' && fi.x === lex.x && fi.y === lex.y))
+    }
+    for (const snap of this.worldState.cellSnapshots.values())
+      for (const lex of snap.monsters.filter(m => m.defId === 'lex' && m.eatingFish)) {
+        lex.eatingFish = false
+        snap.items = snap.items.filter(it => !(it.defId === 'lekkervisje' && it.x === lex.x && it.y === lex.y))
+      }
+    this.messageLog.add('Lex probably has finished eating his fish by now...', '#c0c0c0')
   }
 
   private spawnSecitt(parent: Monster): void {
@@ -1660,38 +1689,91 @@ export class GameScene extends Phaser.Scene {
     this.worldState.cellSnapshots.set(key, { tiles, monsters, items, turn: this.turnManager.getTurn(), original: this.mapOriginalMonsters })
   }
 
-  // Repairs saves where a relic scroll fragment got lost: not carried, not handed
-  // to Mar and on no saved map. Each missing one goes back on its site's map;
+  // Repairs saves where a critical quest item got lost: not carried, not handed
+  // over and on no saved map. Each missing one goes back on its site's map;
   // a site whose map was never generated yet will spawn it there as usual.
-  private restoreLostFragments(): void {
-    const ids = ['relic_scroll_1', 'relic_scroll_2', 'relic_scroll_3']
+  private restoreLostQuestItems(): void {
+    const ws = this.worldState
+    const siteKey = (site?: RelicSite) => !site ? null
+      : site.area === 'forest' ? `forest_${site.cx}_${site.cy}`
+      : site.area === 'hall' ? `hall_${site.cx}_${site.cy}` : `area_${site.area}`
+    const fragments = ['relic_scroll_1', 'relic_scroll_2', 'relic_scroll_3']
+    this.restoreLostItems(fragments, ws.fragmentsGiven, id => siteKey(ws.relicSites[id]))
+    const stamps = ['postzegelRex', 'postzegelStego', 'postzegelStoom']
+    this.restoreLostItems(stamps, ws.stampsGiven, id => siteKey(ws.questSites[id]))
+    this.restoreLostItems(['vaas'], ws.mamHasVase ? 1 : 0, id => siteKey(ws.questSites[id]))
+    // Widget sits in Mar's bedroom sanctuary until Eric gets him
+    this.restoreLostItems(['widget2'], ws.widgetFound ? 1 : 0, () => 'area_bedroom')
+    // Peter hands out the mallets in the loft; before that there are none to lose.
+    // Should the loft never have been saved, they go straight back into the pack.
+    if (ws.peterWarned && !this.restoreLostItems(['gongmallet'], 0, () => 'area_loft3')) {
+      this.inventory.addToInventory(this.player.inventory, this.inventory.createInstance('gongmallet'))
+      console.info('Restored lost gongmallet to the inventory')
+    }
+  }
+
+  // Puts back those of `ids` that are neither carried nor on any saved map, minus
+  // `used` already handed in. Returns false when one could not be placed.
+  private restoreLostItems(ids: string[], used: number, keyFor: (id: string) => string | null): boolean {
     const snaps = [...this.worldState.cellSnapshots.values()]
+    const carried = [...this.player.inventory, ...Object.values(this.player.equipment)]
     const found = new Set(ids.filter(id =>
-      this.player.inventory.some(it => it.defId === id) ||
+      carried.some(it => it?.defId === id) ||
       snaps.some(s => s.items.some(it => it.defId === id))))
-    let need = ids.length - found.size - this.worldState.fragmentsGiven
+    let need = ids.length - found.size - used
     for (const id of ids) {
       if (need <= 0) break
       if (found.has(id)) continue
-      const site = this.worldState.relicSites[id]
-      if (!site) continue
-      const key = site.area === 'forest' ? `forest_${site.cx}_${site.cy}`
-        : site.area === 'hall' ? `hall_${site.cx}_${site.cy}` : `area_${site.area}`
-      const snap = this.worldState.cellSnapshots.get(key)
+      const key = keyFor(id)
+      const snap = key && this.worldState.cellSnapshots.get(key)
       if (!snap) continue
-      const free: Array<{ x: number; y: number }> = []
-      for (let y = 0; y < MAP_H; y++)
-        for (let x = 0; x < MAP_W; x++) {
-          const defId = snap.tiles[y * MAP_W + x]?.defId
-          if (!defId || !this.mapSystem.getDef(defId)?.walkable || isSpecialTile(defId)) continue
-          if (snap.items.some(it => it.x === x && it.y === y)) continue
-          free.push({ x, y })
-        }
+      const free = this.freeSnapshotTiles(snap, snap.items)
       if (free.length === 0) continue
       const spot = free[Math.floor(Math.random() * free.length)]
       snap.items.push({ ...spot, defId: id, qty: 1 })
       need--
       console.info(`Restored lost ${id} to ${key} at ${spot.x},${spot.y}`)
+    }
+    return need <= 0
+  }
+
+  // Walkable, non-special tiles of a saved map not taken by any of `taken`
+  private freeSnapshotTiles(snap: CellSnapshot, taken: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+    const free: Array<{ x: number; y: number }> = []
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const defId = snap.tiles[y * MAP_W + x]?.defId
+        if (!defId || !this.mapSystem.getDef(defId)?.walkable || isSpecialTile(defId)) continue
+        if (taken.some(t => t.x === x && t.y === y)) continue
+        free.push({ x, y })
+      }
+    return free
+  }
+
+  // Every Scroll of Extinction read calls TREX_COUNT T-Rexes back to the
+  // top-centre garden cell, to be met at the very end of the game.
+  private summonTRexes(): void {
+    const ws = this.worldState
+    if (ws.extinctRaces.has('trex')) return
+    const def = (monsterData as MonsterDef[]).find(d => d.id === 'trex')!
+    if (ws.currentArea === null && ws.cx === TREX_CELL.cx && ws.cy === TREX_CELL.cy) {
+      const spots: Array<{ x: number; y: number; defId: string }> = []
+      for (let i = 0; i < TREX_COUNT; i++) {
+        const placed = placeSingleItemRandomly(this.mapSystem, Math.random, 'trex',
+          [{ x: this.player.x, y: this.player.y }, ...this.monsters, ...spots])
+        if (placed) spots.push({ x: placed.x, y: placed.y, defId: 'trex' })
+      }
+      this.spawnEntities(spots, [])
+      this.messageLog.add('The ground trembles. Something huge roars in the garden!', '#ff6040')
+      return
+    }
+    const snap = ws.cellSnapshots.get(`forest_${TREX_CELL.cx}_${TREX_CELL.cy}`)
+    if (!snap) { ws.trexPending += TREX_COUNT; return }
+    for (let i = 0; i < TREX_COUNT; i++) {
+      const free = this.freeSnapshotTiles(snap, snap.monsters)
+      if (free.length === 0) break
+      const spot = free[Math.floor(Math.random() * free.length)]
+      snap.monsters.push({ ...spot, defId: 'trex', hp: def.hp, hasSpoken: false, stunTurns: 0 })
     }
   }
 
@@ -2340,6 +2422,13 @@ export class GameScene extends Phaser.Scene {
         return
       }
 
+      if (item.defId === 'gongmallet') {
+        this.inventoryScreen.hide()
+        if (this.gongInReach()) this.soundGong()
+        else this.messageLog.add('There is no gong here to strike.', '#808080')
+        return
+      }
+
       if (item.defId === 'empty_vial') {
         const tile = this.mapSystem.getTile(player.x, player.y)
         // Old saves still have the three generic pools, which give a random basic potion
@@ -2387,6 +2476,11 @@ export class GameScene extends Phaser.Scene {
 
       // Lex: the fish goes on the ground beneath him, and he grabs it on his own turn (see lexSeekFish)
       if (quest.npcId === 'lex') {
+        if (target.eatingFish) {
+          this.messageLog.add('Lex is still busy with his fish.', '#808080')
+          this.inventoryScreen.hide()
+          return
+        }
         let fish = item
         if (item.quantity > 1) {
           item.quantity--
@@ -2986,24 +3080,7 @@ export class GameScene extends Phaser.Scene {
       }
       // Peter keeps running his laps; you have to catch up with him to talk
       if (monster.defId === 'peter') {
-        if (!monster.hasSpoken) {
-          monster.hasSpoken = true
-          this.worldState.peterWarned = true
-          this.messageLog.add('You tell Peter that Lex and Sas are arriving early!', '#80ff80')
-          this.messageLog.add('You fulfill your quest by telling Peter the news.', '#80ff80')
-          this.messageLog.add('Peter: "Here, use these Gong mallets to sound the magical Green Gong. You will find it in the pond, but watch out for Jormungand! Quick!"', '#80ff80')
-          this.messageLog.add('Peter: "I opened the window, it is the quickest way down!"', '#80ff80')
-          this.inventory.addToInventory(this.player.inventory, this.inventory.createInstance('gongmallet'))
-          this.player.maxHp += 20
-          this.player.hp = Math.min(this.player.hp + 20, this.player.maxHp)
-          this.messageLog.add('Quest complete! (Max HP +20)', '#40ff80')
-          openLoft3GardenExit(this.mapSystem)
-        } else {
-          this.messageLog.add('Peter: "Quick, to the pond! The Green Gong!"', '#80ff80')
-        }
-        if (!this.player.hasSkill('swimming') || !this.player.hasSkill('diving'))
-          this.messageLog.add('Peter: "You need to be able to dive. If you help Eric, he can maybe teach you how to hold your breath."', '#80ff80')
-        this.endPlayerTurn()
+        this.talkToPeter(monster)
         return
       }
       if (monster.aiType === 'friendly' || monster.aiType === 'follow') {
@@ -3136,16 +3213,57 @@ export class GameScene extends Phaser.Scene {
   }
 
   // NPC button: with a character next to you it opens the Use menu, as the Use button does.
+  // Peter is told the news straight away, as when walking into him; the Green Gong
+  // (next to or under you) also opens the Use menu, for the mallets.
   private tryNpcInteract(): void {
     const p = this.player
-    const near = this.monsters.some(m => m.isAlive() && (m.npc || m.defId === 'paard') &&
-      Math.max(Math.abs(m.x - p.x), Math.abs(m.y - p.y)) === 1)
-    if (!near) {
+    const dist = (x: number, y: number) => Math.max(Math.abs(x - p.x), Math.abs(y - p.y))
+    const peter = this.monsters.find(m => m.isAlive() && m.defId === 'peter' && dist(m.x, m.y) === 1)
+    if (peter) {
+      if (this.inventoryScreen.isVisible()) this.inventoryScreen.hide()
+      this.talkToPeter(peter)
+      return
+    }
+    const near = this.monsters.some(m => m.isAlive() && (m.npc || m.defId === 'paard') && dist(m.x, m.y) === 1)
+    if (!near && !this.gongInReach()) {
       this.messageLog.add('There is no other character next to you.', '#808080')
       return
     }
     if (this.inventoryScreen.isVisible() && this.inventoryScreen.getMode() === 'use') this.inventoryScreen.hide()
     else this.inventoryScreen.show(p, 'use')
+  }
+
+  private gongInReach(): boolean {
+    const p = this.player
+    return this.floorItems.some(fi => fi.item.defId === 'gong' &&
+      Math.max(Math.abs(fi.x - p.x), Math.abs(fi.y - p.y)) <= 1)
+  }
+
+  private soundGong(): void {
+    this.messageLog.add('The gong BOOMS! A wave of power washes over the world!', '#ffd700')
+    this.time.delayedCall(1200, () => this.triggerVictory())
+  }
+
+  // Telling Peter the news (walking into him or the NPC button next to him)
+  private talkToPeter(peter: Monster): void {
+    if (!peter.hasSpoken) {
+      peter.hasSpoken = true
+      this.worldState.peterWarned = true
+      this.messageLog.add('You tell Peter that Lex and Sas are arriving early!', '#80ff80')
+      this.messageLog.add('You fulfill your quest by telling Peter the news.', '#80ff80')
+      this.messageLog.add('Peter: "Here, use these Gong mallets to sound the magical Green Gong. You will find it in the pond, but watch out for Jormungand! Quick!"', '#80ff80')
+      this.messageLog.add('Peter: "I opened the window, it is the quickest way down!"', '#80ff80')
+      this.inventory.addToInventory(this.player.inventory, this.inventory.createInstance('gongmallet'))
+      this.player.maxHp += 20
+      this.player.hp = Math.min(this.player.hp + 20, this.player.maxHp)
+      this.messageLog.add('Quest complete! (Max HP +20)', '#40ff80')
+      openLoft3GardenExit(this.mapSystem)
+    } else {
+      this.messageLog.add('Peter: "Quick, to the pond! The Green Gong!"', '#80ff80')
+    }
+    if (!this.player.hasSkill('swimming') || !this.player.hasSkill('diving'))
+      this.messageLog.add('Peter: "You need to be able to dive. If you help Eric, he can maybe teach you how to hold your breath."', '#80ff80')
+    this.endPlayerTurn()
   }
 
   // Stepping onto an arrow, portal or stairs tile: switches maps and returns true
@@ -3535,6 +3653,7 @@ export class GameScene extends Phaser.Scene {
         return
       }
       consumeScroll()
+      this.summonTRexes()
 
       const normalized = raw.toLowerCase()
       const singular = normalized.endsWith('s') ? normalized.slice(0, -1) : normalized
@@ -3658,8 +3777,7 @@ export class GameScene extends Phaser.Scene {
     if (fi.item.defId === 'stop' && this.worldState.currentArea === 'bathroom_bottom')
       this.stopperHole = { x: this.player.x, y: this.player.y }
     if (fi.item.defId === 'gong') {
-      this.messageLog.add('The gong BOOMS! A wave of power washes over the world!', '#ffd700')
-      this.time.delayedCall(1200, () => this.triggerVictory())
+      this.soundGong()
       return
     }
     if (inTraderChamber) {
@@ -4947,6 +5065,7 @@ export class GameScene extends Phaser.Scene {
   private endPlayerTurn(): void {
     this.updateFOV()
     this.reviveCorpses()
+    this.finishLexFish()
     if (this.player.timestopTurns > 0) {
       this.player.timestopTurns--
       if (this.player.timestopTurns === 0) this.messageLog.add('Time resumes.', '#c0c0ff')
@@ -5990,6 +6109,8 @@ export class GameScene extends Phaser.Scene {
         lastSaveTurn: this.worldState.lastSaveTurn,
         stampsGiven: this.worldState.stampsGiven,
         fragmentsGiven: this.worldState.fragmentsGiven,
+        trexPending: this.worldState.trexPending,
+        lexFishTurn: this.worldState.lexFishTurn,
         secondLifeMixed: this.worldState.secondLifeMixed,
       },
       currentMapKey: currentKey,
@@ -6073,12 +6194,14 @@ export class GameScene extends Phaser.Scene {
     this.worldState.lastSaveTurn = ws.lastSaveTurn ?? null
     this.worldState.stampsGiven = ws.stampsGiven ?? 0
     this.worldState.fragmentsGiven = ws.fragmentsGiven ?? 0
+    this.worldState.trexPending = ws.trexPending ?? 0
+    this.worldState.lexFishTurn = ws.lexFishTurn ?? null
     this.worldState.secondLifeMixed = ws.secondLifeMixed ?? false
 
     this.worldState.cellSnapshots.clear()
     for (const [k, v] of Object.entries(data.cellSnapshots)) this.worldState.cellSnapshots.set(k, v)
     this.worldState.cellSnapshots.delete('area_loft_stairs')
-    this.restoreLostFragments()
+    this.restoreLostQuestItems()
 
     this.mapSystem.reset()
     if (fromLoftStairs) {

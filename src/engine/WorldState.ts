@@ -53,7 +53,7 @@ const VIAL_AREAS = [
 ]
 const VIAL_SITES = 8
 
-export const TURN_LIMIT = 30000
+export const TURN_LIMIT = 20000
 export const SAVE_INTERVAL = 1000
 
 // Tier 2+ maps that can host a Scroll of Transport ('forest' = a tier-3 garden cell).
@@ -219,6 +219,11 @@ export class WorldState {
   // Quest items handed over so far (Dad wants all 3 stamps, Mar all 3 fragments)
   stampsGiven    = 0
   fragmentsGiven = 0
+  // Turn Lex started on his juicy fish; he eats it for LEX_FISH_EAT_TURNS (null: not eating)
+  lexFishTurn: number | null = null
+  // T-Rexes summoned by Scrolls of Extinction, waiting for the top-centre garden
+  // cell to be generated
+  trexPending = 0
   // The Second Life potion can be mixed only once per game
   secondLifeMixed = false
 

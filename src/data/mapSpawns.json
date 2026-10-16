@@ -36,7 +36,7 @@
       { "x": 28, "y":  8, "defId": "jormungand" },
       { "x": 15, "y": 10, "defId": "vis"        },
       { "x": 35, "y":  7, "defId": "squid"      },
-      { "x": 56, "y":  5, "defId": "eendGroen", "message": "Quack! The pond holds ancient secrets, but first take care of Jormungand!" },
+      { "x": 56, "y":  5, "defId": "eendGroen", "message": "Quack! The pond holds ancient secrets, but is garded by Jormungand!" },
       { "x": 64, "y": 14, "defId": "eendGroen", "message": "Quaack! A Gompi is used to float on water and often found in the garage." },
       { "x": 65, "y": 15, "defId": "eendGroen", "message": "Quaack! Wet towels protect against heat." },
       { "x": 66, "y": 16, "defId": "eendGroen", "message": "Quaack! Clay lumps help against petrification." },

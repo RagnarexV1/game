@@ -365,6 +365,7 @@ const MONSTER_SPRITES: Record<string, string> = {
   pelgrat:     'monster_pelgrat',
   jacchus:     'monster_jacchus',
   draugr:      'monster_draugr',
+  trex:        'monster_trex',
 }
 
 type RenderObject = Phaser.GameObjects.GameObject

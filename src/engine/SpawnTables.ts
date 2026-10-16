@@ -181,7 +181,7 @@ export const MONSTER_TIER: Record<string, MonsterTier> = {
   nymph: 2, muddman: 2, lowerdwarf: 2, hamster: 2, ogre: 2, rockgiant: 2,
   wizard: 2, magician: 2, sorcerer: 2, cockatrice: 2, swordsman: 2, blauwkip: 2, migdnart: 2,
   troll: 3, werewolf: 3, schaap: 3,
-  shade: 4, pelgrat: 4, jacchus: 4, draugr: 4,
+  shade: 4, pelgrat: 4, jacchus: 4, draugr: 4, trex: 4,
 }
 
 // Generic hostile pools per area category. NPCs, bosses, set-pieces and

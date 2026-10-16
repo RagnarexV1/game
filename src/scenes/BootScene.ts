@@ -169,6 +169,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_pelgrat',     'assets/monsters/pelgrat.png')
     this.load.image('monster_jacchus',     'assets/monsters/jacchus.png')
     this.load.image('monster_draugr',      'assets/monsters/draugr.png')
+    this.load.image('monster_trex',        'assets/monsters/trex.png')
 
     // Items
     this.load.image('item_amulet',          'assets/items/amulet.png')

@@ -20,6 +20,7 @@ export function isHiddenUnderWater(defId: string, tileDefId: string | undefined,
 // Items that only ever turn up in random loot on areas of at least this tier.
 const MIN_TIER: Record<string, Tier> = {
   amulet: 3,
+  ring_invisibility: 2,
   // Skill-teaching Scrolls of Knowledge; the fact scrolls turn up anywhere.
   scroll_knowledge:     2,
   scroll_ventriloquism: 2,
@@ -46,7 +47,8 @@ const RESTRICTED: Record<string, string[]> = {
   pannenkoeken:   ['kitchen'],
 }
 
-// Items that never turn up in random loot on these area categories.
+// Items that never turn up in random loot on these area categories
+// ('forest' also keeps them out of Eric's garden shop).
 const FORBIDDEN: Record<string, string[]> = {
   ring_invisibility: ['forest'],
 }
@@ -266,6 +268,7 @@ export function rollTraderStock(rng: () => number, count: number): string[] {
     .filter(it => !it.relic && !EXCLUDE_IDS.has(it.id) && it.id !== 'amulet')
     .filter(it => !RESTRICTED[it.id] || RESTRICTED[it.id].includes('forest'))
     .filter(it => it.type !== 'gold' && !NON_FOOD_EAT.has(it.id))
+    .filter(it => !FORBIDDEN[it.id]?.includes('forest'))
     .map(it => ({ value: it.id, weight: rarityWeight(it) }))
   return Array.from({ length: count }, () => pickWeighted(pool, rng))
 }
